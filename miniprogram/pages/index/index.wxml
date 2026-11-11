@@ -45,9 +45,35 @@
     <view class="empty-btn" catchtap="goText">记下第一条</view>
   </view>
 
-  <!-- 中央悬浮 + 号 -->
-  <view class="fab" wx:if="{{!undo.visible}}" catchtap="pickType">
-    <text class="fab-plus">+</text>
+  <!-- 底部三入口并排：点一下直接进，不再有 + 号的两级菜单 -->
+  <view class="entry-bar">
+    <view class="entry" hover-class="entry-hover" hover-stay-time="80" catchtap="goText">
+      <view class="entry-ic ic-text">
+        <view class="ln ln-a"></view>
+        <view class="ln ln-b"></view>
+        <view class="ln ln-c"></view>
+      </view>
+      <text class="entry-tx">写一句</text>
+    </view>
+
+    <view class="entry" hover-class="entry-hover" hover-stay-time="80" catchtap="goVoice">
+      <view class="entry-ic ic-voice">
+        <view class="bar bar-a"></view>
+        <view class="bar bar-b"></view>
+        <view class="bar bar-c"></view>
+      </view>
+      <text class="entry-tx">说一段</text>
+    </view>
+
+    <view class="entry entry-key" hover-class="entry-hover-key" hover-stay-time="80" catchtap="goPhoto">
+      <view class="entry-ic ic-cam">
+        <view class="cam-top"></view>
+        <view class="cam-body">
+          <view class="cam-lens"></view>
+        </view>
+      </view>
+      <text class="entry-tx">拍一张</text>
+    </view>
   </view>
 
   <!-- 删除后的 5 秒撤销条 -->

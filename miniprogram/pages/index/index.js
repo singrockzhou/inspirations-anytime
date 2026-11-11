@@ -16,7 +16,7 @@ Page({
     highlightId: '',
     sheet: {
       visible: false,
-      mode: 'new',
+      mode: 'card',
       title: '',
       items: []
     },
@@ -101,19 +101,17 @@ Page({
     wx.navigateTo({ url: '/pages/record/record?mode=create&type=text' })
   },
 
-  pickType() {
-    this.setData({
-      sheet: {
-        visible: true,
-        mode: 'new',
-        title: '记一条',
-        items: [
-          { key: 'text', label: '写一句', desc: '想到什么就写什么' },
-          { key: 'voice', label: '说一段', desc: '按住说话，松手就存' },
-          { key: 'photo', label: '拍一张', desc: '可以配一句话' }
-        ]
-      }
-    })
+  goVoice() {
+    wx.navigateTo({ url: '/pages/record/record?mode=create&type=voice' })
+  },
+
+  /**
+   * 拍一张：直接把系统相机拉起来
+   * auto=camera 让记录页在 onReady 后立刻调 chooseMedia({sourceType:['camera']})，
+   * 不出现"相册/拍照"的二选一菜单，拍完直接回到配文字的界面。
+   */
+  goPhoto() {
+    wx.navigateTo({ url: '/pages/record/record?mode=create&type=photo&auto=camera' })
   },
 
   /* ------------------------- 卡片操作 ------------------------- */
@@ -144,13 +142,7 @@ Page({
 
   onSheetSelect(e) {
     const key = e.detail.key
-    const mode = this.data.sheet.mode
     this.closeSheet()
-
-    if (mode === 'new') {
-      wx.navigateTo({ url: '/pages/record/record?mode=create&type=' + key })
-      return
-    }
 
     const item = this.actionItem
     if (!item) return

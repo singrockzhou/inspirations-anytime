@@ -1,6 +1,6 @@
 .page {
   min-height: 100vh;
-  padding: 8rpx 32rpx calc(260rpx + env(safe-area-inset-bottom));
+  padding: 8rpx 32rpx calc(200rpx + env(safe-area-inset-bottom));
 }
 
 /* 顶部标题行 */
@@ -121,40 +121,176 @@
   opacity: 0.88;
 }
 
-/* 悬浮 + */
-.fab {
+/* 底部三入口：等宽并排，点一下直接进 */
+.entry-bar {
   position: fixed;
-  left: 50%;
-  bottom: calc(48rpx + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  width: 112rpx;
-  height: 112rpx;
-  border-radius: 56rpx;
-  background: var(--accent, #c4713f);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  align-items: stretch;
+  padding: 18rpx 32rpx calc(18rpx + env(safe-area-inset-bottom));
+  background: var(--bg, #fbf8f3);
+  border-top: 1rpx solid var(--line, #f0e7da);
+}
+
+.entry {
+  flex: 1;
+  height: 116rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 22rpx;
+  background: #fff;
+  border: 1rpx solid #f1e8db;
+  box-shadow: 0 2rpx 10rpx rgba(44, 39, 35, 0.03);
+  transition: transform 0.12s ease, background-color 0.12s ease;
+}
+
+/* 用 margin 而不是 gap，低版本基础库也能吃住 */
+.entry + .entry {
+  margin-left: 18rpx;
+}
+
+.entry-hover {
+  background: #fdf4ec;
+  border-color: #f0d8c3;
+  transform: scale(0.97);
+}
+
+/* 拍一张是主路径，给一点颜色权重 */
+.entry-key {
+  background: #fdf3ea;
+  border-color: #f3ddc8;
+}
+
+.entry-key .entry-tx,
+.entry-key .entry-ic {
+  color: var(--accent, #c4713f);
+}
+
+.entry-hover-key {
+  background: #fbe9da;
+  border-color: #ecc9ab;
+  transform: scale(0.97);
+}
+
+.entry-ic {
+  width: 48rpx;
+  height: 44rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6rpx 20rpx rgba(196, 113, 63, 0.28);
-  z-index: 50;
+  color: var(--accent-light, #d0895c);
 }
 
-.fab:active {
-  transform: translateX(-50%) scale(0.96);
-}
-
-.fab-plus {
-  color: #fff;
-  font-size: 60rpx;
+.entry-tx {
+  margin-top: 10rpx;
+  font-size: 26rpx;
   line-height: 1;
-  margin-top: -4rpx;
+  letter-spacing: 1rpx;
+  color: var(--ink-2, #8b8178);
 }
 
-/* 撤销条 */
+/* 图标全部用 CSS 画，不额外引图片资源 */
+
+/* 写一句：三行字 */
+.ic-text {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding-left: 5rpx;
+}
+
+.ic-text .ln {
+  height: 4rpx;
+  background: currentColor;
+  border-radius: 3rpx;
+}
+
+.ln-a {
+  width: 38rpx;
+}
+
+.ln-b {
+  width: 38rpx;
+  margin: 9rpx 0;
+}
+
+.ln-c {
+  width: 24rpx;
+}
+
+/* 说一段：三根波形 */
+.ic-voice {
+  flex-direction: row;
+}
+
+.ic-voice .bar {
+  width: 4rpx;
+  margin: 0 4rpx;
+  background: currentColor;
+  border-radius: 3rpx;
+}
+
+.bar-a {
+  height: 16rpx;
+}
+
+.bar-b {
+  height: 34rpx;
+}
+
+.bar-c {
+  height: 24rpx;
+}
+
+/* 拍一张：相机 */
+.ic-cam {
+  position: relative;
+}
+
+.cam-top {
+  position: absolute;
+  top: 2rpx;
+  left: 50%;
+  margin-left: -10rpx;
+  width: 20rpx;
+  height: 6rpx;
+  background: currentColor;
+  border-radius: 3rpx 3rpx 0 0;
+}
+
+.cam-body {
+  position: absolute;
+  top: 8rpx;
+  left: 0;
+  box-sizing: border-box;
+  width: 48rpx;
+  height: 34rpx;
+  border: 4rpx solid currentColor;
+  border-radius: 9rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cam-lens {
+  box-sizing: border-box;
+  width: 15rpx;
+  height: 15rpx;
+  border: 4rpx solid currentColor;
+  border-radius: 50%;
+}
+
+/* 撤销条：浮在入口条之上 */
 .undo {
   position: fixed;
   left: 32rpx;
   right: 32rpx;
-  bottom: calc(40rpx + env(safe-area-inset-bottom));
+  bottom: calc(180rpx + env(safe-area-inset-bottom));
   height: 104rpx;
   padding: 0 12rpx 0 32rpx;
   border-radius: 24rpx;

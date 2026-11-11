@@ -67,6 +67,9 @@ Page({
       const type = ['text', 'voice', 'photo'].indexOf(options.type) >= 0 ? options.type : 'text'
       this.setData({ mode: 'create', type: type })
 
+      // 首页「拍一张」直达：进页面就把系统相机拉起来，中间不弹任何选择菜单
+      this.autoCamera = type === 'photo' && options.auto === 'camera'
+
       // 文字草稿：上次没存下的那句话，回来还在
       if (type === 'text') {
         const draft = store.getDraft()
@@ -84,6 +87,12 @@ Page({
     if (this.data.type === 'text') {
       // 让键盘跟着页面一起起来，少一次点击
       setTimeout(() => this.setData({ focus: true }), 120)
+    }
+
+    if (this.autoCamera) {
+      this.autoCamera = false
+      // 等页面转场动画走完再唤起相机，否则 iOS 上会因"过渡中"直接失败
+      setTimeout(() => this.pickPhoto({ cameraOnly: true }), 320)
     }
   },
 
@@ -534,7 +543,9 @@ Page({
 
   /* ------------------------- 照片 ------------------------- */
 
-  pickPhoto() {
+  pickPhoto(opts) {
+    const cameraOnly = !!(opts && opts.cameraOnly)
+
     if (this.data.recording) {
       this.toast('先结束录音')
       return
@@ -547,7 +558,7 @@ Page({
       return
     }
 
-    media.chooseImage()
+    media.chooseImage({ sourceType: cameraOnly ? ['camera'] : ['album', 'camera'] })
       .then(temp => {
         // 相机/相册回来之后才挂 loading，避免用户看到加载圈却等不到界面
         wx.showLoading({ title: '处理中', mask: true })

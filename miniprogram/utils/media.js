@@ -67,8 +67,14 @@ function ensurePrivacy() {
   })
 }
 
-/** 选图：优先 chooseMedia（2.10.0+），老基础库回落到 chooseImage */
-function chooseImage() {
+/**
+ * 选图：优先 chooseMedia（2.10.0+），老基础库回落到 chooseImage
+ * options.sourceType 可指定 ['camera'] 直接唤起系统相机，不出现相册/拍照的选择菜单
+ */
+function chooseImage(options) {
+  const opts = options || {}
+  const sourceType = opts.sourceType && opts.sourceType.length ? opts.sourceType : ['album', 'camera']
+
   return ensurePrivacy().then(
     () =>
       new Promise((resolve, reject) => {
@@ -84,7 +90,7 @@ function chooseImage() {
           wx.chooseMedia({
             count: 1,
             mediaType: ['image'],
-            sourceType: ['album', 'camera'],
+            sourceType: sourceType,
             sizeType: ['compressed'],
             success: res => {
               const file = res && res.tempFiles && res.tempFiles[0]
@@ -99,7 +105,7 @@ function chooseImage() {
         wx.chooseImage({
           count: 1,
           sizeType: ['compressed'],
-          sourceType: ['album', 'camera'],
+          sourceType: sourceType,
           success: res => {
             const path = res && res.tempFilePaths && res.tempFilePaths[0]
             if (path) resolve(path)
