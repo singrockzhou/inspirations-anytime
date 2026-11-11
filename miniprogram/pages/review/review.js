@@ -162,7 +162,8 @@ Page({
     if (sec === this._lastSec) return
     this._lastSec = sec
 
-    const held = (this.data.voices[0] && this.data.voices[0].seconds) || 0
+    const v = (this.data.voices || []).filter(x => x.id === id)[0]
+    const held = (v && v.seconds) || 0
     const dur = (t && t.duration) || held || 0
     this.setData({
       curText: mmss(sec),
