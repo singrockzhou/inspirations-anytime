@@ -331,3 +331,153 @@
 .undo-btn:active {
   background: rgba(255, 255, 255, 0.08);
 }
+
+/* ================= 周 / 月 / 年 分组 ================= */
+
+.group {
+  margin-bottom: 8rpx;
+}
+
+.ghead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10rpx 6rpx 18rpx;
+}
+
+.gleft {
+  display: flex;
+  align-items: baseline;
+}
+
+.glabel {
+  font-size: 26rpx;
+  letter-spacing: 1rpx;
+  color: var(--ink-2, #8b8178);
+}
+
+.glabel.dim {
+  color: #b3a795;
+}
+
+.gcount {
+  margin-left: 10rpx;
+  font-size: 22rpx;
+  color: #c0b4a5;
+}
+
+.gright {
+  display: flex;
+  align-items: center;
+}
+
+.gtoggle {
+  font-size: 24rpx;
+  color: var(--ink-2, #8b8178);
+  padding: 10rpx 14rpx;
+}
+
+.gtoggle:active {
+  opacity: 0.55;
+}
+
+.gdel {
+  font-size: 24rpx;
+  color: #b5673f;
+  padding: 10rpx 4rpx 10rpx 12rpx;
+}
+
+.gdel:active {
+  opacity: 0.55;
+}
+
+/* 平铺卡片外层负责间距（卡片自身的 margin 已移除，避免左滑容器把空隙算进高度） */
+.flat {
+  margin-bottom: 24rpx;
+}
+
+.gbody .flat:last-child {
+  margin-bottom: 28rpx;
+}
+
+/* 折叠态：三张错落的卡片边缘 */
+.stack {
+  position: relative;
+  height: 176rpx;
+  margin: 0 6rpx 28rpx;
+}
+
+.layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 132rpx;
+  border-radius: 32rpx;
+  background: #fff;
+  border: 1rpx solid #f1e8db;
+}
+
+.layer-3 {
+  top: 0;
+  transform: scale(0.9);
+  opacity: 0.45;
+}
+
+.layer-2 {
+  top: 14rpx;
+  transform: scale(0.95);
+  opacity: 0.72;
+}
+
+.layer-1 {
+  top: 28rpx;
+  padding: 22rpx 28rpx;
+  box-shadow: 0 6rpx 18rpx rgba(44, 39, 35, 0.06);
+}
+
+.peek-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.peek-badge {
+  font-size: 20rpx;
+  color: var(--accent, #c4713f);
+  background: #f8ece0;
+  border-radius: 8rpx;
+  padding: 2rpx 10rpx;
+}
+
+.peek-time {
+  font-size: 20rpx;
+  color: #b3a795;
+}
+
+.peek-line {
+  margin-top: 16rpx;
+  padding-right: 120rpx;
+  font-size: 27rpx;
+  line-height: 1.4;
+  color: var(--ink, #2c2723);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stack-more {
+  position: absolute;
+  right: 28rpx;
+  bottom: 18rpx;
+  font-size: 20rpx;
+  color: #c9bdaf;
+}
+
+/* 撤销条文字可能带分组名，压成一行省略 */
+.undo-text {
+  flex: 1;
+  margin-right: 16rpx;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

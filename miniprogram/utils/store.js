@@ -236,6 +236,132 @@ function clearAll() {
   return ok
 }
 
+/* ---------------------------- 批量删除 ---------------------------- */
+
+/**
+ * 批量软删：只写一次盘，删到一半失败不会留下"删了一半"的状态。
+ * @returns {string[]} 真正被删掉的 id（已被删过的不会重复计入）
+ */
+function removeMany(ids) {
+  const set = {}
+  ;(ids || []).forEach(id => {
+    set[id] = 1
+  })
+  if (!Object.keys(set).length) return []
+
+  const now = Date.now()
+  const done = []
+  const copy = readAll().map(r => {
+    if (set[r.id] && !r.deletedAt) {
+      done.push(r.id)
+      return Object.assign({}, r, { deletedAt: now })
+    }
+    return r
+  })
+  if (!done.length) return []
+  if (!writeAll(copy)) return []
+  return done
+}
+
+/** 批量撤销：撤销条点「撤回」时整组回来 */
+function restoreMany(ids) {
+  const set = {}
+  ;(ids || []).forEach(id => {
+    set[id] = 1
+  })
+  if (!Object.keys(set).length) return []
+
+  const done = []
+  const copy = readAll().map(r => {
+    if (set[r.id] && r.deletedAt) {
+      done.push(r.id)
+      return Object.assign({}, r, { deletedAt: 0 })
+    }
+    return r
+  })
+  if (!done.length) return []
+  if (!writeAll(copy)) return []
+  return done
+}
+
+/* ---------------------------- 导入导出 ---------------------------- */
+
+/** 导出用：原始全量，含软删记录（配合 transfer 做完整快照） */
+function allRaw() {
+  return readAll().map(clone)
+}
+
+/** 导入后把「开始记录」时间修正到更早的那一条 */
+function syncFirstAt() {
+  const arr = activeOnly(readAll())
+  if (!arr.length) return
+  let firstAt = arr[0].createdAt
+  arr.forEach(r => {
+    if (r.createdAt && r.createdAt < firstAt) firstAt = r.createdAt
+  })
+  let meta = null
+  try {
+    meta = wx.getStorageSync(KEY_META)
+  } catch (e) {
+    meta = null
+  }
+  if (!meta || !meta.firstAt || firstAt < meta.firstAt) {
+    try {
+      wx.setStorageSync(KEY_META, { firstAt: firstAt })
+    } catch (e) {
+      console.error('[store] meta sync failed', e)
+    }
+  }
+}
+
+/**
+ * 导入：按 id 去重合并，本机已存在的一律不覆盖。
+ * 这样反复导入同一个文件不会产生重复，也不会冲掉换机后新记的内容。
+ * @returns {{added:number, skipped:number}}
+ */
+function importRecords(records) {
+  if (!Array.isArray(records)) return { added: 0, skipped: 0 }
+
+  const all = readAll()
+  const seen = {}
+  all.forEach(r => {
+    seen[r.id] = 1
+  })
+
+  const added = []
+  let skipped = 0
+  let room = MAX_RECORDS - activeOnly(all).length
+
+  records.forEach(r => {
+    if (!r || !r.id) {
+      skipped++
+      return
+    }
+    if (seen[r.id] || room <= 0) {
+      skipped++
+      return
+    }
+    seen[r.id] = 1
+    room--
+    added.push({
+      id: r.id,
+      type: ['text', 'voice', 'photo'].indexOf(r.type) >= 0 ? r.type : 'text',
+      content: typeof r.content === 'string' ? r.content : '',
+      mediaPath: r.mediaPath || '',
+      duration: r.duration || 0,
+      size: r.size || 0,
+      createdAt: r.createdAt || Date.now(),
+      updatedAt: r.updatedAt || r.createdAt || Date.now(),
+      deletedAt: 0
+    })
+  })
+
+  if (!added.length) return { added: 0, skipped: skipped }
+  if (!writeAll(all.concat(added))) return { added: 0, skipped: skipped }
+  syncFirstAt()
+  return { added: added.length, skipped: skipped }
+}
+
 /* ---------------------------- 草稿 ---------------------------- */
 
 /** 输入即存草稿（300ms 防抖由调用方做），关掉小程序也不丢 */
@@ -274,6 +400,10 @@ module.exports = {
   update,
   remove,
   restore,
+  removeMany,
+  restoreMany,
+  allRaw,
+  importRecords,
   purge,
   clearAll,
   saveDraft,

@@ -81,6 +81,72 @@ function clock(seconds) {
   return pad2(Math.floor(s / 60)) + ':' + pad2(s % 60)
 }
 
+/* ---------------------- 周 / 月 / 年 时间桶 ---------------------- */
+
+/** 所在自然周的周一 00:00（中国人习惯周一为一周之始） */
+function startOfWeek(ts) {
+  const d = new Date(startOfDay(ts))
+  const offset = (d.getDay() + 6) % 7 // 周一 = 0，周日 = 6
+  return d.getTime() - offset * 86400000
+}
+
+function monthKey(ts) {
+  const d = new Date(ts)
+  return d.getFullYear() + '-' + pad2(d.getMonth() + 1)
+}
+
+/**
+ * 把一条记录归入时间桶。规则（自上而下，命中即止）：
+ *   今天   —— 自然日差 ≤ 0（含手机时间超前产生的"未来"记录）
+ *   本周   —— 与本机同一自然周（周一为起点），且不是今天
+ *   本月   —— 同一自然月，且不在本周
+ *   今年   —— 同一年，且不在本月
+ *   往年   —— 按年份各成一组，如「2025年」
+ * 桶内顺序沿用传入顺序（调用前必须已按时间倒序）
+ */
+function bucketOf(ts, now) {
+  const base = now || Date.now()
+
+  if (dayDiff(ts, base) <= 0) {
+    return { key: 'today', label: '今天', kind: 'today' }
+  }
+
+  if (startOfWeek(ts) === startOfWeek(base)) {
+    return { key: 'week:' + startOfWeek(ts), label: '本周', kind: 'week' }
+  }
+
+  const d = new Date(ts)
+  const n = new Date(base)
+  if (d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth()) {
+    return { key: 'month:' + monthKey(ts), label: '本月', kind: 'month' }
+  }
+
+  if (d.getFullYear() === n.getFullYear()) {
+    return { key: 'year:' + d.getFullYear(), label: '今年', kind: 'year' }
+  }
+
+  return { key: 'year:' + d.getFullYear(), label: d.getFullYear() + '年', kind: 'past' }
+}
+
+/** 分桶：返回 [{key, label, kind, today, items, count}]，顺序即展示顺序 */
+function groupBuckets(list, now) {
+  const out = []
+  const map = {}
+  for (let i = 0; i < list.length; i++) {
+    const item = list[i]
+    const b = bucketOf(item.createdAt, now)
+    let g = map[b.key]
+    if (!g) {
+      g = { key: b.key, label: b.label, kind: b.kind, today: b.kind === 'today', items: [], count: 0 }
+      map[b.key] = g
+      out.push(g)
+    }
+    g.items.push(item)
+    g.count++
+  }
+  return out
+}
+
 /** 按自然日分组，入参必须已按时间倒序 */
 function group(list) {
   const out = []
@@ -104,5 +170,8 @@ module.exports = {
   relative,
   fullTime,
   clock,
-  group
+  group,
+  bucketOf,
+  groupBuckets,
+  startOfWeek
 }

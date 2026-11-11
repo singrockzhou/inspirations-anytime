@@ -16,26 +16,88 @@
     </view>
   </view>
 
-  <!-- 卡片流：按自然日分组 -->
+  <!-- 今天平铺 / 非今天按周、月、年堆叠 -->
   <view class="feed" wx:if="{{!empty}}">
-    <block wx:for="{{groups}}" wx:key="key" wx:for-item="grp">
-      <view class="grp">{{grp.label}}</view>
-      <card
-        wx:for="{{grp.items}}"
-        wx:key="id"
-        wx:for-item="it"
-        item="{{it}}"
-        playing="{{playingId === it.id}}"
-        highlight="{{highlightId === it.id}}"
-        bind:open="onCardOpen"
-        bind:action="onCardAction"
-        bind:play="onPlay"
-        bind:preview="onPreview"
-      />
+    <block wx:for="{{groups}}" wx:key="key" wx:for-item="g">
+
+      <!-- ========== 今天：完整卡片平铺，每条可左滑删除 ========== -->
+      <block wx:if="{{g.today}}">
+        <view class="grp">今天</view>
+        <view class="flat" wx:for="{{g.items}}" wx:key="id" wx:for-item="it">
+          <swipe-cell
+            item-id="{{it.id}}"
+            open="{{openSwipeId === it.id}}"
+            bind:open="onSwipeOpen"
+            bind:close="onSwipeClose"
+            bind:delete="onSwipeDelete"
+          >
+            <card
+              item="{{it}}"
+              playing="{{playingId === it.id}}"
+              highlight="{{highlightId === it.id}}"
+              bind:open="onCardOpen"
+              bind:action="onCardAction"
+              bind:play="onPlay"
+              bind:preview="onPreview"
+            />
+          </swipe-cell>
+        </view>
+      </block>
+
+      <!-- ========== 本周 / 本月 / 今年 / 往年：堆叠组 ========== -->
+      <view class="group" wx:else>
+        <view class="ghead">
+          <view class="gleft" catchtap="onToggle" data-key="{{g.key}}">
+            <text class="glabel {{g.kind === 'past' ? 'dim' : ''}}">{{g.label}}</text>
+            <text class="gcount">{{g.count}} 条</text>
+          </view>
+          <view class="gright">
+            <text class="gtoggle" catchtap="onToggle" data-key="{{g.key}}">{{g.open ? '收起' : '展开'}}</text>
+            <text class="gdel" catchtap="onDeleteGroup" data-key="{{g.key}}">删整组</text>
+          </view>
+        </view>
+
+        <!-- 折叠态：三张错落的卡片边缘，最上面一张露出摘要 -->
+        <view class="stack" wx:if="{{!g.open}}" catchtap="onToggle" data-key="{{g.key}}">
+          <view class="layer layer-3"></view>
+          <view class="layer layer-2"></view>
+          <view class="layer layer-1">
+            <view class="peek-head">
+              <text class="peek-badge">{{g.items[0]._badge}}</text>
+              <text class="peek-time">{{g.items[0]._time}}</text>
+            </view>
+            <view class="peek-line">{{g.items[0]._peek}}</view>
+          </view>
+          <view class="stack-more" wx:if="{{g.count > 1}}">还有 {{g.count - 1}} 条</view>
+        </view>
+
+        <!-- 展开态：完整列表，同样支持左滑删除单条 -->
+        <view class="gbody" wx:else>
+          <view class="flat" wx:for="{{g.items}}" wx:key="id" wx:for-item="it">
+            <swipe-cell
+              item-id="{{it.id}}"
+              open="{{openSwipeId === it.id}}"
+              bind:open="onSwipeOpen"
+              bind:close="onSwipeClose"
+              bind:delete="onSwipeDelete"
+            >
+              <card
+                item="{{it}}"
+                playing="{{playingId === it.id}}"
+                highlight="{{highlightId === it.id}}"
+                bind:open="onCardOpen"
+                bind:action="onCardAction"
+                bind:play="onPlay"
+                bind:preview="onPreview"
+              />
+            </swipe-cell>
+          </view>
+        </view>
+      </view>
     </block>
 
     <view class="more-hint" wx:if="{{hasMore}}">继续往下滑</view>
-    <view class="end-hint" wx:elif="{{total > 4}}">到底了 · 长按卡片可以改或删</view>
+    <view class="end-hint" wx:else>到底了 · 左滑删一条，长按还能改</view>
   </view>
 
   <!-- 空态：一句话 + 直接可点的入口，不放插画 -->
@@ -76,9 +138,9 @@
     </view>
   </view>
 
-  <!-- 删除后的 5 秒撤销条 -->
+  <!-- 删除后的撤销条（单条或整组共用） -->
   <view class="undo" wx:if="{{undo.visible}}">
-    <text class="undo-text">删了，{{undo.left}} 秒内可以撤回</text>
+    <text class="undo-text">{{undo.label}} · {{undo.left}} 秒内可以撤回</text>
     <view class="undo-btn" catchtap="onUndo">撤回</view>
   </view>
 

@@ -20,6 +20,25 @@
     </view>
   </view>
 
+  <!-- 换手机：一个文件带走，一个文件带回 -->
+  <view class="sec">换手机</view>
+  <view class="block">
+    <view class="row tap" bindtap="onExport">
+      <view class="row-main">
+        <text class="row-k">导出到文件</text>
+        <text class="row-sub">文字、图片、录音一起打包</text>
+      </view>
+      <text class="row-go">›</text>
+    </view>
+    <view class="row tap" bindtap="onImport">
+      <view class="row-main">
+        <text class="row-k">从文件导入</text>
+        <text class="row-sub">从聊天里选 .json 备份</text>
+      </view>
+      <text class="row-go">›</text>
+    </view>
+  </view>
+
   <view class="block">
     <view class="row" bindtap="onAbout">
       <text class="row-k">关于</text>
@@ -32,7 +51,8 @@
   </view>
 
   <view class="note">
-    所有记录只保存在这台手机上，不上传、不联网。换手机或重装小程序后，内容不会跟着走。
+    记录只存在这台手机上，不上传、不联网。换手机时先导出成文件，在新手机上导入即可。
+    导入只做新增，同一条记录不会重复，也不会覆盖新手机上刚记的内容。
   </view>
 
   <view class="clear" bindtap="onClear">清空全部记录</view>

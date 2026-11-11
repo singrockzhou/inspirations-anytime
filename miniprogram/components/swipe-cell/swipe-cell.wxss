@@ -1,0 +1,36 @@
+.swipe {
+  position: relative;
+  overflow: hidden;
+  border-radius: 32rpx;
+  background: var(--bg, #fbf8f3);
+}
+
+.swipe-body {
+  position: relative;
+  z-index: 2;
+  will-change: transform;
+}
+
+.swipe-body.anim {
+  transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.35, 1);
+}
+
+.swipe-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #c0553f;
+  border-radius: 32rpx;
+  z-index: 1;
+}
+
+.swipe-btn-tx {
+  font-size: 26rpx;
+  color: #fff;
+  letter-spacing: 2rpx;
+}

@@ -75,3 +75,38 @@
 .clear:active {
   background: #faf0ea;
 }
+
+/* 小节标题 */
+.sec {
+  padding: 12rpx 8rpx 14rpx;
+  font-size: 24rpx;
+  letter-spacing: 1rpx;
+  color: #b3a795;
+}
+
+/* 可点击的整行 */
+.row.tap:active {
+  background: #fdfaf5;
+}
+
+.row-main {
+  display: flex;
+  flex-direction: column;
+  padding: 18rpx 0;
+}
+
+.row-sub {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #b3a795;
+}
+
+.row-go {
+  font-size: 34rpx;
+  line-height: 1;
+  color: #cbbcaa;
+}
+
+.row.tap .row-k {
+  font-size: 28rpx;
+}

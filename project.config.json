@@ -13,6 +13,7 @@
     "nodeModules": false,
     "checkInvalidKey": true,
     "packNpmManually": false,
-    "packNpmRelationList": []
+    "packNpmRelationList": [],
+    "minifyWXML": true
   }
 }

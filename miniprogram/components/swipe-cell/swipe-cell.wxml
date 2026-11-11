@@ -1,0 +1,16 @@
+<view class="swipe">
+  <view
+    class="swipe-body {{animating ? 'anim' : ''}}"
+    style="transform: translateX({{x}}px)"
+    bindtouchstart="onStart"
+    bindtouchmove="onMove"
+    bindtouchend="onEnd"
+    bindtouchcancel="onEnd"
+  >
+    <slot></slot>
+  </view>
+
+  <view class="swipe-btn" catchtap="onDelete">
+    <text class="swipe-btn-tx">删了</text>
+  </view>
+</view>
