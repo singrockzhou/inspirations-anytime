@@ -22,6 +22,7 @@
  */
 const media = require('./media')
 const { uuid } = require('./id')
+const dialog = require('./dialog')
 
 const KEY_RECORDS = 'lg.records.v1'
 const KEY_META = 'lg.meta.v1'
@@ -152,11 +153,9 @@ function writeAll(list) {
   } catch (e) {
     console.error('[store] write failed', e)
     cache = null
-    wx.showModal({
+    dialog.alert({
       title: '存不下了',
-      content: '本机存储空间不足，先删掉几条旧灵感再试试。',
-      showCancel: false,
-      confirmText: '知道了'
+      text: '本机存储空间不足，先删掉几条旧灵感再试试。'
     })
     return false
   }
@@ -382,11 +381,9 @@ function stats() {
 function create(input) {
   const all = readAll()
   if (activeOnly(all).length >= MAX_RECORDS) {
-    wx.showModal({
-      title: '满 1000 条了',
-      content: '先清掉一些不再需要的灵感，再继续记。',
-      showCancel: false,
-      confirmText: '知道了'
+    dialog.alert({
+      title: '满 ' + MAX_RECORDS + ' 条了',
+      text: '先清掉一些不再需要的灵感，再继续记。'
     })
     return null
   }
@@ -703,9 +700,63 @@ function savePrefs(patch) {
   }
 }
 
+/**
+ * 本机占用，两本账要分开看：
+ * 1) storage：wx.setStorage 的键值存储，记录数组 + 偏好 + 草稿都在这里。
+ *    上限由微信给（通常 10240KB = 10MB），跟账号/设备绑定，卸载小程序才清空。
+ * 2) media：USER_DATA_PATH 下的图片、录音文件。这些是"文件"，不吃上面的 10MB，
+ *    单独有约 200MB 的本地文件配额；删记录时会顺手 unlink。
+ *
+ * @returns {{storageKB:number, limitKB:number, percent:number, mediaBytes:number, mediaCount:number}}
+ */
+function usage() {
+  let storageKB = 0
+  let limitKB = 0
+  try {
+    const info = wx.getStorageInfoSync()
+    storageKB = info.currentSize || 0
+    limitKB = info.limitSize || 0
+  } catch (e) {
+    // 开发者工具个别版本会抛错，按 0 处理，不影响页面
+  }
+
+  let mediaBytes = 0
+  let mediaCount = 0
+  const dir = (wx.env && wx.env.USER_DATA_PATH) || ''
+  if (dir) {
+    try {
+      const fs = wx.getFileSystemManager()
+      const names = fs.readdirSync(dir) || []
+      names.forEach(name => {
+        try {
+          const st = fs.statSync(dir + '/' + name)
+          if (!st) return
+          if (typeof st.isFile === 'function' ? st.isFile() : !!st.size) {
+            mediaBytes += st.size || 0
+            mediaCount++
+          }
+        } catch (e) {
+          // 单个文件读不到就跳过，统计不是关键路径
+        }
+      })
+    } catch (e) {
+      // 目录还没建（全新用户）时到这里，保持 0
+    }
+  }
+
+  return {
+    storageKB: storageKB,
+    limitKB: limitKB,
+    percent: limitKB ? Math.min(100, Math.round((storageKB / limitKB) * 100)) : 0,
+    mediaBytes: mediaBytes,
+    mediaCount: mediaCount
+  }
+}
+
 module.exports = {
   MAX_RECORDS,
   MAX_PHOTOS,
+  usage,
   list,
   query,
   search,

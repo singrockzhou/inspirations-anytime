@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>对话框 · 状态板</title>
+<style>
+  :root { --u: 1px; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; width: 750px;
+    background: #FBF8F3;
+    color: #2C2723;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  .stage {
+    position: relative;
+    height: 600px;
+    margin-bottom: 8px;
+    background: #FBF8F3;
+    overflow: hidden;
+  }
+  /* 背后的页面：一张卡 + 两行设置，用来看遮罩下的层次 */
+  .bg { padding: 64px 32px 32px; }
+  .card {
+    background: #fff; border: 1px solid #F0E7DA; border-radius: 24px;
+    padding: 24px 28px; margin-bottom: 20px;
+  }
+  .bg-t { font: 600 30px/1.4 -apple-system, "PingFang SC"; }
+  .bg-s { margin-top: 8px; font-size: 24px; color: #8B8178; }
+
+  .mask {
+    position: absolute; inset: 0;
+    background: rgba(44, 39, 35, 0.45);
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 48px;
+  }
+  .box {
+    width: 600px; background: #fff; border: 1px solid #F0E7DA;
+    border-radius: 32px; overflow: hidden;
+    box-shadow: 0 24px 60px rgba(44, 39, 35, 0.18);
+  }
+  .body { padding: 44px 44px 36px; }
+  .title { font-size: 34px; line-height: 1.5; font-weight: 600; color: #2C2723; text-align: center; }
+  .title + .text { margin-top: 20px; }
+  .text {
+    font-size: 28px; line-height: 1.7; color: #4A423A;
+    white-space: pre-wrap; max-height: 262px; overflow-y: auto;
+  }
+  .input {
+    margin-top: 28px; height: 88px; padding: 0 24px; width: 100%;
+    border: 1px solid #F0E7DA; border-radius: 16px; background: #FBF8F3;
+    font-size: 28px; color: #2C2723; font-family: inherit;
+  }
+  .input.focus {
+    background: #fff; border-color: #C4713F;
+    box-shadow: 0 0 0 4px rgba(196, 113, 63, 0.12);
+  }
+  .footer { display: flex; border-top: 1px solid #F0E7DA; }
+  .btn {
+    flex: 1; height: 100px; display: flex; align-items: center; justify-content: center;
+    font-size: 32px; color: #8B8178;
+  }
+  .btn + .btn { border-left: 1px solid #F0E7DA; }
+  .btn.primary { color: #C4713F; font-weight: 500; }
+  .btn.danger { color: #B5673F; }
+  .btn.disabled { color: #C9C0B6; }
+  .btn.muted { color: #C9C0B6; }
+  .btn.pressed { background: #FAF5EF; }
+  .spin {
+    width: 28px; height: 28px; margin-right: 12px; border-radius: 50%;
+    border: 3px solid rgba(196, 113, 63, 0.25); border-top-color: #C4713F;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .tag {
+    position: absolute; left: 24px; top: 10px; z-index: 3;
+    padding: 6px 16px; border-radius: 12px;
+    background: rgba(255, 255, 255, 0.9); color: #8B8178;
+    font-size: 22px;
+  }
+</style>
+</head>
+<body>
+
+  <div class="stage">
+    <div class="tag">① 默认：取消 / 确定</div>
+    <div class="bg">
+      <div class="card"><div class="bg-t">今日 3 条</div><div class="bg-s">最后一条 · 1 分钟前</div></div>
+      <div class="card"><div class="bg-t">每日提醒</div><div class="bg-s">21:00</div></div>
+    </div>
+    <div class="mask">
+      <div class="box">
+        <div class="body">
+          <div class="title">从备份导入？</div>
+          <div class="text">会从聊天记录里选一个 .json 备份。导入只做新增，不会覆盖本机已有的记录。</div>
+        </div>
+        <div class="footer">
+          <div class="btn">算了</div>
+          <div class="btn primary">去选文件</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="tag">② 危险操作：确认键换赭色</div>
+    <div class="bg">
+      <div class="card"><div class="bg-t">清空全部记录</div><div class="bg-s">不可恢复</div></div>
+    </div>
+    <div class="mask">
+      <div class="box">
+        <div class="body">
+          <div class="title">清空全部灵感？</div>
+          <div class="text">共 42 条，清掉之后找不回来。</div>
+        </div>
+        <div class="footer">
+          <div class="btn">算了</div>
+          <div class="btn primary danger">清空</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="tag">③ 单键提示 + 长文案（内部滚动）</div>
+    <div class="bg"><div class="card"><div class="bg-t">导出完成</div></div></div>
+    <div class="mask">
+      <div class="box">
+        <div class="body">
+          <div class="title">导出完成</div>
+          <div class="text">共 42 条
+含 12 个图片/录音
+
+文件已生成，转发给「文件传输助手」。到新手机上从聊天里选它导入。
+
+（这里故意写长，验证超过 46vh 时正文内部滚动，按钮始终留在屏幕内，不会被顶出可视区。）</div>
+        </div>
+        <div class="footer">
+          <div class="btn primary">知道了</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="tag">④ 输入型：聚焦态（陶土橙描边 + 4px 光圈）</div>
+    <div class="bg"><div class="card"><div class="bg-t">补一句</div></div></div>
+    <div class="mask">
+      <div class="box">
+        <div class="body">
+          <div class="title">补一句</div>
+          <input class="input focus" value="楼下那家面包店，晚上七点出炉" />
+        </div>
+        <div class="footer">
+          <div class="btn">算了</div>
+          <div class="btn primary">存下</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="tag">⑤ 禁用：确认条件没满足 / ⑥ 加载：异步确认中</div>
+    <div class="bg"><div class="card"><div class="bg-t">两种不可点</div></div></div>
+    <div class="mask" style="justify-content: space-around; padding: 0 24px;">
+      <div class="box" style="width: 330px;">
+        <div class="body" style="padding: 28px 24px 22px;">
+          <div class="title" style="font-size: 28px;">禁用</div>
+          <div class="text" style="font-size: 22px;">条件不满足时只降色，不做透明度</div>
+        </div>
+        <div class="footer">
+          <div class="btn muted" style="font-size: 24px;">算了</div>
+          <div class="btn disabled" style="font-size: 24px;">存下</div>
+        </div>
+      </div>
+      <div class="box" style="width: 330px;">
+        <div class="body" style="padding: 28px 24px 22px;">
+          <div class="title" style="font-size: 28px;">加载</div>
+          <div class="text" style="font-size: 22px;">确认键转圈 + 文案变「处理中」</div>
+        </div>
+        <div class="footer">
+          <div class="btn muted" style="font-size: 24px;">算了</div>
+          <div class="btn primary" style="font-size: 24px;"><span class="spin"></span>处理中</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="tag">⑦ 按下态：整块米色 #FAF5EF</div>
+    <div class="bg"><div class="card"><div class="bg-t">按钮按下</div></div></div>
+    <div class="mask">
+      <div class="box">
+        <div class="body"><div class="title">按下左边试试</div></div>
+        <div class="footer">
+          <div class="btn pressed">算了</div>
+          <div class="btn primary">好</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

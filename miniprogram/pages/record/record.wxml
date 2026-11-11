@@ -123,3 +123,6 @@
   <view class="toast" wx:if="{{toastText}}">{{toastText}}</view>
 
 </view>
+
+<!-- 统一对话框：页面内只挂一个，命令式调用见 utils/dialog.js -->
+<dialog-view />

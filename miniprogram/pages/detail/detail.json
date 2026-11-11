@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "这一条"
+  "navigationBarTitleText": "这一条",
+  "usingComponents": {
+    "dialog-view": "/components/dialog/dialog"
+  }
 }

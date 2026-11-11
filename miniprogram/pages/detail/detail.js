@@ -1,6 +1,7 @@
 const store = require('../../utils/store')
 const date = require('../../utils/date')
 const audio = require('../../utils/audio')
+const dialog = require('../../utils/dialog')
 
 const TYPE_LABEL = { text: '文字', voice: '语音', photo: '照片' }
 
@@ -72,17 +73,18 @@ Page({
   },
 
   onDelete() {
-    wx.showModal({
-      title: '删了？',
-      content: '删掉之后回到列表，5 秒内还能撤回。',
-      cancelText: '留着',
-      confirmText: '删',
-      confirmColor: '#B5673F',
-      success: res => {
-        if (!res.confirm) return
+    dialog
+      .confirm({
+        title: '删了？',
+        text: '删掉之后回到列表，5 秒内还能撤回。',
+        cancelText: '留着',
+        confirmText: '删',
+        danger: true
+      })
+      .then(res => {
+        if (!res.confirmed) return
         if (store.remove(this.id)) wx.navigateBack()
-      }
-    })
+      })
   },
 
   /* ------------------------- 星标 / 归档 ------------------------- */
@@ -111,26 +113,26 @@ Page({
 
   /** 语音/照片没有文字时，补一句就能被搜索命中 */
   onAddText() {
-    wx.showModal({
-      title: '补一句',
-      editable: true,
-      placeholderText: '这段讲的是什么？',
-      cancelText: '算了',
-      confirmText: '存下',
-      confirmColor: '#C4713F',
-      success: res => {
-        if (!res.confirm) return
-        const text = (res.content || '').trim()
+    dialog
+      .show({
+        title: '补一句',
+        editable: true,
+        placeholder: '这段讲的是什么？',
+        cancelText: '算了',
+        confirmText: '存下'
+      })
+      .then(res => {
+        if (!res.confirmed) return
+        const text = (res.value || '').trim()
         if (!text) {
-          // 低版本基础库不支持 editable 弹窗，退回编辑页去写
+          // 一个字没填就退回编辑页去写，不硬拦
           this.onEdit()
           return
         }
         if (!store.update(this.id, { content: text })) return
         this.load()
         this.toast('补上了，现在能搜到')
-      }
-    })
+      })
   },
 
   /* ------------------------- 媒体 ------------------------- */

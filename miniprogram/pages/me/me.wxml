@@ -125,11 +125,23 @@
       <text class="row-k">关于</text>
       <text class="row-v">v{{version}}</text>
     </view>
-    <view class="row" wx:if="{{storageText}}">
-      <text class="row-k">本机占用</text>
+    <view class="row tap" wx:if="{{storageText}}" bindtap="onStorage">
+      <view class="row-main">
+        <text class="row-k">记录索引</text>
+        <text class="row-sub">文字与设置，已用 {{storagePctText}}%</text>
+      </view>
       <text class="row-v">{{storageText}}</text>
     </view>
+    <view class="row tap" wx:if="{{mediaText}}" bindtap="onStorage">
+      <view class="row-main">
+        <text class="row-k">图片与录音</text>
+        <text class="row-sub">本机文件，单独计配额</text>
+      </view>
+      <text class="row-v">{{mediaText}}</text>
+    </view>
   </view>
+
+  <view class="storage-warn" wx:if="{{storageWarn}}" bindtap="onStorage">{{storageWarn}}</view>
 
   <view class="note">
     记录只存在这台手机上，不上传、不联网。换手机时先导出成文件，在新手机上导入即可。
@@ -139,3 +151,6 @@
   <view class="clear" bindtap="onClear">清空全部记录</view>
 
 </view>
+
+<!-- 统一对话框：页面内只挂一个，命令式调用见 utils/dialog.js -->
+<dialog-view />

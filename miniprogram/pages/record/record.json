@@ -1,5 +1,8 @@
 {
   "navigationStyle": "custom",
   "navigationBarTitleText": "记一条",
-  "disableScroll": false
+  "disableScroll": false,
+  "usingComponents": {
+    "dialog-view": "/components/dialog/dialog"
+  }
 }

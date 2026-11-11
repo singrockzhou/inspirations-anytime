@@ -2,6 +2,7 @@ const store = require('../../utils/store')
 const date = require('../../utils/date')
 const audio = require('../../utils/audio')
 const transfer = require('../../utils/transfer')
+const dialog = require('../../utils/dialog')
 
 const PAGE_SIZE = 20
 const UNDO_SECONDS = 5
@@ -305,14 +306,16 @@ Page({
     const group = (this.data.groups || []).filter(g => g.key === key)[0]
     if (!group || !group.count) return
 
-    wx.showModal({
-      title: '删掉「' + group.label + '」整组？',
-      content: '共 ' + group.count + ' 条，删了之后 5 秒内可以撤回。',
-      cancelText: '算了',
-      confirmText: '删整组',
-      confirmColor: '#B5673F',
-      success: res => {
-        if (!res.confirm) return
+    dialog
+      .confirm({
+        title: '删掉「' + group.label + '」整组？',
+        text: '共 ' + group.count + ' 条，删了之后 5 秒内可以撤回。',
+        cancelText: '算了',
+        confirmText: '删整组',
+        danger: true
+      })
+      .then(res => {
+        if (!res.confirmed) return
         const ids = group.items.map(it => it.id)
         const done = store.removeMany(ids)
         if (!done.length) {
@@ -322,8 +325,7 @@ Page({
         this.setData({ openSwipeId: '' })
         this.refresh()
         this.showUndo(done, '删了「' + group.label + '」' + done.length + ' 条')
-      }
-    })
+      })
   },
 
   /* ------------------------- 撤销删除 ------------------------- */
@@ -528,13 +530,11 @@ Page({
       .then(res => {
         wx.hideLoading()
         if (res.mode === 'cancel') return
-        wx.showModal({
+        dialog.alert({
           title: '导出完成',
-          content:
+          text:
             '共 ' + res.total + ' 条，已生成 ' + res.fileName + '。' +
-            (res.mode === 'share' ? '转发给「文件传输助手」即可在电脑上打开。' : '已保存到电脑。'),
-          showCancel: false,
-          confirmText: '知道了'
+            (res.mode === 'share' ? '转发给「文件传输助手」即可在电脑上打开。' : '已保存到电脑。')
         })
       })
       .catch(err => {
@@ -550,14 +550,16 @@ Page({
       this.toast('先勾几条')
       return
     }
-    wx.showModal({
-      title: '删掉选中的 ' + list.length + ' 条？',
-      content: '删了之后 5 秒内可以撤回。',
-      cancelText: '算了',
-      confirmText: '删了',
-      confirmColor: '#B5673F',
-      success: res => {
-        if (!res.confirm) return
+    dialog
+      .confirm({
+        title: '删掉选中的 ' + list.length + ' 条？',
+        text: '删了之后 5 秒内可以撤回。',
+        cancelText: '算了',
+        confirmText: '删了',
+        danger: true
+      })
+      .then(res => {
+        if (!res.confirmed) return
         const done = store.removeMany(list.map(r => r.id))
         if (!done.length) {
           this.toast('没删掉，再试一次')
@@ -567,8 +569,7 @@ Page({
         this.setData({ selectMode: false })
         this.refresh()
         this.showUndo(done, '删了 ' + done.length + ' 条')
-      }
-    })
+      })
   },
 
   /* ------------------------- 媒体 ------------------------- */
@@ -638,21 +639,21 @@ Page({
     if (!text) return
 
     const preview = text.length > 60 ? text.slice(0, 60) + '…' : text
-    wx.showModal({
-      title: '收到一条分享',
-      content: preview,
-      cancelText: '不用',
-      confirmText: '存下来',
-      confirmColor: '#C4713F',
-      success: res => {
-        if (!res.confirm) return
+    dialog
+      .confirm({
+        title: '收到一条分享',
+        text: preview,
+        cancelText: '不用',
+        confirmText: '存下来'
+      })
+      .then(res => {
+        if (!res.confirmed) return
         const rec = store.create({ type: 'text', content: text })
         if (!rec) return
         this.refresh()
         this.flash(rec.id)
         this.toast('存进你的灵感了')
-      }
-    })
+      })
   },
 
   /* ------------------------- 工具 ------------------------- */

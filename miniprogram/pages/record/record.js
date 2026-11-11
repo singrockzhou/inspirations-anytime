@@ -3,6 +3,7 @@ const media = require('../../utils/media')
 const date = require('../../utils/date')
 const audio = require('../../utils/audio')
 const asr = require('../../utils/asr')
+const dialog = require('../../utils/dialog')
 
 const MAX_TEXT = 1000
 const MAX_CAPTION = 200
@@ -210,16 +211,16 @@ Page({
       return
     }
 
-    wx.showModal({
-      title: '换一种？',
-      content: '刚才的' + TYPE_LABEL[this.data.type] + '会清掉',
-      cancelText: '算了',
-      confirmText: '换',
-      confirmColor: '#C4713F',
-      success: res => {
-        if (res.confirm) this.applyType(next)
-      }
-    })
+    dialog
+      .confirm({
+        title: '换一种？',
+        text: '刚才的' + TYPE_LABEL[this.data.type] + '会清掉',
+        cancelText: '算了',
+        confirmText: '换'
+      })
+      .then(res => {
+        if (res.confirmed) this.applyType(next)
+      })
   },
 
   applyType(next) {
@@ -308,18 +309,19 @@ Page({
       this.leave()
       return
     }
-    wx.showModal({
-      title: '这段还留着吗？',
-      content: '还没存下，离开就没了',
-      cancelText: '继续写',
-      confirmText: '丢掉',
-      confirmColor: '#B5673F',
-      success: res => {
-        if (!res.confirm) return
+    dialog
+      .confirm({
+        title: '这段还留着吗？',
+        text: '还没存下，离开就没了',
+        cancelText: '继续写',
+        confirmText: '丢掉',
+        danger: true
+      })
+      .then(res => {
+        if (!res.confirmed) return
         this.discard()
         this.leave()
-      }
-    })
+      })
   },
 
   discard() {
@@ -389,12 +391,14 @@ Page({
 
           if (granted === false) {
             // 明确拒绝过，只能引导去设置页重新打开
-            wx.showModal({
-              title: '需要麦克风',
-              content: '录一句话需要麦克风权限，去设置里打开？',
-              confirmText: '去设置',
-              success: r => {
-                if (!r.confirm) {
+            dialog
+              .confirm({
+                title: '需要麦克风',
+                text: '录一句话需要麦克风权限，去设置里打开？',
+                confirmText: '去设置'
+              })
+              .then(r => {
+                if (!r.confirmed) {
                   resolve(false)
                   return
                 }
@@ -402,19 +406,19 @@ Page({
                   success: s => resolve(!!s.authSetting['scope.record']),
                   fail: () => resolve(false)
                 })
-              },
-              fail: () => resolve(false)
-            })
+              })
             return
           }
 
           // 从没问过：先自己说明一句，再调起系统授权，避免开门见弹窗
-          wx.showModal({
-            title: '用麦克风',
-            content: '录下你说的那句话，只存在这台手机上。',
-            confirmText: '允许',
-            success: r => {
-              if (!r.confirm) {
+          dialog
+            .confirm({
+              title: '用麦克风',
+              text: '录下你说的那句话，只存在这台手机上。',
+              confirmText: '允许'
+            })
+            .then(r => {
+              if (!r.confirmed) {
                 resolve(false)
                 return
               }
@@ -423,9 +427,7 @@ Page({
                 success: () => resolve(true),
                 fail: () => resolve(false)
               })
-            },
-            fail: () => resolve(false)
-          })
+            })
         },
         fail: () => resolve(false)
       })

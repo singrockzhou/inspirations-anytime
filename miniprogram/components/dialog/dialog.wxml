@@ -1,0 +1,44 @@
+<view class="root {{visible ? 'on' : ''}}" wx:if="{{visible}}" catchtouchmove="noop">
+  <view class="mask {{closing ? 'out' : ''}}" bindtap="onMask"></view>
+
+  <view class="box {{closing ? 'out' : ''}}">
+    <view class="body">
+      <view class="title" wx:if="{{title}}">{{title}}</view>
+      <view class="text" wx:if="{{text}}">{{text}}</view>
+
+      <!-- 输入型：聚焦态用 4rpx 陶土橙光圈，和卡片的 1rpx 细线区分开 -->
+      <input
+        wx:if="{{editable}}"
+        class="input {{inputFocused ? 'focus' : ''}}"
+        value="{{inputValue}}"
+        placeholder="{{placeholder}}"
+        maxlength="{{maxlength}}"
+        focus="{{visible && editable}}"
+        confirm-type="done"
+        bindinput="onInput"
+        bindfocus="onInputFocus"
+        bindblur="onInputBlur"
+      />
+    </view>
+
+    <view class="footer">
+      <view
+        wx:if="{{showCancel}}"
+        class="btn cancel {{confirmLoading ? 'muted' : ''}}"
+        hover-class="{{confirmLoading ? '' : 'btn-hover'}}"
+        hover-stay-time="60"
+        bindtap="onCancel"
+      >{{cancelText}}</view>
+
+      <view
+        class="btn primary {{danger ? 'danger' : ''}} {{confirmDisabled ? 'disabled' : ''}} {{confirmLoading ? 'loading' : ''}}"
+        hover-class="{{confirmLoading || confirmDisabled ? '' : 'btn-hover'}}"
+        hover-stay-time="60"
+        bindtap="onConfirm"
+      >
+        <view class="spin" wx:if="{{confirmLoading}}"></view>
+        <text>{{confirmLoading ? '处理中' : confirmText}}</text>
+      </view>
+    </view>
+  </view>
+</view>

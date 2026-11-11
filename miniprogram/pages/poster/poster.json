@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "做成图",
-  "usingComponents": {}
+  "usingComponents": {
+    "dialog-view": "/components/dialog/dialog"
+  }
 }

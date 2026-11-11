@@ -85,6 +85,18 @@
   color: #a2957f;
 }
 
+/* 额度告警：和危险操作同一个赭色，但不做成按钮，避免误触 */
+.storage-warn {
+  margin: -8rpx 0 20rpx;
+  padding: 18rpx 24rpx;
+  border-radius: 16rpx;
+  background: #fdf1e9;
+  border: 1rpx solid #f0dccd;
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: var(--warn, #b5673f);
+}
+
 .clear {
   height: 96rpx;
   border-radius: 48rpx;

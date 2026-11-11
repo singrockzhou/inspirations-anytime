@@ -1,0 +1,205 @@
+/* ============================================================
+   对话框 · 视觉规范
+   颜色/圆角/间距全部取自 app.wxss：
+     纸白 #FFFFFF、暖底 #FBF8F3、墨 #2C2723、次墨 #8B8178、
+     陶土橙 #C4713F、警示 #B5673F、米线 #F0E7DA、悬停底 #FAF5EF
+   尺寸：面板宽 600rpx、圆角 32rpx（与卡片一致）、按钮高 100rpx（≥ 88rpx 可点区）
+   ============================================================ */
+
+.root {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 260;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 48rpx calc(0rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+.mask {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(44, 39, 35, 0.45);
+  animation: mask-in 0.2s ease-out;
+}
+
+.mask.out {
+  animation: mask-out 0.16s ease-in forwards;
+}
+
+@keyframes mask-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes mask-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.box {
+  position: relative;
+  width: 600rpx;
+  max-width: 100%;
+  background: var(--paper, #ffffff);
+  border-radius: 32rpx;
+  border: 1rpx solid var(--line, #f0e7da);
+  box-shadow: 0 24rpx 60rpx rgba(44, 39, 35, 0.18);
+  overflow: hidden;
+  /* 面板本身也不许高过屏幕：正文再长也只在内部滚，按钮永远够得着 */
+  max-height: calc(100vh - 140rpx);
+  display: flex;
+  flex-direction: column;
+  animation: pop-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.box.out {
+  animation: pop-out 0.16s ease-in forwards;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(12rpx);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes pop-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96) translateY(6rpx);
+  }
+}
+
+.body {
+  padding: 44rpx 44rpx 36rpx;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.title {
+  font-size: 34rpx;
+  line-height: 1.5;
+  font-weight: 600;
+  color: var(--ink, #2c2723);
+  text-align: center;
+}
+
+.title + .text {
+  margin-top: 20rpx;
+}
+
+.text {
+  font-size: 28rpx;
+  line-height: 1.7;
+  color: #4a423a;
+  white-space: pre-wrap;
+  word-break: break-word;
+  /* 长文案（导出结果、隐私说明）最多占 46vh，超出内部滚动，按钮永远在屏幕内 */
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+/* ---------------- 输入型：聚焦态 ---------------- */
+
+.input {
+  margin-top: 28rpx;
+  height: 88rpx;
+  padding: 0 24rpx;
+  border: 1rpx solid var(--line, #f0e7da);
+  border-radius: 16rpx;
+  background: var(--bg, #fbf8f3);
+  font-size: 28rpx;
+  color: var(--ink, #2c2723);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.input.focus {
+  background: #ffffff;
+  border-color: var(--accent, #c4713f);
+  box-shadow: 0 0 0 4rpx rgba(196, 113, 63, 0.12);
+}
+
+/* ---------------- 底部按钮 ---------------- */
+
+.footer {
+  display: flex;
+  flex: none;
+  border-top: 1rpx solid var(--line, #f0e7da);
+}
+
+.btn {
+  flex: 1;
+  height: 100rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
+  line-height: 1;
+  color: var(--ink-2, #8b8178);
+  transition: background 0.12s ease, color 0.12s ease, opacity 0.12s ease;
+}
+
+.btn + .btn {
+  border-left: 1rpx solid var(--line, #f0e7da);
+}
+
+/* 按下态：和卡片、菜单项用同一块米色 */
+.btn-hover {
+  background: #faf5ef;
+}
+
+.btn.primary {
+  color: var(--accent, #c4713f);
+  font-weight: 500;
+}
+
+.btn.primary.danger {
+  color: var(--warn, #b5673f);
+}
+
+/* 禁用态：只降不透明度会显得脏，这里直接换成浅墨色，且 hover-class 已被移除 */
+.btn.disabled {
+  color: #c9c0b6;
+}
+
+.btn.muted {
+  color: #c9c0b6;
+}
+
+/* 加载态：转圈 28rpx，和文字并排，不改变按钮高度 */
+.btn.loading {
+  color: var(--accent, #c4713f);
+  pointer-events: none;
+}
+
+.spin {
+  width: 28rpx;
+  height: 28rpx;
+  margin-right: 12rpx;
+  border-radius: 50%;
+  border: 3rpx solid rgba(196, 113, 63, 0.25);
+  border-top-color: var(--accent, #c4713f);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

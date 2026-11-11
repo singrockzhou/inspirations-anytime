@@ -1,5 +1,6 @@
 const store = require('../../utils/store')
 const poster = require('../../utils/poster')
+const dialog = require('../../utils/dialog')
 
 Page({
   data: {
@@ -108,14 +109,15 @@ Page({
         const msg = String((err && err.errMsg) || '')
         if (msg.indexOf('cancel') >= 0) return
         if (msg.indexOf('auth') >= 0 || msg.indexOf('deny') >= 0) {
-          wx.showModal({
-            title: '需要相册权限',
-            content: '保存图片要写入相册，去设置里打开一下？',
-            confirmText: '去设置',
-            success: r => {
-              if (r.confirm) wx.openSetting({})
-            }
-          })
+          dialog
+            .confirm({
+              title: '需要相册权限',
+              text: '保存图片要写入相册，去设置里打开一下？',
+              confirmText: '去设置'
+            })
+            .then(r => {
+              if (r.confirmed) wx.openSetting({})
+            })
           return
         }
         this.toast('没存上，试试「发给朋友」')

@@ -2,6 +2,7 @@ const store = require('../../utils/store')
 const date = require('../../utils/date')
 const transfer = require('../../utils/transfer')
 const remind = require('../../utils/remind')
+const dialog = require('../../utils/dialog')
 
 const EXPORT_ERR = {
   empty: '还没有记录可以导出。',
@@ -21,6 +22,18 @@ const IMPORT_ERR = {
   unsupported: '当前环境不支持导入，请用手机微信打开。'
 }
 
+/** 10240KB → "10 MB"，2KB → "2 KB"，别让用户自己换算 */
+function sizeText(kb) {
+  if (!kb) return '0 KB'
+  if (kb < 1024) return Math.round(kb) + ' KB'
+  const mb = kb / 1024
+  return (mb >= 100 ? Math.round(mb) : Math.round(mb * 10) / 10) + ' MB'
+}
+
+function bytesText(bytes) {
+  return sizeText((bytes || 0) / 1024)
+}
+
 Page({
   data: {
     total: 0,
@@ -32,13 +45,18 @@ Page({
     archived: 0,
     tagged: 0,
     storageText: '',
+    storagePct: 0,
+    storagePctText: '0',
+    mediaText: '',
+    mediaCount: 0,
+    storageWarn: '',
     heat: [],
     heatMax: 0,
     remindOn: false,
     remindTime: '21:00',
     remindReady: false,
     busy: false,
-    version: '1.1.0'
+    version: '1.3.0'
   },
 
   onShow() {
@@ -49,14 +67,15 @@ Page({
     const stats = store.stats()
     const heat = store.heat(14)
     const r = remind.status()
+    const u = store.usage()
 
-    let storageText = ''
-    try {
-      const info = wx.getStorageInfoSync()
-      storageText = (info.currentSize || 0) + ' KB / ' + (info.limitSize || 0) + ' KB'
-    } catch (e) {
-      storageText = ''
-    }
+    // 两本账分开显示：索引在 10MB 键值存储里，图片/录音在 200MB 本地文件里
+    const storageText = u.limitKB ? sizeText(u.storageKB) + ' / ' + sizeText(u.limitKB) : sizeText(u.storageKB)
+    const mediaText = bytesText(u.mediaBytes) + (u.mediaCount ? ' · ' + u.mediaCount + ' 个' : '')
+
+    let storageWarn = ''
+    if (u.percent >= 80) storageWarn = '记录索引快到上限了，建议先导出备份，再清掉一些旧记录。'
+    else if (u.mediaBytes >= 150 * 1024 * 1024) storageWarn = '图片和录音快占满本机文件配额了，建议导出后清理。'
 
     this.setData({
       total: stats.visible,
@@ -68,6 +87,11 @@ Page({
       archived: stats.archived,
       tagged: stats.tagged,
       storageText: storageText,
+      storagePct: u.percent,
+      storagePctText: u.percent < 1 && u.storageKB > 0 ? '<1' : String(u.percent),
+      mediaText: mediaText,
+      mediaCount: u.mediaCount,
+      storageWarn: storageWarn,
       heat: heat.cells,
       heatMax: heat.max,
       remindOn: r.on,
@@ -107,23 +131,13 @@ Page({
         this.load()
         const lines = ['已存下 ' + res.records.length + ' 条，回到列表就能看到。']
         if (res.failed) lines.push(res.failed + ' 个文件读不出正文，只留了文件名，可以自己补一句。')
-        wx.showModal({
-          title: '收到',
-          content: lines.join('\n'),
-          showCancel: false,
-          confirmText: '知道了'
-        })
+        dialog.alert({ title: '收到', text: lines.join('\n') })
       })
       .catch(err => {
         wx.hideLoading()
         this.setData({ busy: false })
         if (!err || err.code === 'cancel') return
-        wx.showModal({
-          title: '没存成',
-          content: IMPORT_ERR[err.code] || '再试一次看看。',
-          showCancel: false,
-          confirmText: '知道了'
-        })
+        dialog.alert({ title: '没存成', text: IMPORT_ERR[err.code] || '再试一次看看。' })
       })
   },
 
@@ -135,32 +149,33 @@ Page({
    */
   onRemind() {
     if (!this.data.remindReady) {
-      wx.showModal({
-        title: '还差一步',
-        content:
-          '每日提醒要靠微信订阅消息，需要先在小程序后台创建模板，把模板 ID 填进 utils/remind.js。\n\n现在可以先把想被提醒的时间记下来。',
-        cancelText: '算了',
-        confirmText: '选时间',
-        confirmColor: '#C4713F',
-        success: r => {
-          if (r.confirm) this.pickTime()
-        }
-      })
+      dialog
+        .confirm({
+          title: '还差一步',
+          text:
+            '每日提醒要靠微信订阅消息，需要先在小程序后台创建模板，把模板 ID 填进 utils/remind.js。\n\n现在可以先把想被提醒的时间记下来。',
+          cancelText: '算了',
+          confirmText: '选时间'
+        })
+        .then(r => {
+          if (r.confirmed) this.pickTime()
+        })
       return
     }
 
     if (this.data.remindOn) {
-      wx.showModal({
-        title: '关掉每日提醒？',
-        content: '关掉之后不再收到提醒，记录本身不受影响。',
-        confirmText: '关掉',
-        success: r => {
-          if (!r.confirm) return
+      dialog
+        .confirm({
+          title: '关掉每日提醒？',
+          text: '关掉之后不再收到提醒，记录本身不受影响。',
+          confirmText: '关掉'
+        })
+        .then(r => {
+          if (!r.confirmed) return
           remind.disable()
           this.load()
           wx.showToast({ title: '已关掉', icon: 'none' })
-        }
-      })
+        })
       return
     }
 
@@ -173,12 +188,7 @@ Page({
       })
       .catch(err => {
         if (!err || err.code === 'cancel') return
-        wx.showModal({
-          title: '没能开启',
-          content: err.message || '再试一次看看。',
-          showCancel: false,
-          confirmText: '知道了'
-        })
+        dialog.alert({ title: '没能开启', text: err.message || '再试一次看看。' })
       })
   },
 
@@ -224,23 +234,13 @@ Page({
             : '文件已保存到电脑，拷到新手机后再导入。'
         )
 
-        wx.showModal({
-          title: '导出完成',
-          content: lines.join('\n'),
-          showCancel: false,
-          confirmText: '知道了'
-        })
+        dialog.alert({ title: '导出完成', text: lines.join('\n') })
       })
       .catch(err => {
         wx.hideLoading()
         this.setData({ busy: false })
         if (!err || err.code === 'cancel') return
-        wx.showModal({
-          title: '没导出成',
-          content: EXPORT_ERR[err.code] || '再试一次看看。',
-          showCancel: false,
-          confirmText: '知道了'
-        })
+        dialog.alert({ title: '没导出成', text: EXPORT_ERR[err.code] || '再试一次看看。' })
       })
   },
 
@@ -249,17 +249,17 @@ Page({
   onImport() {
     if (this.data.busy) return
 
-    wx.showModal({
-      title: '从备份导入？',
-      content: '会从聊天记录里选一个 .json 备份。导入只做新增，不会覆盖本机已有的记录。',
-      cancelText: '算了',
-      confirmText: '去选文件',
-      confirmColor: '#C4713F',
-      success: modal => {
-        if (!modal.confirm) return
+    dialog
+      .confirm({
+        title: '从备份导入？',
+        text: '会从聊天记录里选一个 .json 备份。导入只做新增，不会覆盖本机已有的记录。',
+        cancelText: '算了',
+        confirmText: '去选文件'
+      })
+      .then(modal => {
+        if (!modal.confirmed) return
         this.doImport()
-      }
-    })
+      })
   },
 
   doImport() {
@@ -277,22 +277,12 @@ Page({
         if (res.mediaRestored) lines.push('还原 ' + res.mediaRestored + ' 个图片/录音')
         if (res.mediaFailed) lines.push(res.mediaFailed + ' 个媒体还原失败')
 
-        wx.showModal({
-          title: '导入完成',
-          content: lines.join('\n'),
-          showCancel: false,
-          confirmText: '知道了'
-        })
+        dialog.alert({ title: '导入完成', text: lines.join('\n') })
       })
       .catch(err => {
         this.setData({ busy: false })
         if (!err || err.code === 'cancel') return
-        wx.showModal({
-          title: '没导入成',
-          content: IMPORT_ERR[err.code] || '再试一次看看。',
-          showCancel: false,
-          confirmText: '知道了'
-        })
+        dialog.alert({ title: '没导入成', text: IMPORT_ERR[err.code] || '再试一次看看。' })
       })
   },
 
@@ -304,31 +294,45 @@ Page({
       wx.showToast({ title: '已经是空的了', icon: 'none' })
       return
     }
-    wx.showModal({
-      title: '清空全部灵感？',
-      content: '共 ' + (this.data.total + this.data.archived) + ' 条，清掉之后找不回来。',
-      cancelText: '算了',
-      confirmText: '清空',
-      confirmColor: '#B5673F',
-      success: res => {
-        if (!res.confirm) return
+    dialog
+      .confirm({
+        title: '清空全部灵感？',
+        text: '共 ' + (this.data.total + this.data.archived) + ' 条，清掉之后找不回来。',
+        cancelText: '算了',
+        confirmText: '清空',
+        danger: true
+      })
+      .then(res => {
+        if (!res.confirmed) return
         if (store.clearAll()) {
           this.load()
           wx.showToast({ title: '清干净了', icon: 'none' })
         }
-      }
-    })
+      })
   },
 
   onAbout() {
-    wx.showModal({
+    dialog.alert({
       title: '关于这个小程序',
-      content:
+      text:
         '灵感随时记 v' +
         this.data.version +
-        '\n\n所有记录只保存在这台手机上，不上传、不联网、不需要登录。换手机时用上面的「导出到文件」带走。',
-      showCancel: false,
-      confirmText: '知道了'
+        '\n\n所有记录只保存在这台手机上，不上传、不联网、不需要登录。换手机时用上面的「导出到文件」带走。'
     })
+  },
+
+  /** 点占用两行都到这里：把两本账讲清楚，别让人对着一串 KB 猜 */
+  onStorage() {
+    const u = store.usage()
+    const text = [
+      '记录索引：' + sizeText(u.storageKB) + '，上限 ' + sizeText(u.limitKB) + '。',
+      '存的是文字、标签和设置，不含照片、录音。',
+      '',
+      '图片与录音：' + bytesText(u.mediaBytes) + '，' + u.mediaCount + ' 个文件。',
+      '它们作为文件放在本机，不占上面这份额度。',
+      '',
+      '索引满了只会写不进新记录，已有的不会自动丢。稳妥做法是先「导出到文件」备份，再清掉不要的。'
+    ].join('\n')
+    dialog.alert({ title: '本机占用怎么看', text: text })
   }
 })

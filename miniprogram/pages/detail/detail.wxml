@@ -70,3 +70,6 @@
   <text class="missing-t">这条已经不在了</text>
   <view class="missing-btn" catchtap="goBack">回列表</view>
 </view>
+
+<!-- 统一对话框：页面内只挂一个，命令式调用见 utils/dialog.js -->
+<dialog-view />

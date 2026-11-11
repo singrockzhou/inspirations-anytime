@@ -2,7 +2,8 @@
   "usingComponents": {
     "card": "/components/card/card",
     "action-sheet": "/components/action-sheet/action-sheet",
-    "swipe-cell": "/components/swipe-cell/swipe-cell"
+    "swipe-cell": "/components/swipe-cell/swipe-cell",
+    "dialog-view": "/components/dialog/dialog"
   },
   "navigationBarTitleText": "灵感随时记",
   "enablePullDownRefresh": true,
