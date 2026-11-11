@@ -56,7 +56,7 @@ Page({
     /** 备份账本的两个事实：什么时候备过、该不该标成提醒色 */
     backupText: '',
     backupWarn: false,
-    version: '1.7.5'
+    version: '1.7.6'
   },
 
   onShow() {
