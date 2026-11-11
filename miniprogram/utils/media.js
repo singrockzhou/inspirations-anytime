@@ -3,7 +3,7 @@
  * 文字以外的记录（照片/语音）拿到的都是临时路径，重启后失效，
  * 所以必须落到 wx.env.USER_DATA_PATH 里才能长期保存。
  */
-const USER_DIR = wx.env.USER_DATA_PATH
+const USER_DIR = (wx.env && wx.env.USER_DATA_PATH) || ''
 
 function fs() {
   return wx.getFileSystemManager()
@@ -12,6 +12,7 @@ function fs() {
 /** 只删自己目录下的文件，临时文件（http://tmp/...）交给微信自己回收 */
 function remove(path) {
   if (!path) return
+  if (!USER_DIR) return
   if (path.indexOf(USER_DIR) !== 0) return
   try {
     fs().unlink({ filePath: path, fail() {} })
@@ -47,28 +48,67 @@ function persist(tempFilePath, prefix, ext) {
   })
 }
 
-/** 选图：优先 chooseMedia（2.10.0+），老基础库回落到 chooseImage */
-function chooseImage() {
-  return new Promise((resolve, reject) => {
-    if (wx.chooseMedia) {
-      wx.chooseMedia({
-        count: 1,
-        mediaType: ['image'],
-        sourceType: ['album', 'camera'],
-        sizeType: ['compressed'],
-        success: res => resolve(res.tempFiles[0].tempFilePath),
-        fail: reject
-      })
-      return
-    }
-    wx.chooseImage({
-      count: 1,
-      sizeType: ['compressed'],
-      sourceType: ['album', 'camera'],
-      success: res => resolve(res.tempFilePaths[0]),
-      fail: reject
+/**
+ * 隐私授权（基础库 2.32.3+）
+ * 相册/相机属于隐私接口，用户没同意过隐私协议时调用会直接失败，
+ * 表现就是"点了没反应"。这里先争取一次授权机会；
+ * 若后台还没配「用户隐私保护指引」，把失败交给 chooseMedia 抛出，便于提示到具体原因。
+ */
+function ensurePrivacy() {
+  return new Promise(resolve => {
+    if (typeof wx.requirePrivacyAuthorize !== 'function') return resolve(true)
+    wx.requirePrivacyAuthorize({
+      success: () => resolve(true),
+      fail: err => {
+        console.warn('[media] 隐私授权未通过:', (err && err.errMsg) || err)
+        resolve(true)
+      }
     })
   })
+}
+
+/** 选图：优先 chooseMedia（2.10.0+），老基础库回落到 chooseImage */
+function chooseImage() {
+  return ensurePrivacy().then(
+    () =>
+      new Promise((resolve, reject) => {
+        const hasMedia = typeof wx.chooseMedia === 'function'
+        const hasImage = typeof wx.chooseImage === 'function'
+
+        if (!hasMedia && !hasImage) {
+          reject({ errMsg: 'chooseImage:fail 当前环境不支持选图' })
+          return
+        }
+
+        if (hasMedia) {
+          wx.chooseMedia({
+            count: 1,
+            mediaType: ['image'],
+            sourceType: ['album', 'camera'],
+            sizeType: ['compressed'],
+            success: res => {
+              const file = res && res.tempFiles && res.tempFiles[0]
+              if (file && file.tempFilePath) resolve(file.tempFilePath)
+              else reject({ errMsg: 'chooseMedia:fail 没有拿到图片' })
+            },
+            fail: reject
+          })
+          return
+        }
+
+        wx.chooseImage({
+          count: 1,
+          sizeType: ['compressed'],
+          sourceType: ['album', 'camera'],
+          success: res => {
+            const path = res && res.tempFilePaths && res.tempFilePaths[0]
+            if (path) resolve(path)
+            else reject({ errMsg: 'chooseImage:fail 没有拿到图片' })
+          },
+          fail: reject
+        })
+      })
+  )
 }
 
 /** 压缩：目标长边 1280 / ≤300KB（PRD 13 章媒体要求），失败则原图继续 */

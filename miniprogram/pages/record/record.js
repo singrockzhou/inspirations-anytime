@@ -166,7 +166,11 @@ Page({
 
   onTab(e) {
     const next = e.currentTarget.dataset.type
-    if (next === this.data.type) return
+    if (next === this.data.type) {
+      // 已经在照片态又点「拍一张」，说明是想立刻拍照，别让它静默无响应
+      if (next === 'photo' && !this.data.mediaPath && !this.data.recording) this.pickPhoto()
+      return
+    }
     if (this.data.recording) {
       this.toast('这段还没录完')
       return
@@ -535,23 +539,52 @@ Page({
       this.toast('先结束录音')
       return
     }
-    wx.showLoading({ title: '处理中', mask: true })
+
+    // 非小程序环境（网页预览等）里这些 API 不存在，直接调用会抛错并表现为"点了没反应"
+    if (typeof wx.chooseMedia !== 'function' && typeof wx.chooseImage !== 'function') {
+      console.warn('[record] chooseMedia / chooseImage 均不可用，当前环境不支持选图')
+      this.toast('当前环境不支持拍照')
+      return
+    }
 
     media.chooseImage()
-      .then(temp => media.saveImage(temp))
+      .then(temp => {
+        // 相机/相册回来之后才挂 loading，避免用户看到加载圈却等不到界面
+        wx.showLoading({ title: '处理中', mask: true })
+        return media.saveImage(temp).then(res => {
+          this.hideLoading()
+          return res
+        })
+      })
       .then(res => {
-        wx.hideLoading()
         if (this.data.mediaPath && this.data.mode === 'create') media.remove(this.data.mediaPath)
         this.setData({ mediaPath: res.path, size: res.size })
         this.syncCanSave()
         this.markDirty()
       })
       .catch(err => {
-        wx.hideLoading()
-        const msg = (err && err.errMsg) || ''
+        this.hideLoading()
+        const msg = (err && (err.errMsg || err.message)) || String(err || '')
+        console.warn('[record] pickPhoto 失败:', msg)
         if (msg.indexOf('cancel') >= 0) return
-        this.toast('没选上，再试一次')
+        if (/privacy|112|协议/.test(msg)) {
+          this.toast('需先在后台配置隐私保护指引')
+          return
+        }
+        if (/auth|deny|permission|权限/.test(msg)) {
+          this.toast('没拿到相机或相册权限')
+          return
+        }
+        this.toast('没选上：' + msg.slice(0, 36))
       })
+  },
+
+  hideLoading() {
+    try {
+      wx.hideLoading()
+    } catch (e) {
+      // 没有 loading 时调用会告警，忽略
+    }
   },
 
   removePhoto() {
