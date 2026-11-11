@@ -1,0 +1,69 @@
+<view class="page">
+
+  <view class="top">
+    <view class="top-left">
+      <text class="title">我的灵感</text>
+      <text class="count" wx:if="{{total > 0}}">{{total}} 条</text>
+    </view>
+    <view class="mine" catchtap="goMe">我的</view>
+  </view>
+
+  <!-- 吸顶伪输入条：1 次点击进入输入态 -->
+  <view class="stick">
+    <view class="composer" catchtap="goText">
+      <text class="composer-ph">今天想到什么？</text>
+      <view class="composer-dot">✎</view>
+    </view>
+  </view>
+
+  <!-- 卡片流：按自然日分组 -->
+  <view class="feed" wx:if="{{!empty}}">
+    <block wx:for="{{groups}}" wx:key="key" wx:for-item="grp">
+      <view class="grp">{{grp.label}}</view>
+      <card
+        wx:for="{{grp.items}}"
+        wx:key="id"
+        wx:for-item="it"
+        item="{{it}}"
+        playing="{{playingId === it.id}}"
+        highlight="{{highlightId === it.id}}"
+        bind:open="onCardOpen"
+        bind:action="onCardAction"
+        bind:play="onPlay"
+        bind:preview="onPreview"
+      />
+    </block>
+
+    <view class="more-hint" wx:if="{{hasMore}}">继续往下滑</view>
+    <view class="end-hint" wx:elif="{{total > 4}}">到底了 · 长按卡片可以改或删</view>
+  </view>
+
+  <!-- 空态：一句话 + 直接可点的入口，不放插画 -->
+  <view class="empty" wx:if="{{empty && !loading}}">
+    <view class="empty-line">想到什么，就说一句</view>
+    <view class="empty-sub">不用起标题，也不用选分类</view>
+    <view class="empty-btn" catchtap="goText">记下第一条</view>
+  </view>
+
+  <!-- 中央悬浮 + 号 -->
+  <view class="fab" wx:if="{{!undo.visible}}" catchtap="pickType">
+    <text class="fab-plus">+</text>
+  </view>
+
+  <!-- 删除后的 5 秒撤销条 -->
+  <view class="undo" wx:if="{{undo.visible}}">
+    <text class="undo-text">删了，{{undo.left}} 秒内可以撤回</text>
+    <view class="undo-btn" catchtap="onUndo">撤回</view>
+  </view>
+
+  <action-sheet
+    visible="{{sheet.visible}}"
+    title="{{sheet.title}}"
+    items="{{sheet.items}}"
+    bind:select="onSheetSelect"
+    bind:close="closeSheet"
+  />
+
+  <view class="toast" wx:if="{{toastText}}">{{toastText}}</view>
+
+</view>

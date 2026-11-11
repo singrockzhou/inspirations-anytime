@@ -1,0 +1,18 @@
+{
+  "miniprogramRoot": "miniprogram/",
+  "projectname": "linggan-suishi-ji",
+  "appid": "touristappid",
+  "compileType": "miniprogram",
+  "libVersion": "3.5.0",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": false,
+    "nodeModules": false,
+    "checkInvalidKey": true,
+    "packNpmManually": false,
+    "packNpmRelationList": []
+  }
+}

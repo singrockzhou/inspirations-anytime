@@ -1,0 +1,9 @@
+{
+  "usingComponents": {
+    "card": "/components/card/card",
+    "action-sheet": "/components/action-sheet/action-sheet"
+  },
+  "navigationBarTitleText": "灵感随时记",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark"
+}

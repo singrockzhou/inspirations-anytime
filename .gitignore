@@ -1,0 +1,16 @@
+# 依赖与构建产物
+node_modules/
+miniprogram_npm/
+
+# 微信开发者工具的本机私有配置（可能含本机路径、AppID）
+project.private.config.json
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# 日志与临时文件
+*.log
+*.tmp

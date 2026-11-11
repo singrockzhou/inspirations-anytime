@@ -1,0 +1,110 @@
+<view class="page">
+
+  <!-- 自定义导航：取消 / 标题 / 存下，避开系统导航在深色键盘下的割裂感 -->
+  <view class="nav" style="padding-top: {{statusBarHeight}}px">
+    <view class="nav-bar">
+      <view class="nav-side" catchtap="onCancel">取消</view>
+      <view class="nav-title">{{mode === 'edit' ? '改一改' : '记一条'}}</view>
+      <view class="nav-side nav-save {{canSave ? 'on' : ''}}" catchtap="onSave">存下</view>
+    </view>
+  </view>
+
+  <view class="body">
+
+    <!-- 文字 -->
+    <block wx:if="{{type === 'text'}}">
+      <textarea
+        class="ta"
+        value="{{content}}"
+        maxlength="{{maxText}}"
+        placeholder="想到什么，就说一句…"
+        placeholder-class="ta-ph"
+        auto-height
+        focus="{{focus}}"
+        show-confirm-bar="{{false}}"
+        cursor-spacing="140"
+        bindinput="onInput"
+      />
+      <view class="counter">{{content.length}} / {{maxText}}</view>
+    </block>
+
+    <!-- 语音 -->
+    <block wx:elif="{{type === 'voice'}}">
+      <view class="voice-wrap">
+        <view
+          class="rec {{recording ? 'on' : ''}} {{canceling ? 'cancel' : ''}}"
+          bindtouchstart="onVoiceTouchStart"
+          bindtouchmove="onVoiceTouchMove"
+          bindtouchend="onVoiceTouchEnd"
+          bindtouchcancel="onVoiceTouchEnd"
+          bindtap="onVoiceTap"
+        >
+          <text class="rec-main">{{recording ? recordClock : (mediaPath ? '重录' : '按住说话')}}</text>
+          <text class="rec-sub">{{recording ? (canceling ? '松开取消' : '松手就存') : (clickMode ? '点一下开始' : '上滑可以取消')}}</text>
+        </view>
+
+        <view class="hint" wx:if="{{hint}}">{{hint}}</view>
+
+        <view class="chip" wx:if="{{mediaPath && !recording}}" catchtap="playVoice">
+          {{voicePlaying ? '正在播放 · 点一下停' : '已录 ' + duration + '″ · 点这里听'}}
+        </view>
+
+        <view class="mode" wx:if="{{!recording}}" catchtap="toggleMode">
+          {{clickMode ? '换成按住说话' : '换成点击录音'}}
+        </view>
+      </view>
+
+      <textarea
+        class="ta ta-note"
+        value="{{content}}"
+        maxlength="{{maxCaption}}"
+        placeholder="补一句备注（可不填）"
+        placeholder-class="ta-ph"
+        auto-height
+        show-confirm-bar="{{false}}"
+        cursor-spacing="140"
+        bindinput="onInput"
+      />
+    </block>
+
+    <!-- 照片 -->
+    <block wx:else>
+      <view class="photo" wx:if="{{mediaPath}}" catchtap="previewMedia">
+        <image class="photo-img" src="{{mediaPath}}" mode="aspectFill" />
+      </view>
+
+      <view class="pick" wx:else catchtap="pickPhoto">
+        <text class="pick-plus">+</text>
+        <text class="pick-tx">拍一张，或从相册选</text>
+      </view>
+
+      <view class="ops" wx:if="{{mediaPath}}">
+        <text class="op" catchtap="pickPhoto">重选</text>
+        <text class="op danger" wx:if="{{mode === 'create'}}" catchtap="removePhoto">删掉</text>
+      </view>
+
+      <textarea
+        class="ta ta-note"
+        value="{{content}}"
+        maxlength="{{maxCaption}}"
+        placeholder="配一句话（可不填）"
+        placeholder-class="ta-ph"
+        auto-height
+        show-confirm-bar="{{false}}"
+        cursor-spacing="140"
+        bindinput="onInput"
+      />
+    </block>
+
+  </view>
+
+  <!-- 底部类型切换：一条记录只存一种形态 -->
+  <view class="tools">
+    <view class="tool {{type === 'text' ? 'on' : ''}}" data-type="text" catchtap="onTab">写一句</view>
+    <view class="tool {{type === 'voice' ? 'on' : ''}}" data-type="voice" catchtap="onTab">说一段</view>
+    <view class="tool {{type === 'photo' ? 'on' : ''}}" data-type="photo" catchtap="onTab">拍一张</view>
+  </view>
+
+  <view class="toast" wx:if="{{toastText}}">{{toastText}}</view>
+
+</view>

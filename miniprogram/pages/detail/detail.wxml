@@ -1,0 +1,44 @@
+<view class="page" wx:if="{{record}}">
+
+  <view class="head">
+    <view class="badge">{{typeLabel}}</view>
+    <text class="time">{{timeText}}</text>
+  </view>
+
+  <!-- 文字 -->
+  <view class="text" wx:if="{{record.type === 'text'}}">{{record.content}}</view>
+
+  <!-- 语音 -->
+  <block wx:elif="{{record.type === 'voice'}}">
+    <view class="player" catchtap="onPlay">
+      <view class="play {{playing ? 'on' : ''}}">{{playing ? '■' : '▶'}}</view>
+      <text class="dur">{{record.duration}}″</text>
+      <text class="state">{{playing ? '正在播放' : '点一下听'}}</text>
+    </view>
+    <view class="text sub" wx:if="{{record.content}}">{{record.content}}</view>
+  </block>
+
+  <!-- 照片 -->
+  <block wx:else>
+    <image class="photo" src="{{record.mediaPath}}" mode="widthFix" catchtap="onPreview" />
+    <view class="text sub" wx:if="{{record.content}}">{{record.content}}</view>
+  </block>
+
+  <view class="meta">
+    <text class="meta-line">记于 {{timeText}}</text>
+    <text class="meta-line" wx:if="{{updatedText}}">改于 {{updatedText}}</text>
+  </view>
+
+  <view class="actions">
+    <view class="act" catchtap="onEdit">改一改</view>
+    <view class="act" catchtap="onCopy">复制</view>
+    <view class="act danger" catchtap="onDelete">删了</view>
+  </view>
+
+  <view class="toast" wx:if="{{toastText}}">{{toastText}}</view>
+</view>
+
+<view class="page missing" wx:if="{{missing}}">
+  <text class="missing-t">这条已经不在了</text>
+  <view class="missing-btn" catchtap="goBack">回列表</view>
+</view>

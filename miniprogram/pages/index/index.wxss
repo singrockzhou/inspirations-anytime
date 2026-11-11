@@ -1,0 +1,197 @@
+.page {
+  min-height: 100vh;
+  padding: 8rpx 32rpx calc(260rpx + env(safe-area-inset-bottom));
+}
+
+/* 顶部标题行 */
+.top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 16rpx 4rpx 20rpx;
+}
+
+.top-left {
+  display: flex;
+  align-items: baseline;
+}
+
+.title {
+  font-size: 44rpx;
+  font-weight: 500;
+  letter-spacing: 1rpx;
+  color: var(--ink, #2c2723);
+}
+
+.count {
+  margin-left: 16rpx;
+  font-size: 22rpx;
+  color: var(--ink-2, #8b8178);
+}
+
+.mine {
+  font-size: 26rpx;
+  color: var(--ink-2, #8b8178);
+  padding: 8rpx 4rpx 8rpx 24rpx;
+}
+
+/* 吸顶伪输入条 */
+.stick {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 4rpx 0 20rpx;
+  background: var(--bg, #fbf8f3);
+}
+
+.composer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 88rpx;
+  padding: 0 28rpx;
+  border-radius: 44rpx;
+  background: var(--beige, #f7f1e7);
+  border: 1rpx solid #f0e5d6;
+}
+
+.composer:active {
+  background: #f3ebde;
+}
+
+.composer-ph {
+  font-size: 30rpx;
+  color: #a2957f;
+}
+
+.composer-dot {
+  font-size: 28rpx;
+  color: var(--accent, #c4713f);
+  opacity: 0.75;
+}
+
+/* 分组 */
+.grp {
+  padding: 20rpx 4rpx 14rpx;
+  font-size: 24rpx;
+  color: var(--ink-2, #8b8178);
+  letter-spacing: 1rpx;
+}
+
+.more-hint,
+.end-hint {
+  padding: 12rpx 0 8rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: #b3a795;
+}
+
+/* 空态 */
+.empty {
+  padding-top: 180rpx;
+  text-align: center;
+}
+
+.empty-line {
+  font-size: 36rpx;
+  color: var(--ink, #2c2723);
+  letter-spacing: 1rpx;
+}
+
+.empty-sub {
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: var(--ink-2, #8b8178);
+}
+
+.empty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 48rpx;
+  height: 88rpx;
+  padding: 0 56rpx;
+  border-radius: 44rpx;
+  background: var(--accent, #c4713f);
+  color: #fff;
+  font-size: 30rpx;
+}
+
+.empty-btn:active {
+  opacity: 0.88;
+}
+
+/* 悬浮 + */
+.fab {
+  position: fixed;
+  left: 50%;
+  bottom: calc(48rpx + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 56rpx;
+  background: var(--accent, #c4713f);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6rpx 20rpx rgba(196, 113, 63, 0.28);
+  z-index: 50;
+}
+
+.fab:active {
+  transform: translateX(-50%) scale(0.96);
+}
+
+.fab-plus {
+  color: #fff;
+  font-size: 60rpx;
+  line-height: 1;
+  margin-top: -4rpx;
+}
+
+/* 撤销条 */
+.undo {
+  position: fixed;
+  left: 32rpx;
+  right: 32rpx;
+  bottom: calc(40rpx + env(safe-area-inset-bottom));
+  height: 104rpx;
+  padding: 0 12rpx 0 32rpx;
+  border-radius: 24rpx;
+  background: rgba(44, 39, 35, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 60;
+  animation: undo-in 0.2s ease-out;
+}
+
+@keyframes undo-in {
+  from {
+    opacity: 0;
+    transform: translateY(20rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.undo-text {
+  font-size: 26rpx;
+  color: #f6efe4;
+}
+
+.undo-btn {
+  height: 72rpx;
+  padding: 0 32rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  color: var(--accent-light, #e0a472);
+  font-size: 28rpx;
+}
+
+.undo-btn:active {
+  background: rgba(255, 255, 255, 0.08);
+}

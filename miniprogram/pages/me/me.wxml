@@ -1,0 +1,40 @@
+<view class="page">
+
+  <view class="hero">
+    <text class="hero-num">{{total}}</text>
+    <text class="hero-unit">条灵感</text>
+  </view>
+
+  <view class="block">
+    <view class="row">
+      <text class="row-k">开始记录</text>
+      <text class="row-v">{{firstText}}</text>
+    </view>
+    <view class="row">
+      <text class="row-k">最近一条</text>
+      <text class="row-v">{{lastText}}</text>
+    </view>
+    <view class="row">
+      <text class="row-k">文字 / 语音 / 照片</text>
+      <text class="row-v">{{byType.text}} / {{byType.voice}} / {{byType.photo}}</text>
+    </view>
+  </view>
+
+  <view class="block">
+    <view class="row" bindtap="onAbout">
+      <text class="row-k">关于</text>
+      <text class="row-v">v{{version}}</text>
+    </view>
+    <view class="row" wx:if="{{storageText}}">
+      <text class="row-k">本机占用</text>
+      <text class="row-v">{{storageText}}</text>
+    </view>
+  </view>
+
+  <view class="note">
+    所有记录只保存在这台手机上，不上传、不联网。换手机或重装小程序后，内容不会跟着走。
+  </view>
+
+  <view class="clear" bindtap="onClear">清空全部记录</view>
+
+</view>

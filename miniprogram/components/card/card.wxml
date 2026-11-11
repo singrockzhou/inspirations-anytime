@@ -1,0 +1,49 @@
+<view
+  class="card {{highlight ? 'fresh' : ''}}"
+  bindtap="onOpen"
+  bindlongpress="onLongPress"
+>
+  <view class="head">
+    <view class="badge">{{badge}}</view>
+    <view class="meta">
+      <text class="flag" wx:if="{{edited}}">改过</text>
+      <text class="time">{{timeLabel}}</text>
+    </view>
+  </view>
+
+  <!-- 文字：默认最多 6 行，超过才出现「展开」 -->
+  <block wx:if="{{item.type === 'text'}}">
+    <view class="body {{expanded ? '' : 'clamp'}}">{{item.content}}</view>
+    <view class="fold" wx:if="{{needFold}}" catchtap="toggleFold">
+      {{expanded ? '收起' : '展开'}}
+    </view>
+  </block>
+
+  <!-- 语音：时长 + 波形，点一下听 -->
+  <block wx:elif="{{item.type === 'voice'}}">
+    <view class="voice" catchtap="onPlay">
+      <view class="wave {{playing ? 'on' : ''}}">
+        <view class="bar"></view>
+        <view class="bar"></view>
+        <view class="bar"></view>
+        <view class="bar"></view>
+        <view class="bar"></view>
+      </view>
+      <text class="voice-dur">{{item.duration}}″</text>
+      <text class="voice-tip">{{playing ? '正在播放' : '点一下听听'}}</text>
+    </view>
+    <view class="body sub clamp2" wx:if="{{item.content}}">{{item.content}}</view>
+  </block>
+
+  <!-- 照片 -->
+  <block wx:else>
+    <image
+      class="photo"
+      src="{{item.mediaPath}}"
+      mode="aspectFill"
+      lazy-load
+      catchtap="onPreview"
+    />
+    <view class="body sub clamp2" wx:if="{{item.content}}">{{item.content}}</view>
+  </block>
+</view>

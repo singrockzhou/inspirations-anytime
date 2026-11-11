@@ -1,0 +1,21 @@
+<view class="root" wx:if="{{visible}}" catchtouchmove="noop">
+  <view class="mask" bindtap="onClose"></view>
+
+  <view class="panel">
+    <view class="title" wx:if="{{title}}">{{title}}</view>
+
+    <view
+      class="row {{item.danger ? 'danger' : ''}}"
+      wx:for="{{items}}"
+      wx:key="key"
+      data-key="{{item.key}}"
+      bindtap="onSelect"
+    >
+      <text class="row-label">{{item.label}}</text>
+      <text class="row-desc" wx:if="{{item.desc}}">{{item.desc}}</text>
+    </view>
+
+    <view class="cancel" bindtap="onClose">{{cancelText}}</view>
+    <view class="gap"></view>
+  </view>
+</view>

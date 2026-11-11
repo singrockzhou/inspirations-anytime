@@ -1,0 +1,70 @@
+/**
+ * 全局设计 token 与基础排版
+ * 色板取自 PRD v1.0 第 12 章：暖白底 + 陶土橙主色，正文不用纯黑
+ */
+page {
+  --bg: #FBF8F3;
+  --paper: #FFFFFF;
+  --accent: #C4713F;
+  --accent-light: #E0A472;
+  --beige: #F7F1E7;
+  --ink: #2C2723;
+  --ink-2: #8B8178;
+  --line: #F0E7DA;
+  --ok: #7D8C6E;
+  --warn: #B5673F;
+
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  font-size: 30rpx;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+view,
+text,
+image,
+textarea,
+input,
+scroll-view {
+  box-sizing: border-box;
+}
+
+/* iPhone X 及以上的底部安全区，所有吸底元素都要带 */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.muted {
+  color: var(--ink-2);
+}
+
+/* 通用瞬态提示：页面内不弹系统 toast 的地方用它 */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 240rpx;
+  transform: translateX(-50%);
+  max-width: 560rpx;
+  padding: 20rpx 32rpx;
+  border-radius: 20rpx;
+  background: rgba(44, 39, 35, 0.88);
+  color: #fff;
+  font-size: 26rpx;
+  line-height: 1.5;
+  text-align: center;
+  z-index: 300;
+  animation: toast-in 0.18s ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/record/record",
+    "pages/detail/detail",
+    "pages/me/me"
+  ],
+  "window": {
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#FBF8F3",
+    "navigationBarTitleText": "灵感随时记",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#FBF8F3",
+    "backgroundColorTop": "#FBF8F3",
+    "backgroundColorBottom": "#FBF8F3"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}
