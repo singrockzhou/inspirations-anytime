@@ -111,13 +111,6 @@
       </view>
       <text class="row-go">›</text>
     </view>
-    <view class="row tap" bindtap="onImportChat">
-      <view class="row-main">
-        <text class="row-k">从聊天存一条</text>
-        <text class="row-sub">把聊天里的文件或图片收成灵感</text>
-      </view>
-      <text class="row-go">›</text>
-    </view>
   </view>
 
   <view class="block">

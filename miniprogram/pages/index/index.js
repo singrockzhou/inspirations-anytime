@@ -7,6 +7,15 @@ const dialog = require('../../utils/dialog')
 const PAGE_SIZE = 20
 const UNDO_SECONDS = 5
 
+/** 「从聊天存一条」的失败文案，码表来自 utils/transfer.js */
+const COLLECT_ERR = {
+  unsupported: '当前环境打不开聊天文件，请用手机微信再试。',
+  nofile: '没选到文件。',
+  choose: '没能打开选择器，再试一次。',
+  read: '文件读不出来，可能已经损坏。',
+  full: '攒满了，先清几条再收。'
+}
+
 /** 卡片上那句话的摘要，堆叠组、那年今日、多选都用它 */
 function peekOf(item) {
   const text = (item.content || '').replace(/\s+/g, ' ').trim()
@@ -236,6 +245,60 @@ Page({
 
   goMe() {
     wx.navigateTo({ url: '/pages/me/me' })
+  },
+
+  /* ------------------------- 从聊天存一条 ------------------------- */
+
+  /**
+   * 从聊天里挑文件/图片，收成本机的灵感。
+   * 原来在「我的」页，挪到首页后走的还是 transfer.importFromChat，
+   * 只是这一步必须真正落库——之前只提示"已存下"，其实什么都没写进去。
+   */
+  onCollect() {
+    if (this.collecting) return
+    this.collecting = true
+    wx.showLoading({ title: '处理中', mask: true })
+
+    transfer
+      .importFromChat()
+      .then(res => {
+        wx.hideLoading()
+        this.collecting = false
+
+        const made = []
+        ;(res.records || []).forEach(d => {
+          const rec = store.create({
+            type: d.type,
+            content: d.content || '',
+            mediaPath: d.mediaPath || '',
+            mediaPaths: d.mediaPaths || [],
+            duration: d.duration || 0,
+            size: d.size || 0
+          })
+          if (rec) made.push(rec)
+        })
+
+        if (!made.length) {
+          dialog.alert({ title: '没存成', text: COLLECT_ERR.full })
+          return
+        }
+
+        this.setData({ filter: 'all', filterTag: '' })
+        this.limit = PAGE_SIZE
+        this.refresh()
+        this.flash(made[0].id)
+
+        const lines = ['已存下 ' + made.length + ' 条，就在最上面。']
+        if (res.failed) lines.push(res.failed + ' 个文件读不出正文，只留了文件名，可以自己补一句。')
+        if (made.length < res.records.length) lines.push('有 ' + (res.records.length - made.length) + ' 条没存下，可能已经满 ' + store.MAX_RECORDS + ' 条了。')
+        dialog.alert({ title: '收到', text: lines.join('\n') })
+      })
+      .catch(err => {
+        wx.hideLoading()
+        this.collecting = false
+        if (!err || err.code === 'cancel') return
+        dialog.alert({ title: '没存成', text: COLLECT_ERR[err.code] || '再试一次看看。' })
+      })
   },
 
   /* ------------------------- 筛选 ------------------------- */

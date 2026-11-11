@@ -1,6 +1,7 @@
 const store = require('../../utils/store')
 const date = require('../../utils/date')
 const audio = require('../../utils/audio')
+const flip = require('../../utils/flip')
 
 /** 秒 → 0:08 / 1:24，不依赖 padStart（低版本基础库没有） */
 function mmss(sec) {
@@ -52,22 +53,24 @@ Page({
   },
 
   pick(first) {
-    const all = store.list({ includeArchived: true })
-    this.setData({ total: all.length })
+    const total = flip.total()
+    this.setData({ total: total })
 
-    if (!all.length) {
+    if (!total) {
       this.setData({ item: null, empty: true })
       return
     }
 
     const current = this.data.item
-    let pool = all.filter(r => !current || r.id !== current.id)
-    if (!pool.length) pool = all
+    // 栈顶对齐到当前这条：第一次进来重开一轮，之后每次抽牌都接着记
+    if (first || !current) flip.reset()
+    else flip.enter(current.id)
 
-    // 优先给"放了一阵子的"，没有就退回全量
-    const old = pool.filter(r => Date.now() - r.createdAt > 7 * 86400000)
-    const source = old.length ? old : pool
-    const item = source[Math.floor(Math.random() * source.length)]
+    const item = flip.next()
+    if (!item) {
+      this.setData({ item: null, empty: true })
+      return
+    }
 
     const days = date.dayDiff(item.createdAt, Date.now())
     const photos = (item.mediaPaths || []).filter(Boolean)

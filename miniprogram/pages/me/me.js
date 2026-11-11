@@ -56,7 +56,7 @@ Page({
     remindTime: '21:00',
     remindReady: false,
     busy: false,
-    version: '1.3.0'
+    version: '1.6.0'
   },
 
   onShow() {
@@ -114,31 +114,6 @@ Page({
     }
     getApp().globalData.pendingFilter = 'archive'
     wx.navigateBack()
-  },
-
-  /* ------------------------- 从聊天存一条 ------------------------- */
-
-  onImportChat() {
-    if (this.data.busy) return
-    this.setData({ busy: true })
-    wx.showLoading({ title: '处理中', mask: true })
-
-    transfer
-      .importFromChat()
-      .then(res => {
-        wx.hideLoading()
-        this.setData({ busy: false })
-        this.load()
-        const lines = ['已存下 ' + res.records.length + ' 条，回到列表就能看到。']
-        if (res.failed) lines.push(res.failed + ' 个文件读不出正文，只留了文件名，可以自己补一句。')
-        dialog.alert({ title: '收到', text: lines.join('\n') })
-      })
-      .catch(err => {
-        wx.hideLoading()
-        this.setData({ busy: false })
-        if (!err || err.code === 'cancel') return
-        dialog.alert({ title: '没存成', text: IMPORT_ERR[err.code] || '再试一次看看。' })
-      })
   },
 
   /* ------------------------- 每日提醒 ------------------------- */

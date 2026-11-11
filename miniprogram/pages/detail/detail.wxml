@@ -1,4 +1,12 @@
-<view class="page" wx:if="{{record}}">
+<view
+  class="page"
+  wx:if="{{record}}"
+  style="transform:translateX({{swipeDx}}px);transition:{{swipeTransition}};"
+  bindtouchstart="onTouchStart"
+  bindtouchmove="onTouchMove"
+  bindtouchend="onTouchEnd"
+  bindtouchcancel="onTouchEnd"
+>
 
   <view class="head">
     <view class="badge">{{typeLabel}}</view>
@@ -52,6 +60,23 @@
   </view>
 
   <button class="share" open-type="share">发给朋友</button>
+
+  <!-- 左右翻：手势之外的兜底（PC 端用鼠标滑不动，箭头正好补上） -->
+  <view class="flipbar" wx:if="{{total > 1}}">
+    <view
+      class="flip-btn {{canPrev ? '' : 'off'}}"
+      hover-class="{{canPrev ? 'flip-btn-hover' : 'none'}}"
+      hover-stay-time="80"
+      catchtap="onPrev"
+    >‹ 上一条</view>
+    <text class="flip-tip">左右滑也能翻</text>
+    <view
+      class="flip-btn"
+      hover-class="flip-btn-hover"
+      hover-stay-time="80"
+      catchtap="onNext"
+    >下一条 ›</view>
+  </view>
 
   <view class="toast" wx:if="{{toastText}}">{{toastText}}</view>
 </view>

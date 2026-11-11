@@ -6,6 +6,8 @@
       <text class="count" wx:if="{{total > 0}}">{{total}} 条</text>
     </view>
     <view class="top-right">
+      <!-- 从聊天存一条：原在「我的」页，挪到首页后一眼能看到 -->
+      <text class="collect" catchtap="onCollect">从聊天存</text>
       <text class="top-act" catchtap="toggleSelect">{{selectMode ? '取消' : '多选'}}</text>
       <view class="mine" catchtap="goMe">我的</view>
     </view>
@@ -151,6 +153,7 @@
     <view class="empty-sub">{{emptySub}}</view>
     <view class="empty-btn" wx:if="{{filter === 'all' && !filterTag}}" catchtap="goText">记下第一条</view>
     <view class="empty-btn" wx:else catchtap="onFilter" data-mode="all">看全部灵感</view>
+    <view class="empty-link" wx:if="{{filter === 'all' && !filterTag}}" catchtap="onCollect">或从聊天里存一条 →</view>
   </view>
 
   <!-- 多选操作条 -->

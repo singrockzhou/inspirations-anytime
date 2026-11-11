@@ -207,3 +207,44 @@
 .share::after {
   border: none;
 }
+
+/* ================= 左右翻一条 ================= */
+
+/* 手势之外的兜底：PC 端用鼠标滑不动，箭头正好补上 */
+.flipbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 40rpx;
+  padding-top: 32rpx;
+  border-top: 1rpx solid var(--line, #f0e7da);
+}
+
+.flip-btn {
+  min-width: 180rpx;
+  height: 88rpx;
+  padding: 0 28rpx;
+  border-radius: 44rpx;
+  border: 1rpx solid var(--line, #f0e7da);
+  background: var(--paper, #ffffff);
+  color: var(--ink-2, #8b8178);
+  font-size: 24rpx;
+  line-height: 86rpx;
+  text-align: center;
+}
+
+.flip-btn-hover {
+  background: var(--beige, #f7f1e7);
+}
+
+/* 到头了：字色退一档，配合"滑不动"的阻尼一起告诉用户没有更多了 */
+.flip-btn.off {
+  color: #c9c0b6;
+}
+
+.flip-tip {
+  flex: 1;
+  text-align: center;
+  font-size: 22rpx;
+  color: var(--ink-2, #8b8178);
+}

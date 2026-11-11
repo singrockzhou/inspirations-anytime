@@ -40,6 +40,14 @@
   padding: 8rpx 4rpx 8rpx 24rpx;
 }
 
+/* 从聊天存一条：同级的文字入口，只是用主色 + 稍重字重把动作点出来 */
+.collect {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: var(--accent, #c4713f);
+  padding: 8rpx 4rpx 8rpx 24rpx;
+}
+
 .mine {
   font-size: 26rpx;
   color: var(--ink-2, #8b8178);
@@ -172,6 +180,14 @@
 
 .empty-btn:active {
   opacity: 0.88;
+}
+
+/* 空态的第二条路：不是主按钮，用文字链，不跟"记下第一条"抢 */
+.empty-link {
+  margin-top: 28rpx;
+  padding: 16rpx 24rpx;
+  font-size: 26rpx;
+  color: var(--ink-2, #8b8178);
 }
 
 /* 底部三入口：等宽并排，点一下直接进 */
