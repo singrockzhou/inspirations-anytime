@@ -102,7 +102,10 @@ function normalizeTags(list, content) {
  */
 function normalizeRecord(r) {
   const out = Object.assign({}, r)
-  out.content = typeof out.content === 'string' ? out.content : ''
+  // 正文首尾空白一律去掉。粘贴进来的文字常带首尾空行，留着会让卡片顶部多一条
+  // 空白、导出的 Markdown 多一个空段落、分享标题以空格开头（微信会吃掉）。
+  // 收口放在这里而不是各调用点：create / update / importRecords 都经过它。
+  out.content = typeof out.content === 'string' ? out.content.trim() : ''
   out.type = ['text', 'voice', 'photo'].indexOf(out.type) >= 0 ? out.type : 'text'
 
   let paths = Array.isArray(out.mediaPaths) ? out.mediaPaths.filter(Boolean) : []

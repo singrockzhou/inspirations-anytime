@@ -19,5 +19,10 @@
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json",
-  "lazyCodeLoading": "requiredComponents"
+  "lazyCodeLoading": "requiredComponents",
+  "permission": {
+    "scope.record": {
+      "desc": "录下你说的那句话，存成一条语音灵感，只留在这台手机上"
+    }
+  }
 }
