@@ -616,6 +616,27 @@
   border-color: var(--line, #f0e7da);
 }
 
+/*
+ * 提醒位：这一栏是"现在该做的事"，不是"回头看的东西"。
+ * 用纸白底 + 左侧一道橙线，与暖橙渐变的回忆、米色的随手一翻都分开；
+ * 橙色只留在左边线和 tip 上，不铺满，免得天天看成了背景噪音。
+ */
+.anni.nudge {
+  background: var(--paper, #ffffff);
+  border-color: #e8d8c4;
+  padding-left: 34rpx;
+  box-shadow: inset 6rpx 0 0 var(--accent, #c4713f);
+}
+
+.anni.nudge .anni-label {
+  color: var(--accent, #c4713f);
+  font-weight: 500;
+}
+
+.anni.nudge .anni-tip {
+  color: var(--accent, #c4713f);
+}
+
 .anni-top {
   display: flex;
   align-items: center;

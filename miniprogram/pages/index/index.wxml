@@ -46,8 +46,19 @@
     >#{{item.tag}}<text class="chip-n">{{item.count}}</text></view>
   </scroll-view>
 
-  <!-- 回顾位：那年今日优先占这一栏；没有就用「随便翻一条」顶上，不让它空着 -->
-  <view class="anni" wx:if="{{anniversary}}" catchtap="openAnniversary">
+  <!--
+    筛选条下面这一栏只放一样东西，优先级从高到低：
+    今天还没记 → 那年今日 → 随便翻一条。
+    提醒排在最前，是因为它会在记完之后自己消失，不会长期占着这栏。
+  -->
+  <view class="anni nudge" wx:if="{{nudge}}" catchtap="onNudge">
+    <view class="anni-top">
+      <text class="anni-label">{{nudge.label}}</text>
+      <text class="anni-tip">{{nudge.tip}}</text>
+    </view>
+    <view class="anni-text">{{nudge.text}}</view>
+  </view>
+  <view class="anni" wx:elif="{{anniversary}}" catchtap="openAnniversary">
     <view class="anni-top">
       <text class="anni-label">{{anniversary.label}}</text>
       <text class="anni-tip">点开看看 ›</text>

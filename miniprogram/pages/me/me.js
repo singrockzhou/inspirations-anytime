@@ -1,19 +1,17 @@
 const store = require('../../utils/store')
 const date = require('../../utils/date')
 const transfer = require('../../utils/transfer')
-const remind = require('../../utils/remind')
 const dialog = require('../../utils/dialog')
 
 /**
- * 开启提醒的四种结果，各说各的。
- * 不要用 err.message——那是 requestSubscribeMessage:fail xxx 这种原始错误串，
- * 用户既看不懂，也不该看到内部接口名。
+ * 作者与联系方式。
+ * 放在常量里是为了让"复制联系方式"和"关于"里显示的是同一份字，
+ * 不会哪天改了邮箱只改了一处。
  */
-const REMIND_ERR = {
-  'no-template': '这个功能还没开通。可以先把时间选好，开通后按这个点提醒你。',
-  unsupported: '当前微信版本还不支持提醒，升级微信之后再试。',
-  fail: '没能申请到提醒权限，过一会儿再试。'
-}
+const AUTHOR = 'zhouguoxiang'
+const WECHAT = '不卷的迭代老爸'
+const EMAIL = '77111904@qq.com'
+const CONTACT = '作者：' + AUTHOR + '\n微信：' + WECHAT + '\n邮箱：' + EMAIL
 
 const EXPORT_ERR = {
   empty: '还没有记录可以导出。',
@@ -63,12 +61,8 @@ Page({
     storageWarn: '',
     heat: [],
     heatMax: 0,
-    remindOn: false,
-    remindTime: '21:00',
-    remindReady: false,
-    remindShow: true,
     busy: false,
-    version: '1.7.3'
+    version: '1.7.4'
   },
 
   onShow() {
@@ -78,7 +72,6 @@ Page({
   load() {
     const stats = store.stats()
     const heat = store.heat(14)
-    const r = remind.status()
     const u = store.usage()
 
     // 两本账分开显示：索引在 10MB 键值存储里，图片/录音在 200MB 本地文件里
@@ -105,11 +98,7 @@ Page({
       mediaCount: u.mediaCount,
       storageWarn: storageWarn,
       heat: heat.cells,
-      heatMax: heat.max,
-      remindOn: r.on,
-      remindTime: r.timeText,
-      remindReady: r.configured,
-      remindShow: r.visible
+      heatMax: heat.max
     })
   },
 
@@ -123,64 +112,6 @@ Page({
     }
     getApp().globalData.pendingFilter = 'archive'
     wx.navigateBack()
-  },
-
-  /* ------------------------- 每日提醒 ------------------------- */
-
-  /**
-   * 订阅消息必须由服务端下发，所以这里只做两件事：
-   * 没配模板时如实说明并记住时间偏好；配了模板才真正请求授权。
-   */
-  onRemind() {
-    if (!this.data.remindReady) {
-      // 发布版不会出现这个入口（见 utils/remind.js 的 visible()），
-      // 这里只在开发版/体验版可见，且只说"什么时候能用"，不讲怎么配。
-      dialog.alert({
-        title: '提醒还没开通',
-        text: '每日提醒要用微信的订阅消息，还差最后一步才能真的发出通知。\n\n可以先把时间选好，开通后就会按这个点提醒你。'
-      })
-      return
-    }
-
-    if (this.data.remindOn) {
-      dialog
-        .confirm({
-          title: '关掉每日提醒？',
-          text: '关掉之后不再收到提醒，记录本身不受影响。',
-          confirmText: '关掉'
-        })
-        .then(r => {
-          if (!r.confirmed) return
-          remind.disable()
-          this.load()
-          wx.showToast({ title: '已关掉', icon: 'none' })
-        })
-      return
-    }
-
-    remind
-      .enable()
-      .then(res => {
-        this.load()
-        // 说清"什么时候收到"，而不是一句干巴巴的"已开启"
-        if (res.on) wx.showToast({ title: '已开，明天 ' + this.data.remindTime + ' 提醒你', icon: 'none' })
-        else wx.showToast({ title: '没授权，提醒不会来', icon: 'none' })
-      })
-      .catch(err => {
-        if (!err || err.code === 'cancel') return
-        const text = REMIND_ERR[err && err.code] || '再试一次看看。'
-        dialog.alert({ title: '没能开启', text: text })
-      })
-  },
-
-  onRemindTime(e) {
-    const value = e.detail.value || '21:00'
-    const parts = value.split(':')
-    remind.setTime(Number(parts[0]) || 0, Number(parts[1]) || 0)
-    this.load()
-    // 说清"只是记下了时间"，别说成"提醒已设好"——开关还没打开
-    const tip = this.data.remindReady ? '提醒时间改成 ' + value : '记下 ' + value + '，开通后按点提醒'
-    wx.showToast({ title: tip, icon: 'none' })
   },
 
   /* ------------------------- 换手机：导出 ------------------------- */
@@ -289,14 +220,35 @@ Page({
       })
   },
 
+  /**
+   * 关于：一个只说明"这是什么"的弹窗是死的，所以第二个按钮做成真动作——
+   * 想找作者的人，最需要的就是把微信或邮箱带走，而不是手抄一遍。
+   */
   onAbout() {
-    dialog.alert({
-      title: '关于这个小程序',
-      text:
-        '灵感随时记 v' +
-        this.data.version +
-        '\n\n所有记录只保存在这台手机上，不上传、不联网、不需要登录。换手机时用上面的「导出到文件」带走。'
-    })
+    const text = [
+      '灵感随时记 v' + this.data.version,
+      '',
+      '所有记录只保存在这台手机上，不上传、不联网、不需要登录。换手机时用上面的「导出到文件」带走。',
+      '',
+      '作者：' + AUTHOR,
+      '微信：' + WECHAT,
+      '邮箱：' + EMAIL
+    ].join('\n')
+
+    dialog
+      .confirm({
+        title: '关于小程序',
+        text: text,
+        cancelText: '知道了',
+        confirmText: '复制联系方式'
+      })
+      .then(r => {
+        if (!r.confirmed) return
+        wx.setClipboardData({
+          data: CONTACT,
+          success: () => wx.showToast({ title: '联系方式已复制', icon: 'none' })
+        })
+      })
   },
 
   /** 点占用两行都到这里：把两本账讲清楚，别让人对着一串 KB 猜 */

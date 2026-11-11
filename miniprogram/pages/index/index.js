@@ -5,6 +5,7 @@ const transfer = require('../../utils/transfer')
 const dialog = require('../../utils/dialog')
 const share = require('../../utils/share')
 const flip = require('../../utils/flip')
+const nudge = require('../../utils/nudge')
 
 const PAGE_SIZE = 20
 const UNDO_SECONDS = 5
@@ -122,6 +123,8 @@ Page({
     anniversary: null,
     /** 回顾位的备选人数：没有那年今日时，用「随便翻一条」顶上这一栏 */
     reviewTotal: 0,
+    /** 打开即提醒：今天还没记就占住这一栏，记完一条自动让位 */
+    nudge: null,
 
     /** 多选 */
     selectMode: false,
@@ -209,7 +212,8 @@ Page({
       tags: store.tags().slice(0, 12),
       anniversary: this.computeAnniversary(),
       // 和重温页用的是同一个口径（含归档），页面上写的条数不会和进去后看到的对不上
-      reviewTotal: flip.total()
+      reviewTotal: flip.total(),
+      nudge: this.computeNudge(stats)
     })
     this.render()
   },
@@ -231,6 +235,22 @@ Page({
       label: found.label,
       text: peekOf(found.item)
     }
+  },
+
+  /**
+   * 打开即提醒——替代那个发不出去的"每日提醒"。
+   *
+   * 为什么不弹窗：一天要开好几次，第三次弹窗就会被嫌。放在列表顶上这一栏、
+   * 要用户自己点，既到得了（不依赖推送、不需要服务端），又不会拦路；
+   * 记完一条它就自己让位给「那年今日」或「随便翻一条」，不用手动关。
+   *
+   * 判断与文案都在 utils/nudge.js：那里是纯函数，边界能被测试直接驱动。
+   */
+  computeNudge(stats) {
+    return nudge.of(stats || store.stats(), {
+      filtering: this.data.filter !== 'all' || !!this.data.filterTag,
+      selecting: this.data.selectMode
+    })
   },
 
   render() {
@@ -444,6 +464,11 @@ Page({
   },
 
   /* ------------------------- 回顾 ------------------------- */
+
+  /** 提醒位被点击：直接进记录页写文字，与底栏「写一句」同一个入口 */
+  onNudge() {
+    this.goText()
+  },
 
   /** 首页的回顾位：没有那年今日时，用「随便翻一条」顶上这一栏 */
   openReview() {
@@ -701,7 +726,7 @@ Page({
   startSelect(firstId) {
     this.selected = {}
     if (firstId) this.selected[firstId] = 1
-    this.setData({ selectMode: true, openSwipeId: '', anniversary: null })
+    this.setData({ selectMode: true, openSwipeId: '', anniversary: null, nudge: null })
     this.render()
   },
 

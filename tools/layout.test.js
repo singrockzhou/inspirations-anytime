@@ -1,5 +1,5 @@
 /**
- * 竖向布局（18 条断言）
+ * 竖向布局（19 条断言）
  * 用法：node tools/layout.test.js
  *
  * 这两页的问题是"内容少 → 底部一大片空"，靠肉眼看截图只能确认"空了"，
@@ -75,12 +75,13 @@ ok('滚动区允许收缩，滚动才生效', /min-height:\s*0/.test(body))
 
 ok('操作条贴底，空白收在纸与按钮之间', /margin-top:\s*auto/.test(block(rWxss, '.ops')))
 
-/* ---------- 我的页：没接通就不给看 ---------- */
-console.log('3) 提醒入口的可见性')
+/* ---------- 我的页：接不通的提醒入口已整块下掉 ---------- */
+console.log('3) 提醒入口已下掉（换成首页「今天还没记一句」）')
 const mWxml = read('pages/me/me.wxml')
-ok('提醒整块由 remindShow 控制', /wx:if="\{\{remindShow\}\}"/.test(mWxml))
-ok('分区标题也在同一个判断里（不会留下孤零零的「习惯」）', mWxml.indexOf('wx:if="{{remindShow}}"') < mWxml.indexOf('习惯'))
-ok('副标题不再讲后台与模板', !/后台|模板/.test(mWxml))
+ok('「每日提醒」不再出现在我的页', !/每日提醒/.test(mWxml))
+ok('也没有留下一个设了也不生效的时间选择器', !/mode="time"/.test(mWxml))
+ok('不再有"看得到但用不了"的占位判断', !/remindShow/.test(mWxml))
+ok('「关于」行点得动，且有按下反馈', /class="row tap" bindtap="onAbout"/.test(mWxml))
 
 console.log('\n结果: ' + pass + ' passed, ' + fail + ' failed')
 process.exit(fail ? 1 : 0)
