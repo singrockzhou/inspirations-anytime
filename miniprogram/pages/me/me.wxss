@@ -78,6 +78,11 @@
   max-width: 60%;
 }
 
+/* 该备份了：只换颜色，不加图标不加边框——这一行是状态，不是警报 */
+.row-v.warn {
+  color: var(--accent, #c4713f);
+}
+
 .note {
   padding: 8rpx 8rpx 56rpx;
   font-size: 24rpx;

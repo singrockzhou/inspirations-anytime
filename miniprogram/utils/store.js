@@ -28,6 +28,11 @@ const KEY_RECORDS = 'lg.records.v1'
 const KEY_META = 'lg.meta.v1'
 const KEY_DRAFT = 'lg.draft.v1'
 const KEY_PREFS = 'lg.prefs.v1'
+/**
+ * 备份账本单独一个键，不塞进 KEY_META：
+ * touchMeta / syncFirstAt 都是"整份覆盖"写，混在一起会被顺手抹掉。
+ */
+const KEY_BACKUP = 'lg.backup.v1'
 
 const MAX_RECORDS = 1000
 /** 软删记录保留 24 小时再物理清除，够覆盖撤销与误操作排查 */
@@ -700,6 +705,53 @@ function savePrefs(patch) {
   }
 }
 
+/* ---------------------------- 备份账本 ---------------------------- */
+
+/**
+ * 备份账本：上次导出成功的时间、当时导出多少条、以及"以后再说"的起点。
+ * 这里只做读写；"该不该提醒"在 utils/backup.js（那边是纯函数，边界被测过）。
+ */
+function backupInfo() {
+  let raw = null
+  try {
+    raw = wx.getStorageSync(KEY_BACKUP)
+  } catch (e) {
+    raw = null
+  }
+  const b = raw || {}
+  return {
+    at: typeof b.at === 'number' ? b.at : 0,
+    total: typeof b.total === 'number' ? b.total : 0,
+    snoozeAt: typeof b.snoozeAt === 'number' ? b.snoozeAt : 0
+  }
+}
+
+/**
+ * 导出成功才调用。
+ * total 要传「含归档」的总数——导出范围已经包含归档，两边口径必须一致，
+ * 否则归档的那几条会让账本永远觉得"还有新东西没备"。
+ */
+function markBackup(total) {
+  const next = { at: Date.now(), total: total || 0, snoozeAt: 0 }
+  try {
+    wx.setStorageSync(KEY_BACKUP, next)
+  } catch (e) {
+    console.error('[store] backup write failed', e)
+  }
+  return next
+}
+
+/** 点"以后再说"：不动上次备份的记录，只记一个静默起点 */
+function snoozeBackup(now) {
+  const next = Object.assign(backupInfo(), { snoozeAt: now || Date.now() })
+  try {
+    wx.setStorageSync(KEY_BACKUP, next)
+  } catch (e) {
+    console.error('[store] backup snooze failed', e)
+  }
+  return next
+}
+
 /**
  * 本机占用，两本账要分开看：
  * 1) storage：wx.setStorage 的键值存储，记录数组 + 偏好 + 草稿都在这里。
@@ -785,5 +837,8 @@ module.exports = {
   getDraft,
   clearDraft,
   getPrefs,
-  savePrefs
+  savePrefs,
+  backupInfo,
+  markBackup,
+  snoozeBackup
 }

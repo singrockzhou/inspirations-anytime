@@ -47,6 +47,20 @@
   </scroll-view>
 
   <!--
+    备份提示：记录只在微信给小程序分的沙箱里，删掉小程序、清理微信存储、
+    换手机都会一起清掉，而且没有云端副本可恢复。攒够条数、或久没备份时
+    在这里提一条：点整条直接导出，按 × 静默 7 天。做成细横幅而不是弹窗，
+    是因为它不该有打断成本——看得见、点一下就能处理掉，不处理也不拦路。
+  -->
+  <view class="bk" wx:if="{{backup}}" catchtap="onBackup">
+    <view class="bk-main">
+      <text class="bk-text">{{backup.text}}</text>
+      <text class="bk-tip">{{backup.tip}}</text>
+    </view>
+    <view class="bk-x" catchtap="onBackupClose"><text class="bk-xc">×</text></view>
+  </view>
+
+  <!--
     筛选条下面这一栏只放一样东西，优先级从高到低：
     今天还没记 → 那年今日 → 随便翻一条。
     提醒排在最前，是因为它会在记完之后自己消失，不会长期占着这栏。

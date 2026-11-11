@@ -598,6 +598,63 @@
 
 /* ================= 那年今日 ================= */
 
+/*
+ * 备份提示：一条细横幅，不是卡片。
+ * 它说的是"数据会丢"，不是"内容值得看"，所以压到最薄——比下面那张
+ * 回顾位矮一半，视觉上排在前面却不会抢走第一眼。
+ */
+.bk {
+  display: flex;
+  align-items: center;
+  margin: 0 0 18rpx;
+  padding: 14rpx 20rpx 14rpx 24rpx;
+  border-radius: 16rpx;
+  background: #fdf8ef;
+  border: 1rpx solid var(--line, #f0e7da);
+}
+
+.bk:active {
+  opacity: 0.85;
+}
+
+.bk-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+}
+
+/* 长文案（"已记 128 条 · 只在这台手机上"）先省略，别把 tip 挤出去 */
+.bk-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 24rpx;
+  color: #8a6a44;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bk-tip {
+  flex: 0 0 auto;
+  margin-left: 14rpx;
+  font-size: 24rpx;
+  color: var(--accent, #c4713f);
+}
+
+/* 关闭区留够手指宽度，别让 × 变成一个点不中的小字 */
+.bk-x {
+  flex: 0 0 auto;
+  margin-left: 6rpx;
+  padding: 6rpx 2rpx 6rpx 18rpx;
+}
+
+.bk-xc {
+  font-size: 30rpx;
+  line-height: 1;
+  color: #bcae9c;
+}
+
 .anni {
   margin: 2rpx 0 22rpx;
   padding: 24rpx 28rpx 26rpx;

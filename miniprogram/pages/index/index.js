@@ -6,6 +6,7 @@ const dialog = require('../../utils/dialog')
 const share = require('../../utils/share')
 const flip = require('../../utils/flip')
 const nudge = require('../../utils/nudge')
+const backup = require('../../utils/backup')
 
 const PAGE_SIZE = 20
 const UNDO_SECONDS = 5
@@ -125,6 +126,8 @@ Page({
     reviewTotal: 0,
     /** 打开即提醒：今天还没记就占住这一栏，记完一条自动让位 */
     nudge: null,
+    /** 备份提示：数据只在本机，攒够条数或久没备份时在顶部提一条 */
+    backup: null,
 
     /** 多选 */
     selectMode: false,
@@ -213,7 +216,8 @@ Page({
       anniversary: this.computeAnniversary(),
       // 和重温页用的是同一个口径（含归档），页面上写的条数不会和进去后看到的对不上
       reviewTotal: flip.total(),
-      nudge: this.computeNudge(stats)
+      nudge: this.computeNudge(stats),
+      backup: this.computeBackup(stats)
     })
     this.render()
   },
@@ -251,6 +255,65 @@ Page({
       filtering: this.data.filter !== 'all' || !!this.data.filterTag,
       selecting: this.data.selectMode
     })
+  },
+
+  /**
+   * 备份提示。
+   *
+   * 为什么要有：记录只存在微信给小程序分的沙箱里，用户删掉小程序、清理微信
+   * 存储、换手机，就一起没了，而且没有云端副本可恢复。唯一的跨设备通路是
+   * 「导出成文件 → 发给文件传输助手 → 新设备导入」，这条路只能用户自己走。
+   *
+   * 为什么不是弹窗：它不该有打断成本。做成筛选条下面一条细横幅，看得见、
+   * 点一下就处理、不想看就按 ×，比每次打开弹一个"请备份"体面得多。
+   *
+   * 该不该提、提什么话在 utils/backup.js（纯函数，边界被测过）。
+   */
+  computeBackup(stats) {
+    return backup.of(stats || store.stats(), store.backupInfo(), {
+      filtering: this.data.filter !== 'all' || !!this.data.filterTag,
+      selecting: this.data.selectMode
+    })
+  },
+
+  /** 首页就地备份，走的是「我的 → 导出到文件」同一条链路，不另写一份 */
+  onBackup() {
+    if (this.busyBackup) return
+    this.busyBackup = true
+    wx.showLoading({ title: '打包中', mask: true })
+
+    transfer
+      .exportBackup()
+      .then(res => {
+        wx.hideLoading()
+        this.busyBackup = false
+
+        if (res.mode === 'cancel') {
+          // 用户自己按了取消：这次停留期间别再摆着，下次打开重新判断
+          this.setData({ backup: null })
+          return
+        }
+
+        // 账本由 transfer.exportBackup 记账（含归档，且用户取消时不记），这里只收尾
+        this.setData({ backup: null })
+        wx.showToast({ title: '已生成备份，转发给文件传输助手', icon: 'none' })
+      })
+      .catch(err => {
+        wx.hideLoading()
+        this.busyBackup = false
+        if (err && err.code === 'cancel') return
+        dialog.alert({
+          title: '没导出成',
+          text: transfer.EXPORT_ERR[err && err.code] || '再试一次看看。'
+        })
+      })
+  },
+
+  /** 以后再说：静默 7 天，不是永久关掉，所以明确告诉他会再提 */
+  onBackupClose() {
+    store.snoozeBackup()
+    this.setData({ backup: null })
+    wx.showToast({ title: '7 天内不再提，备份还在「我的」', icon: 'none' })
   },
 
   render() {

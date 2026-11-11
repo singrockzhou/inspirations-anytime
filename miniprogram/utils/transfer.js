@@ -20,6 +20,19 @@ const MAX_MEDIA_TOTAL = 15 * 1024 * 1024
 /** 单条正文上限，与记录页的 maxlength 对齐；从剪贴板/文件进来的文字都按它截 */
 const MAX_TEXT = 1000
 
+/**
+ * 导出失败的码表。首页的备份横幅和「我的 → 导出到文件」是两个入口、同一条链路，
+ * 文案放在这里只写一次，改的时候不会漏掉另一个。
+ */
+const EXPORT_ERR = {
+  empty: '还没有记录可以导出。',
+  serialize: '数据转换失败，再试一次。',
+  write: '写文件失败，可能是本机空间不足。',
+  save: '保存文件失败，换个方式再试一次。',
+  share: '分享失败，请确认微信已登录。',
+  unsupported: '当前环境不支持导出，请用手机微信打开。'
+}
+
 const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
 function fs() {
@@ -210,7 +223,9 @@ function deliverFile(filePath, fileName) {
  */
 function exportBackup() {
   return new Promise((resolve, reject) => {
-    const records = store.list()
+    // 必须带上归档：归档只是"收起来"，不是"不要了"。少了这一步，用户换手机后
+    // 归档过的内容会静默消失，而且他永远不知道少了什么。
+    const records = store.list({ includeArchived: true })
     if (!records.length) {
       reject({ code: 'empty' })
       return
@@ -235,7 +250,12 @@ function exportBackup() {
     }
 
     deliverFile(filePath, fileName)
-      .then(res => resolve(Object.assign(res, built.stats)))
+      .then(res => {
+        // 文件真的交到用户手里（转发出去或存到电脑）才记账。用户自己取消不算，
+        // 否则账本会显示"已备份"，而他手里其实什么都没有。
+        if (res.mode !== 'cancel') store.markBackup(records.length)
+        resolve(Object.assign(res, built.stats))
+      })
       .catch(reject)
   })
 }
@@ -577,6 +597,7 @@ module.exports = {
   APP_TAG,
   FORMAT_VERSION,
   MAX_TEXT,
+  EXPORT_ERR,
   exportBackup,
   exportText,
   importBackup,

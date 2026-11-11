@@ -69,6 +69,13 @@
   <!-- 换手机：一个文件带走，一个文件带回 -->
   <view class="sec">换手机</view>
   <view class="block">
+    <view class="row">
+      <view class="row-main">
+        <text class="row-k">上次备份</text>
+        <text class="row-sub">删小程序、换手机都会没</text>
+      </view>
+      <text class="row-v {{backupWarn ? 'warn' : ''}}">{{backupText}}</text>
+    </view>
     <view class="row tap" bindtap="onExport">
       <view class="row-main">
         <text class="row-k">导出到文件</text>
@@ -112,7 +119,8 @@
   <view class="storage-warn" wx:if="{{storageWarn}}" bindtap="onStorage">{{storageWarn}}</view>
 
   <view class="note">
-    记录只存在这台手机上，不上传、不联网。换手机时先导出成文件，在新手机上导入即可。
+    记录只存在这台手机上，不上传、不联网。删掉小程序、清理微信存储或换手机，本机记录会一起被清掉，且无法找回。
+    所以换手机前先用「导出到文件」带走，到新手机上导入即可。
     导入只做新增，同一条记录不会重复，也不会覆盖新手机上刚记的内容。
   </view>
 

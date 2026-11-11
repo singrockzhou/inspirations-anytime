@@ -13,15 +13,6 @@ const WECHAT = '不卷的迭代老爸'
 const EMAIL = '77111904@qq.com'
 const CONTACT = '作者：' + AUTHOR + '\n微信：' + WECHAT + '\n邮箱：' + EMAIL
 
-const EXPORT_ERR = {
-  empty: '还没有记录可以导出。',
-  serialize: '数据转换失败，再试一次。',
-  write: '写文件失败，可能是本机空间不足。',
-  save: '保存文件失败，换个方式再试一次。',
-  share: '分享失败，请确认微信已登录。',
-  unsupported: '当前环境不支持导出，请用手机微信打开。'
-}
-
 const IMPORT_ERR = {
   nofile: '没选到文件。',
   choose: '没能打开选择器，再试一次。',
@@ -62,7 +53,10 @@ Page({
     heat: [],
     heatMax: 0,
     busy: false,
-    version: '1.7.4'
+    /** 备份账本的两个事实：什么时候备过、该不该标成提醒色 */
+    backupText: '',
+    backupWarn: false,
+    version: '1.7.5'
   },
 
   onShow() {
@@ -77,6 +71,14 @@ Page({
     // 两本账分开显示：索引在 10MB 键值存储里，图片/录音在 200MB 本地文件里
     const storageText = u.limitKB ? sizeText(u.storageKB) + ' / ' + sizeText(u.limitKB) : sizeText(u.storageKB)
     const mediaText = bytesText(u.mediaBytes) + (u.mediaCount ? ' · ' + u.mediaCount + ' 个' : '')
+
+    // 备份账本：这里只摆事实（什么时候、多少条），该不该提醒由首页判断
+    const bk = store.backupInfo()
+    const bkDays = bk.at ? date.dayDiff(bk.at, Date.now()) : -1
+    const backupText = !bk.at
+      ? '还没备份过'
+      : (bkDays <= 0 ? '今天' : bkDays + ' 天前') + (bk.total ? ' · ' + bk.total + ' 条' : '')
+    const backupWarn = !bk.at || bkDays >= 7
 
     let storageWarn = ''
     if (u.percent >= 80) storageWarn = '记录索引快到上限了，建议先导出备份，再清掉一些旧记录。'
@@ -97,6 +99,8 @@ Page({
       mediaText: mediaText,
       mediaCount: u.mediaCount,
       storageWarn: storageWarn,
+      backupText: backupText,
+      backupWarn: backupWarn,
       heat: heat.cells,
       heatMax: heat.max
     })
@@ -149,7 +153,7 @@ Page({
         wx.hideLoading()
         this.setData({ busy: false })
         if (!err || err.code === 'cancel') return
-        dialog.alert({ title: '没导出成', text: EXPORT_ERR[err.code] || '再试一次看看。' })
+        dialog.alert({ title: '没导出成', text: transfer.EXPORT_ERR[err.code] || '再试一次看看。' })
       })
   },
 
