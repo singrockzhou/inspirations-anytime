@@ -37,6 +37,8 @@
   border: 1rpx solid #f1e8db;
   box-shadow: 0 8rpx 28rpx rgba(120, 96, 66, 0.07);
   overflow: hidden;
+  /* 左右滑的位移落在纸上：交给合成层，拖动时不重排整页 */
+  will-change: transform;
 }
 
 .paper::before {

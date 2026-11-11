@@ -1,12 +1,21 @@
-<view class="page">
+<!-- 手势挂在整页根节点：手指落在纸、缩略图、按钮上都算，
+     纵向滑动仍由内部 scroll-view 接管（横纵判定见 onTouchMove） -->
+<view
+  class="page"
+  bindtouchstart="onTouchStart"
+  bindtouchmove="onTouchMove"
+  bindtouchend="onTouchEnd"
+  bindtouchcancel="onTouchEnd"
+>
 
   <view class="head">
     <text class="head-t">随便翻一条</text>
-    <text class="head-s" wx:if="{{total}}">从 {{total}} 条里抽的</text>
+    <text class="head-s" wx:if="{{total}}">{{total > 1 ? '左右滑能翻 · 共 ' + total + ' 条' : '就这一条'}}</text>
   </view>
 
   <block wx:if="{{item}}">
-    <view class="paper">
+    <!-- 跟手位移只作用在纸上：标题与按钮不动，像把一张卡抽走 -->
+    <view class="paper" style="transform:translateX({{swipeDx}}px);transition:{{swipeTransition}};">
       <view class="meta">
         <text class="ago">{{agoText}}<text wx:if="{{photoCount > 1}}"> · {{photoCount}} 张照片</text></text>
         <text class="star" wx:if="{{starred}}">★</text>

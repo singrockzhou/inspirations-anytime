@@ -32,8 +32,11 @@ function all() {
 
 function pool(excludeId) {
   const list = all()
-  let rest = list.filter(r => r.id !== excludeId)
-  if (!rest.length) rest = list
+  // 除开当前这条一条都没有 → 池子就是空的。
+  // 这里绝不能退回"含自己的全量"：那会让 next() 把当前这条再发一次，
+  // 页面表现为"滑了但什么也没发生"，比明确说"没别的了"更让人困惑。
+  const rest = list.filter(r => r.id !== excludeId)
+  if (!rest.length) return []
   const old = rest.filter(r => Date.now() - r.createdAt > WEEK)
   return old.length ? old : rest
 }
@@ -104,6 +107,19 @@ function total() {
   return all().length
 }
 
+/**
+ * 库里只有一条时，这一条就是全部。
+ * next() 在这种情况下会如实返回 null（没别的可翻），
+ * 但首次进页面总得有东西可看，所以单独给一个"就这一条"的入口。
+ */
+function only() {
+  const list = all()
+  if (list.length !== 1) return null
+  stack = [list[0].id]
+  cur = 0
+  return list[0]
+}
+
 function reset() {
   stack = []
   cur = -1
@@ -115,5 +131,6 @@ module.exports = {
   prev,
   canPrev,
   total,
+  only,
   reset
 }

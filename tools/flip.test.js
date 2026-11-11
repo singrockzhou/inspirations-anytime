@@ -73,16 +73,26 @@ global.Page = d => {
   def = d
 }
 require(path.join(B, 'pages', 'detail', 'detail.js'))
+const detailDef = def
 
-function page() {
+// 重温页单独加载：两页各有一份 Page 定义，不能互相覆盖
+let reviewDef = null
+global.Page = d => {
+  reviewDef = d
+}
+require(path.join(B, 'pages', 'review', 'review.js'))
+
+function page(d) {
+  const source = d || detailDef
   return Object.assign(
     {
-      data: JSON.parse(JSON.stringify(def.data)),
-      setData(patch) {
+      data: JSON.parse(JSON.stringify(source.data)),
+      setData(patch, cb) {
         Object.assign(this.data, patch)
+        if (cb) cb()
       }
     },
-    def
+    source
   )
 }
 
@@ -196,6 +206,97 @@ const wait = ms => new Promise(r => setTimeout(r, ms))
   p.onPrev()
   ok('翻不动时不动 id', p.id === oldest.id)
   ok('翻不动时给了一句提示', /最早/.test(p.data.toastText), p.data.toastText)
+
+  console.log('6) 重温页：左右滑切换（此前手势只加在详情页，这一页根本没绑事件）')
+  const fs = require('fs')
+  const wxml = fs.readFileSync(path.join(B, 'pages', 'review', 'review.wxml'), 'utf8')
+  ok(
+    '模板上确实绑了 touchstart/move/end',
+    /bindtouchstart="onTouchStart"/.test(wxml) &&
+      /bindtouchmove="onTouchMove"/.test(wxml) &&
+      /bindtouchend="onTouchEnd"/.test(wxml)
+  )
+  ok('纸上有跟手位移样式', /translateX\(\{\{swipeDx\}\}px\)/.test(wxml))
+
+  const r = page(reviewDef)
+  r.onLoad()
+  ok('进页就落在一条真实记录上', !!(r.data.item && r.data.item.id))
+  ok('总数与库里一致', r.data.total === 6)
+
+  r.onTouchStart({ touches: [{ clientX: 200, clientY: 420 }] })
+  r.onTouchMove({ touches: [{ clientX: 206, clientY: 350 }] })
+  ok('纵向拖动不接管（留给 scroll-view 滚正文）', r.data.swipeDx === 0)
+  r.onTouchEnd({})
+
+  r.onTouchStart({ touches: [{ clientX: 300, clientY: 420 }] })
+  r.onTouchMove({ touches: [{ clientX: 270, clientY: 424 }] })
+  ok('横向拖动跟手（阻尼 0.4）', Math.round(r.data.swipeDx) === -12, r.data.swipeDx)
+  const stayId = r.data.item.id
+  r.onTouchEnd({})
+  ok('没到阈值：回弹', r.data.swipeDx === 0)
+  ok('没到阈值：不换条', r.data.item.id === stayId)
+
+  const firstId = r.data.item.id
+  scrolled = 0
+  r.onTouchStart({ touches: [{ clientX: 330, clientY: 420 }] })
+  r.onTouchMove({ touches: [{ clientX: 20, clientY: 424 }] })
+  ok('拖到 96 上限（不把纸拖飞）', r.data.swipeDx === -96, r.data.swipeDx)
+  r.onTouchEnd({})
+  await wait(340)
+  const nextId = r.data.item.id
+  ok('左滑 → 下一条', nextId !== firstId, nextId)
+  ok('换条后位移归零', r.data.swipeDx === 0)
+  ok('换条后回到页首', scrolled > 0)
+
+  r.onTouchStart({ touches: [{ clientX: 20, clientY: 420 }] })
+  r.onTouchMove({ touches: [{ clientX: 330, clientY: 424 }] })
+  ok('右滑跟手到 +96', r.data.swipeDx === 96, r.data.swipeDx)
+  r.onTouchEnd({})
+  await wait(340)
+  ok('右滑 → 上一条（回到刚看过的那条）', r.data.item.id === firstId, r.data.item.id)
+
+  r.onTouchStart({ touches: [{ clientX: 330, clientY: 420 }] })
+  r.onTouchMove({ touches: [{ clientX: 20, clientY: 424 }] })
+  r.onTouchEnd({})
+  await wait(340)
+  ok('右滑之后再左滑：原路回到下一条', r.data.item.id === nextId, r.data.item.id)
+
+  console.log('7) 首尾边界')
+  const keepAll = recs.slice()
+  recs.length = 1
+  flip.reset()
+  flip.enter(recs[0].id)
+  ok('只有一条时 next() 返回 null（不再把自己再发一次）', flip.next() === null)
+
+  const r1 = page(reviewDef)
+  r1.onLoad()
+  ok('只有一条时也照常展示这一条', !!(r1.data.item && r1.data.item.id === keepAll[0].id), r1.data.item)
+  ok('只有一条时 total=1', r1.data.total === 1)
+  const onlyId = r1.data.item.id
+  r1.onTouchStart({ touches: [{ clientX: 330, clientY: 420 }] })
+  r1.onTouchMove({ touches: [{ clientX: 20, clientY: 424 }] })
+  ok('只有一条时左滑阻力更大', Math.abs(r1.data.swipeDx) < 40, r1.data.swipeDx)
+  r1.onTouchEnd({})
+  await wait(340)
+  ok('只有一条时左滑不换条', r1.data.item.id === onlyId)
+  ok('只有一条时不误报提示', r1.data.toastText === '', r1.data.toastText)
+
+  recs.length = 0
+  keepAll.forEach(x => recs.push(x))
+  const earliest = recs[0] // 30 天前那条，全批里最早
+  const r2 = page(reviewDef)
+  r2.onLoad()
+  flip.reset()
+  flip.enter(earliest.id)
+  r2.show(earliest)
+  ok('最早一条时 canPrev=false', r2.data.canPrev === false, r2.data.canPrev)
+  r2.onTouchStart({ touches: [{ clientX: 20, clientY: 420 }] })
+  r2.onTouchMove({ touches: [{ clientX: 320, clientY: 424 }] })
+  ok('到头时右滑阻力加大', Math.abs(r2.data.swipeDx) < 40, r2.data.swipeDx)
+  r2.onTouchEnd({})
+  await wait(340)
+  ok('到头时右滑不动', r2.data.item.id === earliest.id)
+  ok('到头时如实提示', /最早/.test(r2.data.toastText), r2.data.toastText)
 
   console.log('\n结果: ' + pass + ' passed, ' + fail + ' failed')
   process.exit(fail ? 1 : 0)
