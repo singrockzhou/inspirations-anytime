@@ -27,9 +27,12 @@
 /* 一张纸的感觉：白底、轻投影、左侧一道暖色书脊 */
 .paper {
   position: relative;
-  flex: 1;
+  /* 高度跟着内容走：内容少时纸就矮，里面不会留出一大块白 */
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
+  /* 最矮也要像一张纸：单张图时不至于缩成一条，纸下也不至于空掉半屏 */
+  min-height: 42vh;
   max-height: 62vh;
   padding: 36rpx 36rpx 28rpx;
   border-radius: 28rpx;
@@ -72,8 +75,10 @@
 }
 
 .body {
-  flex: 1;
-  /* 有图有音时正文让位：多给 6vh，九宫格也能一屏看全两三行 */
+  /* 只能是"可按内容长"，不能是"必须占满"——后者就是纸内大块空白的来源 */
+  flex: 0 1 auto;
+  min-height: 0;
+  /* 长文上限：再多就在这里滚，纸不再往上顶 */
   max-height: 46vh;
 }
 
@@ -222,6 +227,8 @@
 }
 
 .ops {
+  /* 纸矮的时候把按钮压在底部，空白收在纸与按钮之间 */
+  margin-top: auto;
   display: flex;
   align-items: center;
   padding: 28rpx 0 0;

@@ -993,3 +993,136 @@ node tools/dialog.test.js  → 27 passed
 node tools/media.test.js   → 31 passed
 node tools/design-lint.js  → ✓ 通过
 ```
+
+## 十九、竖向留白归位 + 文案去代码化（v1.7.2）
+
+### 19.1 两页的空白，不是"感觉空"，是三个写法凑出来的
+
+**详情页（这一条）**
+
+```
+.page { min-height: 100vh; padding: 32rpx 40rpx calc(120rpx + safe); }
+```
+
+- `min-height: 100vh` 但**没有任何 flex 分配**：内容少时，剩余空间全部堆在最后一个元素之后，也就是页尾。
+- `padding-bottom: 120rpx` 本来是为了别贴着系统手势条，实际变成了"再叠一层留白"。
+- 三段操作（5 个按钮 / 发给朋友 / 翻页条）各占一行，`margin-top` 又给了 64/16/40rpx，
+  内容只有两行字，操作区却撑到 300rpx 以上——主次是反的。
+
+实测：两行字的记录，翻页条之后到屏底还有约 210px 什么都没有。
+
+**重温页（随便翻一条）**
+
+```css
+.paper { flex: 1; max-height: 62vh; }
+.body  { flex: 1; max-height: 46vh; }
+```
+
+- `flex: 1` 是"必须占满"：纸被拉到 62vh，正文区又被拉到 46vh，
+  内容只有一张图时，图下面自然多出一大块白（约 150px）。
+- 纸有 `max-height` 上限，`.page` 的剩余空间没人接住，又堆到页尾（约 150px）。
+- `.foot`（时间）`text-align: right` 贴着纸底，与照片隔着一整片空白，看起来像"忘了填内容"。
+
+### 19.2 改法：空白必须有归属
+
+| 位置 | 改前 | 改后 | 为什么 |
+| --- | --- | --- | --- |
+| 详情页 `.page` | 无 flex，页尾吃空白 | `display:flex; flex-direction:column` | 剩余空间才有"归谁"的余地 |
+| 详情页结构 | 内容与操作并列 | `.main`（贴顶）+ `.bottom`（`margin-top:auto`） | 内容少 → 操作条贴底，底部有锚点 |
+| `.bottom` | 无边界 | 1rpx 淡线上边框 + 32rpx 内距 | 那片空白变成"内容下方留白"，被线封口，不再像页面没做完 |
+| 详情页 `padding-bottom` | `120rpx + safe` | `24rpx + safe` | 安全区不该兼职留白 |
+| 页内间距 | meta 56 / actions 64 / flipbar 40+32 | 40 / 0（由 bottom 承担）/ 24+24 | 收紧竖向节奏，把高度让给内容 |
+| 重温页 `.paper` | `flex:1; max-height:62vh` | `flex:0 0 auto; min-height:42vh; max-height:62vh` | 高度跟内容走；42vh 保证单张图时仍像"一张纸"，不会缩成一条 |
+| 重温页 `.body` | `flex:1` | `flex:0 1 auto; min-height:0; max-height:46vh` | 短内容不撑高，长内容仍在上限内滚动 |
+| 重温页 `.ops` | 紧跟卡片 | `margin-top:auto` | 按钮贴底，空白收在纸与按钮之间 |
+
+改后：详情页底部留白从 ~210px 降到 ~30px；重温页纸内空白消失（时间紧跟照片），
+纸下空白从"纸内 150 + 纸下 150"合并为"纸与按钮之间一段"。
+
+### 19.3 弹窗的问题：一段讲配置的话出现在了用户面前
+
+原文案（v1.7.1）：
+
+> **还差一步**
+> 每日提醒要靠微信订阅消息，需要先在小程序后台创建模板，把模板 ID 填进 utils/remind.js。
+> 现在可以先把想被提醒的时间记下来。
+> ［算了］［选时间］
+
+四个问题，性质不同：
+
+1. **混入代码**：`utils/remind.js` 是源码路径，`模板 ID` 是后台术语。用户不但看不懂，
+   而且这件事他根本做不到——那是开发者在自己机器上改文件。
+2. **责任错位**："还差一步"暗示用户少做了一步，实际是功能还没接通。
+3. **伪承诺**：点「选时间」会走 `pickTime()`，而它只弹一句 toast「点右侧时间设置」——
+   按钮承诺了一个不会发生的跳转，是最容易让人失去信任的那类交互。
+4. **状态与文案不一致**：选完时间后 toast 说「记下了 21:00」，
+   但开关仍是关的；用户会以为"提醒已经设成 21 点了"，到了点却没有通知。
+
+### 19.4 上线发布时怎么处理
+
+**原则：没接通的能力，不进发布包的用户可见路径。**
+不是"写一段说明告诉用户为什么用不了"，而是"用不了就不出现"。
+
+具体三层：
+
+| 层 | 做法 | 代码 |
+| --- | --- | --- |
+| 版本门控 | 发布版（`envVersion === 'release'`）且未配模板 → 整块（含「习惯」标题）不渲染；开发版/体验版照常显示，方便联调和评审 | `utils/remind.js` 的 `visible()` / `status().visible`，`pages/me/me.wxml` 用 `wx:if="{{remindShow}}"` 包住 |
+| 上线前置检查 | 发布前必须确认：① 后台已申请订阅消息模板并填好 `TMPL_ID`；② 隐私保护指引已勾选剪切板/相册；③ 真机走一遍"开启→到点收到通知"。三者缺一，提醒入口在发布版里自动消失 | 人工 checklist |
+| 文案守卫 | UI 文案里出现 `utils/`、`.js`、`模板 ID`、`小程序后台`、`openid` 直接判失败 | `tools/design-lint.js` 第 6 条 |
+
+第 6 条 lint 只扫"会被念给用户听"的地方：`dialog.alert/confirm` 的实参块，
+以及命名以 `_ERR / _TEXT / _COPY / _MSG / _TIP` 结尾的文案常量对象。
+不全文扫——源码注释里出现的真实路径是给开发者看的，不该报错。
+
+### 19.5 面向用户的写法：三条规则
+
+1. **说"现在能做什么"，不说"你需要去配什么"**
+   改后文案：「提醒还没开通 / 每日提醒要用微信的订阅消息，还差最后一步才能真的发出通知。
+   可以先把时间选好，开通后就会按这个点提醒你。」——不出现模板、后台、文件名。
+2. **按钮的动词必须真的会发生**
+   删掉「选时间」这个伪动作，改成单按钮「知道了」；时间就在下面那行，想选随时可点。
+   `pickTime()` 一并删除。
+3. **状态与文案必须对齐**
+   行副标题与右侧值做成三态一致：`未开通 / 未开通`、`还没开 / 关`、`到点提醒你记一条 / 已开`。
+   时间 toast 也分开说：已开通时「提醒时间改成 21:00」，未开通时「记下 21:00，开通后按点提醒」。
+
+### 19.6 改动清单
+
+```
+改  pages/detail/detail.wxml  内容包 .main、操作包 .bottom
+改  pages/detail/detail.wxss  .page 改 flex 列；.main 不撑高；.bottom 贴底 + 淡线上边框；收紧间距
+改  pages/review/review.wxss  .paper 高随内容（min 42vh / max 62vh）；.body 不再占满；.ops 贴底
+改  utils/remind.js           新增 envVersion() / visible()；status 增加 visible / published
+改  pages/me/me.js            load 带出 remindShow；onRemind 改 alert + 用户语言；删 pickTime；时间 toast 分状态
+改  pages/me/me.wxml          提醒块整体 wx:if="{{remindShow}}"；副标题/右值三态对齐
+改  tools/design-lint.js      第 6 条：UI 文案不得出现代码
+新  tools/layout.test.js      18 条：空白归谁、纸高来源、安全区不被当留白、提醒块可见性
+新  tools/remind.test.js      9 条：开发/体验/发布三个版本下的可见性；关提醒不动时间
+改  pages/me/me.js            版本 1.7.2
+改  README.md                 本章
+```
+
+### 19.7 验证场景
+
+1. 两行字的记录进详情页 → 底部由操作条收口，操作条上方一条淡线，屏底不再有一大片空；
+2. 很长的记录 → 正常滚动，操作条落在内容之后（`margin-top:auto` 在无剩余空间时不生效）；
+3. 重温页单图 → 纸高约 42vh，时间紧跟照片，纸下空白只出现在纸与按钮之间；
+4. 重温页长文 → 纸到 62vh 停住，正文在内部滚动；
+5. 开发版进「我的」→ 提醒行显示「暂时还不能用 / 未开通」，点开只有一条说明，无「选时间」伪按钮；
+6. 发布版（未配模板）进「我的」→ 「习惯」整块不出现，页面直接从「整理」跳到「换手机」；
+7. 未开通时选时间 → toast「记下 21:00，开通后按点提醒」，不会让人以为已生效；
+8. 文案里再写 `utils/xxx.js` → `node tools/design-lint.js` 直接失败（已用探针文件验证过能抓到）。
+
+### 19.8 验证命令
+
+```
+node tools/layout.test.js  → 18 passed
+node tools/remind.test.js  → 9 passed
+node tools/image.test.js   → 18 passed
+node tools/collect.test.js → 27 passed
+node tools/flip.test.js    → 49 passed
+node tools/dialog.test.js  → 27 passed
+node tools/media.test.js   → 31 passed
+node tools/design-lint.js  → ✓ 通过
+```

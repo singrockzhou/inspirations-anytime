@@ -55,8 +55,9 @@ Page({
     remindOn: false,
     remindTime: '21:00',
     remindReady: false,
+    remindShow: true,
     busy: false,
-    version: '1.7.1'
+    version: '1.7.2'
   },
 
   onShow() {
@@ -96,7 +97,8 @@ Page({
       heatMax: heat.max,
       remindOn: r.on,
       remindTime: r.timeText,
-      remindReady: r.configured
+      remindReady: r.configured,
+      remindShow: r.visible
     })
   },
 
@@ -120,17 +122,12 @@ Page({
    */
   onRemind() {
     if (!this.data.remindReady) {
-      dialog
-        .confirm({
-          title: '还差一步',
-          text:
-            '每日提醒要靠微信订阅消息，需要先在小程序后台创建模板，把模板 ID 填进 utils/remind.js。\n\n现在可以先把想被提醒的时间记下来。',
-          cancelText: '算了',
-          confirmText: '选时间'
-        })
-        .then(r => {
-          if (r.confirmed) this.pickTime()
-        })
+      // 发布版不会出现这个入口（见 utils/remind.js 的 visible()），
+      // 这里只在开发版/体验版可见，且只说"什么时候能用"，不讲怎么配。
+      dialog.alert({
+        title: '提醒还没开通',
+        text: '每日提醒要用微信的订阅消息，还差最后一步才能真的发出通知。\n\n可以先把时间选好，开通后就会按这个点提醒你。'
+      })
       return
     }
 
@@ -168,12 +165,9 @@ Page({
     const parts = value.split(':')
     remind.setTime(Number(parts[0]) || 0, Number(parts[1]) || 0)
     this.load()
-    wx.showToast({ title: '记下了 ' + value, icon: 'none' })
-  },
-
-  pickTime() {
-    // picker 只能由用户点开，这里给一句引导，避免"点了没反应"
-    wx.showToast({ title: '点右侧时间设置', icon: 'none' })
+    // 说清"只是记下了时间"，别说成"提醒已设好"——开关还没打开
+    const tip = this.data.remindReady ? '提醒时间改成 ' + value : '记下 ' + value + '，开通后按点提醒'
+    wx.showToast({ title: tip, icon: 'none' })
   },
 
   /* ------------------------- 换手机：导出 ------------------------- */

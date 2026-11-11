@@ -1,6 +1,25 @@
+/**
+ * 竖向结构：内容区贴顶、操作区贴底，中间的空隙由 auto margin 吸收。
+ * 内容短的时候，剩余空白只出现在"正文"与"按钮"之间；
+ * 页面最底部是一个真实存在的操作条，而不是一片什么都没有的背景。
+ */
 .page {
   min-height: 100vh;
-  padding: 32rpx 40rpx calc(120rpx + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  padding: 24rpx 40rpx calc(24rpx + env(safe-area-inset-bottom));
+}
+
+.main {
+  flex: 0 0 auto;
+}
+
+.bottom {
+  margin-top: auto;
+  padding-top: 32rpx;
+  /* 一道淡线把页面切成"内容 / 操作"两段：
+     内容短时那片空白就成了内容下方的留白，而不是"页面没做完" */
+  border-top: 1rpx solid var(--line, #f0e7da);
 }
 
 .head {
@@ -76,7 +95,7 @@
 }
 
 .meta {
-  margin-top: 56rpx;
+  margin-top: 40rpx;
   display: flex;
   flex-direction: column;
 }
@@ -88,7 +107,6 @@
 }
 
 .actions {
-  margin-top: 64rpx;
   display: flex;
   flex-wrap: wrap;
 }
@@ -194,7 +212,7 @@
 
 /* 分享按钮：抹掉原生 button 的边框与底色 */
 .share {
-  margin-top: 16rpx;
+  margin-top: 12rpx;
   height: 84rpx;
   line-height: 84rpx;
   border-radius: 42rpx;
@@ -215,8 +233,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 40rpx;
-  padding-top: 32rpx;
+  margin-top: 24rpx;
+  padding-top: 24rpx;
   border-top: 1rpx solid var(--line, #f0e7da);
 }
 

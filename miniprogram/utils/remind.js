@@ -29,6 +29,30 @@ function configured() {
   return !!TMPL_ID
 }
 
+/**
+ * 当前跑在什么版本上：develop / trial / release。
+ * 用来判断"这个能力能不能给用户看"——发布版里绝不能出现只有开发者能懂的东西。
+ */
+function envVersion() {
+  try {
+    const info = typeof wx.getAccountInfoSync === 'function' ? wx.getAccountInfoSync() : null
+    return (info && info.miniProgram && info.miniProgram.envVersion) || 'develop'
+  } catch (e) {
+    return 'develop'
+  }
+}
+
+/**
+ * 这个入口该不该出现在界面上。
+ *
+ * - 发布版（release）：只有真的能发通知时才展示。功能没接通就不出现，
+ *   而不是让用户点进去看一段讲配置的说明——那是把开发进度当成用户的问题。
+ * - 开发版/体验版：始终展示，方便自己联调、也方便评审时看到当前状态。
+ */
+function visible() {
+  return configured() || envVersion() !== 'release'
+}
+
 /** 提醒设置 + 能力状态，给页面一次性读 */
 function status() {
   const prefs = store.getPrefs()
@@ -38,7 +62,9 @@ function status() {
     minute: prefs.remindMinute,
     timeText: clockText(prefs.remindHour, prefs.remindMinute),
     canAsk: canAsk(),
-    configured: configured()
+    configured: configured(),
+    visible: visible(),
+    published: envVersion() === 'release'
   }
 }
 
@@ -91,6 +117,8 @@ module.exports = {
   TMPL_ID,
   configured,
   canAsk,
+  envVersion,
+  visible,
   status,
   enable,
   disable,

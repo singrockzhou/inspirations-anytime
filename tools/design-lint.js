@@ -9,6 +9,7 @@
  *  3. 按钮高度 ≥ 88rpx（可点区下限）
  *  4. 圆角、字号只能取设计规范里的档位
  *  5. 页面里不许直接调 wx.showModal（统一走 utils/dialog）
+ *  6. 给用户看的文案里不许出现代码：文件路径、源码文件名、后台术语
  */
 const fs = require('fs')
 const path = require('path')
@@ -108,6 +109,79 @@ function walk(dir) {
 }
 walk(ROOT)
 
+/* ---------- 6. 用户可见文案里不许出现代码 ---------- */
+/**
+ * 只扫"会被念给用户听"的地方：
+ *   - dialog.alert(...) / dialog.confirm(...) 的实参块
+ *   - 形如 COLLECT_ERR / EXPORT_TEXT 的文案常量对象
+ * 全文扫会把注释里的真实路径也算进来，那些是给人看的，不该报。
+ */
+const CODE_IN_UI = [
+  { re: /utils\//, why: '内部文件路径 utils/' },
+  { re: /\/pages\//, why: '内部页面路径 /pages/' },
+  { re: /[\w-]+\.js\b/, why: '源码文件名 .js' },
+  { re: /TMPL_ID/, why: '配置常量 TMPL_ID' },
+  { re: /模板\s*ID/, why: '“模板 ID”是后台术语' },
+  { re: /小程序后台/, why: '“小程序后台”是后台术语' },
+  { re: /\bopenid\b/i, why: '技术字段 openid' }
+]
+
+/** 从一个 '(' 开始按括号配平，取出整段实参 */
+function argBlock(src, from) {
+  let depth = 0
+  for (let i = from; i < src.length; i++) {
+    if (src[i] === '(') depth++
+    else if (src[i] === ')') {
+      depth--
+      if (!depth) return src.slice(from, i + 1)
+    }
+  }
+  return src.slice(from)
+}
+
+function copyBlocks(src) {
+  const out = []
+  const callRe = /dialog\s*\.\s*(alert|confirm)\s*\(/g
+  let m
+  while ((m = callRe.exec(src))) out.push(argBlock(src, src.indexOf('(', m.index)))
+
+  const constRe = /const\s+([A-Z][A-Z0-9_]*)\s*=\s*\{/g
+  while ((m = constRe.exec(src))) {
+    if (!/_(ERR|TEXT|COPY|MSG|TIP)$/.test(m[1])) continue
+    const start = src.indexOf('{', m.index)
+    let depth = 0
+    for (let i = start; i < src.length; i++) {
+      if (src[i] === '{') depth++
+      else if (src[i] === '}') {
+        depth--
+        if (!depth) {
+          out.push(src.slice(start, i + 1))
+          break
+        }
+      }
+    }
+  }
+  return out
+}
+
+function checkCopy(dir) {
+  fs.readdirSync(dir).forEach(name => {
+    const p = path.join(dir, name)
+    const st = fs.statSync(p)
+    if (st.isDirectory()) return checkCopy(p)
+    if (!name.endsWith('.js')) return
+    const src = fs.readFileSync(p, 'utf8')
+    copyBlocks(src).forEach(block => {
+      CODE_IN_UI.forEach(rule => {
+        const hit = block.match(rule.re)
+        if (hit) fail('文案里混进代码（' + rule.why + '）：' + path.relative(ROOT, p) + ' → ' + hit[0])
+      })
+    })
+  })
+}
+checkCopy(path.join(ROOT, 'pages'))
+checkCopy(path.join(ROOT, 'components'))
+
 /* ---------- 输出 ---------- */
 notes.forEach(n => console.log('  · ' + n))
 if (errors.length) {
@@ -115,4 +189,4 @@ if (errors.length) {
   errors.forEach(e => console.log('  - ' + e))
   process.exit(1)
 }
-console.log('\n✓ 设计检查通过：颜色/单位/可点区/圆角/字号/弹窗出口 均符合规范')
+console.log('\n✓ 设计检查通过：颜色/单位/可点区/圆角/字号/弹窗出口/文案洁净 均符合规范')

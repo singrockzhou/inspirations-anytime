@@ -8,74 +8,82 @@
   bindtouchcancel="onTouchEnd"
 >
 
-  <view class="head">
-    <view class="badge">{{typeLabel}}</view>
-    <view class="head-right">
-      <text class="star {{starred ? 'on' : ''}}" catchtap="onToggleStar">{{starred ? '★ 已加星' : '☆ 加星'}}</text>
-      <text class="time">{{timeText}}</text>
+  <!-- 内容区：内容短时也贴顶，不参与撑高 -->
+  <view class="main">
+
+    <view class="head">
+      <view class="badge">{{typeLabel}}</view>
+      <view class="head-right">
+        <text class="star {{starred ? 'on' : ''}}" catchtap="onToggleStar">{{starred ? '★ 已加星' : '☆ 加星'}}</text>
+        <text class="time">{{timeText}}</text>
+      </view>
+    </view>
+
+    <!-- 文字 -->
+    <view class="text" wx:if="{{record.type === 'text'}}">{{record.content}}</view>
+
+    <!-- 语音 -->
+    <block wx:elif="{{record.type === 'voice'}}">
+      <view class="player" catchtap="onPlay">
+        <view class="play {{playing ? 'on' : ''}}">{{playing ? '■' : '▶'}}</view>
+        <text class="dur">{{record.duration}}″</text>
+        <text class="state">{{playing ? '正在播放' : '点一下听'}}</text>
+      </view>
+      <view class="text sub" wx:if="{{record.content}}">{{record.content}}</view>
+    </block>
+
+    <!-- 照片：统一走缩略图网格（一张按原比例，多张按张数分列，最多 9 格） -->
+    <block wx:else>
+      <photo-grid paths="{{photos}}" single="auto" />
+      <view class="text sub" wx:if="{{record.content}}">{{record.content}}</view>
+    </block>
+
+    <!-- 没有文字时，补一句就能被搜到 -->
+    <view class="need-text" wx:if="{{needText}}" catchtap="onAddText">
+      + 补一句文字，这条就能被搜到
+    </view>
+
+    <!-- 标签 -->
+    <view class="tags" wx:if="{{record.tags.length}}">
+      <text class="tag" wx:for="{{record.tags}}" wx:key="*this" wx:for-item="tg">#{{tg}}</text>
+    </view>
+
+    <view class="meta">
+      <text class="meta-line">记于 {{timeText}}</text>
+      <text class="meta-line" wx:if="{{updatedText}}">改于 {{updatedText}}</text>
+      <text class="meta-line" wx:if="{{archived}}">已归档，不在主列表里</text>
     </view>
   </view>
 
-  <!-- 文字 -->
-  <view class="text" wx:if="{{record.type === 'text'}}">{{record.content}}</view>
+  <!-- 操作区：内容短时贴底，把剩余空白收在内容与操作之间，页面底部不留空 -->
+  <view class="bottom">
 
-  <!-- 语音 -->
-  <block wx:elif="{{record.type === 'voice'}}">
-    <view class="player" catchtap="onPlay">
-      <view class="play {{playing ? 'on' : ''}}">{{playing ? '■' : '▶'}}</view>
-      <text class="dur">{{record.duration}}″</text>
-      <text class="state">{{playing ? '正在播放' : '点一下听'}}</text>
+    <view class="actions">
+      <view class="act" catchtap="onEdit">改一改</view>
+      <view class="act" catchtap="onCopy">复制</view>
+      <view class="act" catchtap="onPoster">做成图</view>
+      <view class="act" catchtap="onToggleArchive">{{archived ? '取消归档' : '归档'}}</view>
+      <view class="act danger" catchtap="onDelete">删了</view>
     </view>
-    <view class="text sub" wx:if="{{record.content}}">{{record.content}}</view>
-  </block>
 
-  <!-- 照片：统一走缩略图网格（一张按原比例，多张按张数分列，最多 9 格） -->
-  <block wx:else>
-    <photo-grid paths="{{photos}}" single="auto" />
-    <view class="text sub" wx:if="{{record.content}}">{{record.content}}</view>
-  </block>
+    <button class="share" open-type="share">发给朋友</button>
 
-  <!-- 没有文字时，补一句就能被搜到 -->
-  <view class="need-text" wx:if="{{needText}}" catchtap="onAddText">
-    + 补一句文字，这条就能被搜到
-  </view>
-
-  <!-- 标签 -->
-  <view class="tags" wx:if="{{record.tags.length}}">
-    <text class="tag" wx:for="{{record.tags}}" wx:key="*this" wx:for-item="tg">#{{tg}}</text>
-  </view>
-
-  <view class="meta">
-    <text class="meta-line">记于 {{timeText}}</text>
-    <text class="meta-line" wx:if="{{updatedText}}">改于 {{updatedText}}</text>
-    <text class="meta-line" wx:if="{{archived}}">已归档，不在主列表里</text>
-  </view>
-
-  <view class="actions">
-    <view class="act" catchtap="onEdit">改一改</view>
-    <view class="act" catchtap="onCopy">复制</view>
-    <view class="act" catchtap="onPoster">做成图</view>
-    <view class="act" catchtap="onToggleArchive">{{archived ? '取消归档' : '归档'}}</view>
-    <view class="act danger" catchtap="onDelete">删了</view>
-  </view>
-
-  <button class="share" open-type="share">发给朋友</button>
-
-  <!-- 左右翻：手势之外的兜底（PC 端用鼠标滑不动，箭头正好补上） -->
-  <view class="flipbar" wx:if="{{total > 1}}">
-    <view
-      class="flip-btn {{canPrev ? '' : 'off'}}"
-      hover-class="{{canPrev ? 'flip-btn-hover' : 'none'}}"
-      hover-stay-time="80"
-      catchtap="onPrev"
-    >‹ 上一条</view>
-    <text class="flip-tip">左右滑也能翻</text>
-    <view
-      class="flip-btn"
-      hover-class="flip-btn-hover"
-      hover-stay-time="80"
-      catchtap="onNext"
-    >下一条 ›</view>
+    <!-- 左右翻：手势之外的兜底（PC 端用鼠标滑不动，箭头正好补上） -->
+    <view class="flipbar" wx:if="{{total > 1}}">
+      <view
+        class="flip-btn {{canPrev ? '' : 'off'}}"
+        hover-class="{{canPrev ? 'flip-btn-hover' : 'none'}}"
+        hover-stay-time="80"
+        catchtap="onPrev"
+      >‹ 上一条</view>
+      <text class="flip-tip">左右滑也能翻</text>
+      <view
+        class="flip-btn"
+        hover-class="flip-btn-hover"
+        hover-stay-time="80"
+        catchtap="onNext"
+      >下一条 ›</view>
+    </view>
   </view>
 
   <view class="toast" wx:if="{{toastText}}">{{toastText}}</view>
