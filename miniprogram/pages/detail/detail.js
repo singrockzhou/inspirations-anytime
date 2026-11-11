@@ -157,13 +157,6 @@ Page({
     this.setData({ playing: true })
   },
 
-  onPreview(e) {
-    const urls = this.data.photos
-    if (!urls.length) return
-    const index = Number((e && e.currentTarget && e.currentTarget.dataset.i) || 0)
-    wx.previewImage({ current: urls[index] || urls[0], urls: urls })
-  },
-
   goBack() {
     wx.navigateBack()
   },

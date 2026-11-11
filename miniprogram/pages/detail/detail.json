@@ -1,6 +1,7 @@
 {
   "navigationBarTitleText": "这一条",
   "usingComponents": {
-    "dialog-view": "/components/dialog/dialog"
+    "dialog-view": "/components/dialog/dialog",
+    "photo-grid": "/components/photo-grid/photo-grid"
   }
 }

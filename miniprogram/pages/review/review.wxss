@@ -71,7 +71,8 @@
 
 .body {
   flex: 1;
-  max-height: 40vh;
+  /* 有图有音时正文让位：多给 6vh，九宫格也能一屏看全两三行 */
+  max-height: 46vh;
 }
 
 .text {
@@ -82,10 +83,122 @@
   word-break: break-word;
 }
 
+/* 图/音先说话，正文退成副文 */
+.text.sub {
+  margin-top: 20rpx;
+  font-size: 28rpx;
+  line-height: 1.75;
+  color: #4a423a;
+}
+
 .text.dim {
   color: #a2957f;
   font-size: 30rpx;
 }
+
+/* ------------------------- 语音行 ------------------------- */
+
+.audio-list {
+  padding: 2rpx 0 4rpx;
+}
+
+.audio {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 22rpx;
+  border-radius: 20rpx;
+  background: var(--beige, #f7f1e7);
+  border: 1rpx solid var(--line, #f0e7da);
+}
+
+.audio + .audio {
+  margin-top: 14rpx;
+}
+
+/* 正在响的那条加深一档，眼睛不用找 */
+.audio.on {
+  background: #f9eee2;
+  border-color: #e3c4a8;
+}
+
+.audio:active {
+  opacity: 0.9;
+}
+
+.audio-btn {
+  flex: none;
+  width: 76rpx;
+  height: 76rpx;
+  border-radius: 999rpx;
+  background: var(--accent, #c4713f);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ic-play {
+  width: 0;
+  height: 0;
+  margin-left: 6rpx;
+  border-left: 22rpx solid #fff;
+  border-top: 14rpx solid transparent;
+  border-bottom: 14rpx solid transparent;
+}
+
+.ic-pause {
+  display: flex;
+  align-items: center;
+}
+
+.ic-pause .bar {
+  width: 7rpx;
+  height: 26rpx;
+  border-radius: 2rpx;
+  background: #fff;
+}
+
+.ic-pause .bar + .bar {
+  margin-left: 8rpx;
+}
+
+.audio-main {
+  flex: 1;
+  min-width: 0;
+  margin-left: 22rpx;
+}
+
+.track {
+  height: 8rpx;
+  border-radius: 999rpx;
+  background: #e9dccb;
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  border-radius: 999rpx;
+  background: var(--accent, #c4713f);
+  transition: width 0.2s linear;
+}
+
+.audio-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 12rpx;
+}
+
+.audio-state {
+  font-size: 22rpx;
+  color: var(--ink-2, #8b8178);
+}
+
+.audio-time {
+  font-size: 22rpx;
+  color: #b3a795;
+  letter-spacing: 1rpx;
+}
+
 
 .tags {
   display: flex;

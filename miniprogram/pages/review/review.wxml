@@ -8,15 +8,49 @@
   <block wx:if="{{item}}">
     <view class="paper">
       <view class="meta">
-        <text class="ago">{{agoText}}</text>
+        <text class="ago">{{agoText}}<text wx:if="{{photoCount > 1}}"> · {{photoCount}} 张照片</text></text>
         <text class="star" wx:if="{{starred}}">★</text>
       </view>
 
-      <scroll-view class="body" scroll-y="true">
-        <view class="text" wx:if="{{item.content}}">{{item.content}}</view>
-        <view class="text dim" wx:else>
-          {{item.type === 'voice' ? '这条是一段录音，去详情里听。' : '这条是照片，去详情里看。'}}
+      <scroll-view class="body" scroll-y="true" enable-flex="true" scroll-top="{{scrollTop}}" bindscroll="onScroll">
+
+        <!-- 照片：缩略图网格，点哪张从哪张看大图 -->
+        <photo-grid wx:if="{{photos.length}}" paths="{{photos}}" single="crop" />
+
+        <!-- 语音：按行列出，一行一条，进度就在行里走 -->
+        <view class="audio-list" wx:if="{{voices.length}}">
+          <view
+            class="audio {{playingId === v.id ? 'on' : ''}}"
+            wx:for="{{voices}}"
+            wx:key="id"
+            wx:for-item="v"
+            catchtap="onToggleAudio"
+            data-id="{{v.id}}"
+          >
+            <view class="audio-btn">
+              <view class="ic-play" wx:if="{{playingId !== v.id || paused}}" />
+              <view class="ic-pause" wx:else>
+                <view class="bar" />
+                <view class="bar" />
+              </view>
+            </view>
+
+            <view class="audio-main">
+              <view class="track">
+                <view class="fill" style="width:{{playingId === v.id ? progress : 0}}%" />
+              </view>
+              <view class="audio-meta">
+                <text class="audio-state">{{playingId === v.id ? (paused ? '已暂停，点一下接着听' : '正在播放') : '点一下听'}}</text>
+                <text class="audio-time">{{playingId === v.id ? curText : v.durText}}</text>
+              </view>
+            </view>
+          </view>
         </view>
+
+        <!-- 正文：有图有音时退成副文，不跟缩略图抢视线 -->
+        <view class="text {{photos.length || voices.length ? 'sub' : ''}}" wx:if="{{item.content}}">{{item.content}}</view>
+        <view class="text dim" wx:elif="{{!photos.length && !voices.length}}">这条没有留下内容</view>
+
       </scroll-view>
 
       <view class="tags" wx:if="{{item.tags.length}}">

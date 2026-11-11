@@ -1,5 +1,14 @@
 const store = require('../../utils/store')
 const date = require('../../utils/date')
+const audio = require('../../utils/audio')
+
+/** 秒 → 0:08 / 1:24，不依赖 padStart（低版本基础库没有） */
+function mmss(sec) {
+  const s = Math.max(0, Math.round(sec || 0))
+  const m = Math.floor(s / 60)
+  const r = s % 60
+  return m + ':' + (r < 10 ? '0' : '') + r
+}
 
 /**
  * 随机重温
@@ -15,11 +24,31 @@ Page({
     agoText: '',
     starred: false,
     total: 0,
-    toastText: ''
+    toastText: '',
+    // 照片：交给 photo-grid 排，这里只负责把路径理顺
+    photos: [],
+    photoCount: 0,
+    // 语音：以行为单位列出来，同一时刻只响一条
+    voices: [],
+    playingId: '',
+    paused: false,
+    // 换一条时把内层滚动位置收回顶部（scroll-top 只有值变化才生效，所以先同步再归零）
+    scrollTop: 0,
+    progress: 0,
+    curText: '0:00'
   },
 
   onLoad() {
     this.pick(true)
+  },
+
+  /** 离开页面就闭嘴：重温是"看一眼"，不该带着背景音走出这个页面 */
+  onHide() {
+    this.stopAudio()
+  },
+
+  onUnload() {
+    audio.release()
   },
 
   pick(first) {
@@ -41,12 +70,34 @@ Page({
     const item = source[Math.floor(Math.random() * source.length)]
 
     const days = date.dayDiff(item.createdAt, Date.now())
+    const photos = (item.mediaPaths || []).filter(Boolean)
+    const voices =
+      item.type === 'voice' && item.mediaPath
+        ? [
+            {
+              id: item.id,
+              src: item.mediaPath,
+              seconds: item.duration || 0,
+              durText: item.duration ? mmss(item.duration) : '—'
+            }
+          ]
+        : []
+
+    this.stopAudio()
+    this.resetScroll()
+    this._lastSec = -1
+
     this.setData({
       item: item,
       empty: false,
       timeText: date.fullTime(item.createdAt),
       agoText: days <= 0 ? '今天刚记的' : days === 1 ? '昨天记的' : days + ' 天前记的',
-      starred: !!item.starred
+      starred: !!item.starred,
+      photos: photos,
+      photoCount: photos.length,
+      voices: voices,
+      progress: 0,
+      curText: '0:00'
     })
 
     if (!first) {
@@ -58,6 +109,74 @@ Page({
   onNext() {
     this.pick(false)
   },
+
+  onScroll(e) {
+    // 只用实例变量记，不进 data：进 data 就会每次滚动都触发一次渲染
+    this._scrollTop = (e.detail && e.detail.scrollTop) || 0
+  },
+
+  resetScroll() {
+    if (!this._scrollTop) return
+    const from = this._scrollTop
+    this._scrollTop = 0
+    this.setData({ scrollTop: from }, () => {
+      setTimeout(() => this.setData({ scrollTop: 0 }), 30)
+    })
+  },
+
+  /* ------------------------- 语音 ------------------------- */
+
+  onToggleAudio(e) {
+    const id = e.currentTarget.dataset.id
+    const v = (this.data.voices || []).filter(x => x.id === id)[0]
+    if (!v) return
+
+    if (this.data.playingId === id) {
+      if (this.data.paused) {
+        audio.resume()
+        this.setData({ paused: false })
+      } else {
+        audio.pause()
+        this.setData({ paused: true })
+      }
+      return
+    }
+
+    this._lastSec = -1
+    this.setData({ playingId: id, paused: false, progress: 0, curText: '0:00' })
+    audio.play(v.src, {
+      time: t => this.onTime(id, t),
+      end: () => this.setData({ playingId: '', paused: false, progress: 0, curText: '0:00' }),
+      error: () => {
+        this.setData({ playingId: '', paused: false, progress: 0, curText: '0:00' })
+        this.toast('这段录音找不到了')
+      }
+    })
+  },
+
+  /** onTimeUpdate 每 250ms 一次，只在整秒变化时 setData，省得白渲染 */
+  onTime(id, t) {
+    if (this.data.playingId !== id) return
+    const cur = (t && t.currentTime) || 0
+    const sec = Math.floor(cur)
+    if (sec === this._lastSec) return
+    this._lastSec = sec
+
+    const held = (this.data.voices[0] && this.data.voices[0].seconds) || 0
+    const dur = (t && t.duration) || held || 0
+    this.setData({
+      curText: mmss(sec),
+      progress: dur ? Math.min(100, (cur / dur) * 100) : 0
+    })
+  },
+
+  stopAudio() {
+    this._lastSec = -1
+    if (this.data.playingId) audio.stop()
+    this.setData({ playingId: '', paused: false, progress: 0, curText: '0:00' })
+  },
+
+  /* ------------------------- 其它 ------------------------- */
 
   onStar() {
     const item = this.data.item

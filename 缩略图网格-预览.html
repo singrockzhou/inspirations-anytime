@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>缩略图网格 & 语音行 · 版式核对</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --u: 1px; }
+  body {
+    background: #FBF8F3;
+    color: #2C2723;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    padding: calc(var(--u) * 32) calc(var(--u) * 40) calc(var(--u) * 56);
+    width: 100%;
+  }
+  h2 { font-size: calc(var(--u) * 28); font-weight: 500; color: #8B8178; margin: calc(var(--u) * 24) 0 calc(var(--u) * 12); }
+
+  /* ===== paper 卡片，与 review.wxss 同源 ===== */
+  .paper {
+    position: relative;
+    padding: calc(var(--u) * 36) calc(var(--u) * 36) calc(var(--u) * 28);
+    border-radius: calc(var(--u) * 28);
+    background: #fff;
+    border: 1px solid #F1E8DB;
+    box-shadow: 0 calc(var(--u) * 8) calc(var(--u) * 28) rgba(120, 96, 66, .07);
+    overflow: hidden;
+  }
+  .paper::before {
+    content: ''; position: absolute; left: 0; top: calc(var(--u) * 36); bottom: calc(var(--u) * 36);
+    width: calc(var(--u) * 6); border-radius: 0 calc(var(--u) * 6) calc(var(--u) * 6) 0;
+    background: linear-gradient(180deg, #E0A472, #C4713F); opacity: .55;
+  }
+  .meta { display: flex; justify-content: space-between; padding-bottom: calc(var(--u) * 18);
+          font-size: calc(var(--u) * 22); color: #B3A795; }
+  .sub { margin-top: calc(var(--u) * 20); font-size: calc(var(--u) * 28); line-height: 1.75; color: #4A423A; }
+  .foot { padding-top: calc(var(--u) * 14); font-size: calc(var(--u) * 22); color: #C0B4A5; text-align: right; }
+
+  /* ===== photo-grid.wxss 原样搬过来 ===== */
+  .grid { display: flex; flex-wrap: wrap; margin: 0 calc(var(--u) * -4); }
+  .cell { padding: 0 calc(var(--u) * 4) calc(var(--u) * 8); }
+  .cell.c2 { width: 50%; }
+  .cell.c2 .box { padding-top: 75%; }
+  .cell.c3 { width: 33.3333%; }
+  .box {
+    position: relative; width: 100%; padding-top: 100%;
+    border-radius: calc(var(--u) * 16); overflow: hidden; background: #F7F1E7;
+  }
+  .box .ph { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+  .box .ph i { position: absolute; right: 12%; top: 16%; width: 26%; height: 26%; border-radius: 50%; background: rgba(255,255,255,.5); }
+  .more {
+    position: absolute; right: calc(var(--u) * 8); bottom: calc(var(--u) * 8);
+    padding: calc(var(--u) * 2) calc(var(--u) * 12); border-radius: 999px;
+    background: rgba(44, 39, 35, .62); color: #fff; font-size: calc(var(--u) * 22); line-height: 1.6;
+  }
+  .one { position: relative; width: 100%; border-radius: calc(var(--u) * 20); overflow: hidden; background: #F7F1E7; }
+  .one.crop { padding-top: 66.6667%; }
+  .one.crop .ph { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+  .one.crop .ph i { position: absolute; right: 4%; top: 8%; width: 10%; height: 20%; border-radius: 50%; background: rgba(255,255,255,.5); }
+
+  /* ===== 语音行 ===== */
+  .audio {
+    display: flex; align-items: center;
+    padding: calc(var(--u) * 20) calc(var(--u) * 22);
+    border-radius: calc(var(--u) * 20);
+    background: #F7F1E7; border: 1px solid #F0E7DA;
+  }
+  .audio + .audio { margin-top: calc(var(--u) * 14); }
+  .audio.on { background: #F9EEE2; border-color: #E3C4A8; }
+  .audio-btn {
+    flex: none; width: calc(var(--u) * 76); height: calc(var(--u) * 76); border-radius: 999px;
+    background: #C4713F; display: flex; align-items: center; justify-content: center;
+  }
+  .ic-play { width: 0; height: 0; margin-left: calc(var(--u) * 6);
+             border-left: calc(var(--u) * 22) solid #fff;
+             border-top: calc(var(--u) * 14) solid transparent;
+             border-bottom: calc(var(--u) * 14) solid transparent; }
+  .ic-pause { display: flex; }
+  .ic-pause .bar { width: calc(var(--u) * 7); height: calc(var(--u) * 26); border-radius: calc(var(--u) * 2); background: #fff; }
+  .ic-pause .bar + .bar { margin-left: calc(var(--u) * 8); }
+  .audio-main { flex: 1; min-width: 0; margin-left: calc(var(--u) * 22); }
+  .track { height: calc(var(--u) * 8); border-radius: 999px; background: #E9DCCB; overflow: hidden; }
+  .fill { height: 100%; border-radius: 999px; background: #C4713F; }
+  .audio-meta { display: flex; justify-content: space-between; margin-top: calc(var(--u) * 12);
+                font-size: calc(var(--u) * 22); }
+  .audio-state { color: #8B8178; }
+  .audio-time { color: #B3A795; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+<script>
+  // 用 ?w=750 得到 1rpx=1px 的对照；?w=375 得到手机真宽
+  var W = Number(new URLSearchParams(location.search).get('w')) || 375;
+  document.body.style.width = W + 'px';
+  document.documentElement.style.setProperty('--u', (W / 750) + 'px');
+
+  // 用渐变块代替真实照片，方便看清每个格子的边界与裁切
+  var PALETTE = [
+    ['#E8C7A8', '#C4713F'], ['#CFD8C4', '#7D8C6E'], ['#D9C9E0', '#8B6E9B'],
+    ['#C9D6E3', '#5F7E96'], ['#EBD3B4', '#B5673F'], ['#CBDED6', '#5F8A7A'],
+    ['#E3D2C4', '#9A7B61'], ['#D3DCE8', '#6B7F96'], ['#E7D8C9', '#A9856A']
+  ];
+  function tile(i) {
+    var p = PALETTE[i % PALETTE.length];
+    return '<span class="ph" style="background:linear-gradient(135deg,' + p[0] + ',' + p[1] + ')">' +
+           '<i></i></span>';
+  }
+  function grid(n, single) {
+    if (n === 1) {
+      var cls = single === 'auto' ? 'one auto' : 'one crop';
+      return '<div class="' + cls + '">' + tile(0) + '</div>';
+    }
+    var cols = (n === 2 || n === 4) ? 2 : 3;
+    var max = 9, show = Math.min(n, max);
+    var out = '<div class="grid">';
+    for (var i = 0; i < show; i++) {
+      out += '<div class="cell c' + cols + '"><div class="box">' + tile(i) +
+        (n > max && i === show - 1 ? '<div class="more">+' + (n - max) + '</div>' : '') +
+        '</div></div>';
+    }
+    return out + '</div>';
+  }
+
+  function voice(state, pct, cur, dur) {
+    var on = state !== 'idle';
+    return '<div class="audio ' + (on ? 'on' : '') + '">' +
+      '<div class="audio-btn">' + (state === 'playing'
+        ? '<div class="ic-pause"><div class="bar"></div><div class="bar"></div></div>'
+        : '<div class="ic-play"></div>') + '</div>' +
+      '<div class="audio-main"><div class="track"><div class="fill" style="width:' + pct + '%"></div></div>' +
+      '<div class="audio-meta"><span class="audio-state">' +
+      (state === 'playing' ? '正在播放' : state === 'paused' ? '已暂停，点一下接着听' : '点一下听') +
+      '</span><span class="audio-time">' + (on ? cur : dur) + '</span></div></div></div>';
+  }
+
+  var html = '';
+  html += '<h2>3 张 · 三列一行</h2><div class="paper"><div class="meta"><span>昨天记的 · 3 张照片</span><span></span></div>'
+    + grid(3) + '<div class="sub">楼下那棵树今天开满了，拍了三张都舍不得删。</div>'
+    + '<div class="foot">2026年11月10日 17:24</div></div>';
+
+  html += '<h2>4 张 · 2×2</h2><div class="paper"><div class="meta"><span>3 天前记的 · 4 张照片</span><span></span></div>'
+    + grid(4) + '<div class="sub">工位重组前后的对比。</div>'
+    + '<div class="foot">2026年11月8日 09:12</div></div>';
+
+  html += '<h2>1 张 · 3:2 裁切铺满</h2><div class="paper"><div class="meta"><span>今天刚记的</span><span></span></div>'
+    + grid(1) + '<div class="foot">2026年11月11日 17:24</div></div>';
+
+  html += '<h2>12 张 · 九宫格 + 折叠</h2><div class="paper"><div class="meta"><span>去年记的 · 12 张照片</span><span></span></div>'
+    + grid(12) + '<div class="foot">2025年5月3日 20:41</div></div>';
+
+  html += '<h2>语音 · 闲置 / 播放中 / 暂停</h2><div class="paper"><div class="meta"><span>昨天记的</span><span>★</span></div>'
+    + voice('idle', 0, '0:00', '0:08')
+    + voice('playing', 42, '0:08', '0:19')
+    + voice('paused', 88, '0:17', '0:19')
+    + '<div class="foot">2026年11月10日 08:02</div></div>';
+
+  document.body.insertAdjacentHTML('beforeend', html);
+</script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!-- 单张：要么 3:2 裁切铺满，要么按原比例撑高 -->
+<block wx:if="{{cols === 1 && list.length}}">
+  <view class="one {{single === 'auto' ? 'auto' : 'crop'}}" catchtap="onTap" data-i="0">
+    <image
+      wx:if="{{!list[0].broken}}"
+      class="one-img"
+      src="{{list[0].src}}"
+      mode="{{single === 'auto' ? 'widthFix' : 'aspectFill'}}"
+      binderror="onError"
+      data-i="0"
+    />
+    <view class="ph" wx:else>照片不在了</view>
+  </view>
+</block>
+
+<!-- 多张：等宽正方格，最多 9 格，多出来的折成 +N -->
+<view class="grid" wx:elif="{{list.length}}">
+  <view class="cell c{{cols}}" wx:for="{{list}}" wx:key="i" data-i="{{index}}" catchtap="onTap">
+    <view class="box">
+      <image
+        wx:if="{{!item.broken}}"
+        class="img"
+        src="{{item.src}}"
+        mode="aspectFill"
+        lazy-load="{{index > 2}}"
+        binderror="onError"
+        data-i="{{index}}"
+      />
+      <view class="ph" wx:else>丢失</view>
+      <view class="more" wx:if="{{more && index === list.length - 1}}">+{{more}}</view>
+    </view>
+  </view>
+</view>

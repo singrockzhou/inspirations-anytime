@@ -21,19 +21,9 @@
     <view class="text sub" wx:if="{{record.content}}">{{record.content}}</view>
   </block>
 
-  <!-- 照片：一张时按原比例，多张时排成三列 -->
+  <!-- 照片：统一走缩略图网格（一张按原比例，多张按张数分列，最多 9 格） -->
   <block wx:else>
-    <view class="photos {{photos.length > 1 ? 'multi' : ''}}">
-      <image
-        class="photo"
-        wx:for="{{photos}}"
-        wx:key="*this"
-        src="{{item}}"
-        mode="{{photos.length > 1 ? 'aspectFill' : 'widthFix'}}"
-        data-i="{{index}}"
-        catchtap="onPreview"
-      />
-    </view>
+    <photo-grid paths="{{photos}}" single="auto" />
     <view class="text sub" wx:if="{{record.content}}">{{record.content}}</view>
   </block>
 

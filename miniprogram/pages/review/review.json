@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "重温",
-  "usingComponents": {}
+  "usingComponents": {
+    "photo-grid": "/components/photo-grid/photo-grid"
+  }
 }

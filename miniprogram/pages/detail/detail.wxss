@@ -75,12 +75,6 @@
   color: var(--ink-2, #8b8178);
 }
 
-.photo {
-  width: 100%;
-  border-radius: 24rpx;
-  background: var(--beige, #f7f1e7);
-}
-
 .meta {
   margin-top: 56rpx;
   display: flex;
@@ -196,23 +190,7 @@
   font-size: 22rpx;
 }
 
-/* ================= 多图 ================= */
-
-.photos.multi {
-  display: flex;
-  flex-wrap: wrap;
-}
-
-.photos.multi .photo {
-  width: 31.4%;
-  height: 210rpx;
-  margin: 0 2.9% 16rpx 0;
-  border-radius: 16rpx;
-}
-
-.photos.multi .photo:nth-child(3n) {
-  margin-right: 0;
-}
+/* ================= 多图（排布交给 components/photo-grid） ================= */
 
 /* 分享按钮：抹掉原生 button 的边框与底色 */
 .share {
