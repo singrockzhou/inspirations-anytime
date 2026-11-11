@@ -9,15 +9,59 @@ const flip = require('../../utils/flip')
 const PAGE_SIZE = 20
 const UNDO_SECONDS = 5
 
-/** 「从聊天存一条」的失败文案，码表来自 utils/transfer.js */
+/**
+ * 「从聊天存一条」的失败文案，码表来自 utils/transfer.js。
+ *
+ * 写法上的两个约束：
+ *   - 不说"文件可能已损坏"这种把责任推给文件的话——真实原因有四种（认不出类型 /
+ *     读不出内容 / 存不进来 / 环境不支持），能分辨就不要合并成一句。
+ *   - 每条都给一个"接下来能做什么"，因为用户此刻唯一想知道的就是这个。
+ */
 const COLLECT_ERR = {
   unsupported: '当前环境打不开聊天文件，请用手机微信再试。',
   nofile: '没选到文件。',
   choose: '没能打开选择器，再试一次。',
-  read: '文件读不出来，可能已经损坏。',
+  read: '这些文件读不出内容。截图发过来、或者长按复制文字，这两条路更稳。',
   empty: '剪贴板里没有文字，先在聊天里长按复制一段。',
   denied: '没有读到剪贴板的权限，去「设置」里允许后再试。',
   full: '攒满了，先清几条再收。'
+}
+
+/** 没存下的原因，说人话；三个码分别对应"认不出/读不出/存不进" */
+const SKIP_REASON = {
+  type: '看不出是什么文件',
+  read: '读不出内容',
+  save: '没能存进来，可能是空间不够'
+}
+
+/**
+ * 把没存下的文件说成一句人话。
+ * 名字能读就报名字（最多三个），读不出名字的只报个数——
+ * 绝不把 78a4bca0… 这种机器串摆到用户面前。
+ */
+function skippedText(list) {
+  const items = list || []
+  if (!items.length) return ''
+  const names = []
+  items.forEach(s => {
+    if (s && s.name && names.indexOf(s.name) < 0) names.push(s.name)
+  })
+  const unknown = items.length - names.length
+  const parts = []
+  if (names.length) {
+    const head = names.slice(0, 3).join('、')
+    parts.push(head + (names.length > 3 ? ' 等 ' + names.length + ' 个' : ''))
+  }
+  if (unknown > 0) parts.push(unknown + ' 个认不出名字的文件')
+  return parts.join('、')
+}
+
+/** 明细：每个文件后面括号写原因，最多列三条，免得弹窗被顶爆 */
+function skippedDetail(list) {
+  return (list || [])
+    .slice(0, 3)
+    .map(s => '· ' + (s.name || '一个认不出的文件') + '（' + (SKIP_REASON[s.reason] || '没能存下') + '）')
+    .join('\n')
 }
 
 /** 字节数 → "3.2 MB"，只用在收图后的提示里 */
@@ -327,14 +371,30 @@ Page({
         if (res.compressed) {
           lines.push(res.compressed + ' 张照片压到 300KB 以内，省下 ' + bytesText(res.savedBytes) + '。')
         }
-        if (res.failed) lines.push(res.failed + ' 个文件读不出正文，只留了文件名，可以自己补一句。')
-        if (made.length < res.records.length) lines.push('有 ' + (res.records.length - made.length) + ' 条没存下，可能已经满 ' + store.MAX_RECORDS + ' 条了。')
+        if (res.shells) {
+          lines.push(res.shells + ' 个文件只留下了名字（PDF、Word 这类打不开文字），可以自己补一句。')
+        }
+        if (res.skipped && res.skipped.length) {
+          lines.push('还有 ' + res.skipped.length + ' 个没存下：' + skippedText(res.skipped) + '。')
+        }
+        if (made.length < res.records.length) {
+          lines.push('有 ' + (res.records.length - made.length) + ' 条没写进去，可能已经满 ' + store.MAX_RECORDS + ' 条了。')
+        }
         dialog.alert({ title: '收到', text: lines.join('\n') })
       })
       .catch(err => {
         wx.hideLoading()
         this.collecting = false
         if (!err || err.code === 'cancel') return
+
+        // 全部失败：不再用一句"文件可能已损坏"打包所有原因，而是把哪个文件、为什么，摆在明面上
+        if (err.code === 'read' && err.skipped && err.skipped.length) {
+          const head = '选中的 ' + err.skipped.length + ' 个文件都没能存下来。'
+          const body = skippedDetail(err.skipped)
+          const tail = '换成截图，或者在聊天里长按复制文字，这两种更稳。'
+          dialog.alert({ title: '这次没存成', text: head + '\n\n' + body + '\n\n' + tail })
+          return
+        }
         dialog.alert({ title: '没存成', text: COLLECT_ERR[err.code] || '再试一次看看。' })
       })
   },

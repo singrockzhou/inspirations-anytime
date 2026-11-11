@@ -9,6 +9,7 @@
  * 媒体体积大，设了单条 2MB / 总计 15MB 的上限，超出的条目只迁文字，并在结果里如实报告。
  */
 const store = require('./store')
+const sniff = require('./sniff')
 
 const APP_TAG = 'linggan-suishi-ji'
 const FORMAT_VERSION = 2
@@ -384,9 +385,24 @@ function importBackup() {
 }
 
 /**
- * 从聊天里挑一个文件，存成一条灵感。
- * 文本文件读前 1000 字进正文；图片落盘成照片记录；其他类型只留文件名。
- * @returns {Promise<{records:object[]}>}
+ * 从聊天里挑文件，存成灵感。
+ *
+ * 两条原则，都是被真实反馈逼出来的：
+ *
+ *   1. **先认出它是什么**（走 utils/sniff）。聊天来的临时路径经常没有扩展名
+ *      （iOS 是 wxfile://tmp_xxxx），只按路径猜后缀会把一张截图判成"未知二进制"，
+ *      于是列表里多出一条正文为「来自「78a4bca0…」」的空壳记录——看不懂也搜不到。
+ *   2. **一个文件失败不连累其它**。成功的照常入库，失败的收进 skipped 里如实报告；
+ *      只有全部失败才 reject，并且带上明细——不再用一句"文件可能已经损坏"打包所有原因。
+ *
+ * @returns {Promise<{
+ *   records: object[],  待入库的记录
+ *   skipped: object[],  完全没存下的，[{name,reason,ext}]，reason 取 read/save/type
+ *   shells: number,     只留下文件名的条数（PDF/Word 打不开正文，仍留着让用户补一句）
+ *   failed: number,     skipped.length + shells，兼容旧调用
+ *   compressed: number, 压过的张数
+ *   savedBytes: number  省下的字节
+ * }>}
  */
 function importFromChat() {
   return new Promise((resolve, reject) => {
@@ -406,55 +422,98 @@ function importFromChat() {
         }
 
         const records = []
-        let failed = 0
+        const skipped = []
+        let shells = 0
         let compressed = 0
         let savedBytes = 0
 
         const step = i => {
           if (i >= files.length) {
-            if (!records.length) reject({ code: failed ? 'read' : 'nofile' })
-            else resolve({ records: records, failed: failed, compressed: compressed, savedBytes: savedBytes })
+            // 一条都没成：把明细带出去，让页面能说清"是哪几个、为什么"
+            if (!records.length) {
+              reject({ code: 'read', skipped: skipped })
+              return
+            }
+            resolve({
+              records: records,
+              skipped: skipped,
+              shells: shells,
+              failed: skipped.length + shells,
+              compressed: compressed,
+              savedBytes: savedBytes
+            })
             return
           }
-          const f = files[i]
-          const name = f.name || '来自聊天'
-          const ext = extOf(f.path)
-          const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].indexOf(ext) >= 0
-          const isText = ['txt', 'md', 'markdown', 'json', 'csv'].indexOf(ext) >= 0
 
-          if (isImage) {
-            // 聊天里的图是原图，必须压缩后再落盘，否则一张截图顶掉几十条文字
-            require('./media')
-              .saveChatImage(f.path, ext, f.size || 0)
+          const f = files[i]
+          const info = sniff.classify(f)
+          const label = info.label // 机器名（哈希）在这里是空串
+
+          /* ---------- 图片：压缩后落盘，失败也要退到"存原件"再退"报告" ---------- */
+          if (info.kind === 'image') {
+            const media = require('./media')
+            const keepOriginal = () =>
+              media
+                .persist(f.path, 'img', info.ext || 'jpg')
+                .then(p => (p ? { path: p, size: 0, originSize: f.size || 0, compressed: false } : null))
+                .catch(() => null)
+
+            media
+              .saveChatImage(f.path, info.ext || 'jpg', f.size || 0)
+              .then(r => (r && r.path ? r : keepOriginal()))
+              .catch(() => keepOriginal())
               .then(r => {
-                if (r.path) {
-                  records.push({ type: 'photo', content: '来自「' + name + '」', mediaPaths: [r.path], size: r.size })
+                if (!r || !r.path) {
+                  skipped.push({ name: label, reason: 'save', ext: info.ext })
+                } else {
+                  records.push({
+                    // 名字是哈希就不写字：宁可只有一张图，也不要一串看不懂的编号当正文
+                    type: 'photo',
+                    content: label ? '来自「' + label + '」' : '',
+                    mediaPaths: [r.path],
+                    size: r.size || 0
+                  })
                   if (r.compressed) {
                     compressed++
-                    savedBytes += Math.max(0, r.originSize - r.size)
+                    savedBytes += Math.max(0, (r.originSize || 0) - (r.size || 0))
                   }
-                } else {
-                  failed++
                 }
                 step(i + 1)
               })
             return
           }
 
-          let body = ''
-          if (isText) {
+          /* ---------- 文本：能读出正文才算文本 ---------- */
+          if (info.kind === 'text') {
+            let body = ''
             try {
-              body = String(fs().readFileSync(f.path, 'utf8') || '').slice(0, MAX_TEXT)
+              body = String(fs().readFileSync(f.path, 'utf8') || '')
             } catch (e) {
               body = ''
             }
+            // 去掉 BOM，再掐掉首尾空白——大量 txt 是 Windows 存的，开头藏着 \uFEFF
+            body = body.replace(/^\uFEFF/, '').trim().slice(0, MAX_TEXT)
+
+            if (body) {
+              records.push({ type: 'text', content: body })
+            } else if (label) {
+              // 空文件但名字能读：留一条让用户补一句，总比什么都不留好
+              records.push({ type: 'text', content: '来自「' + label + '」' })
+              shells++
+            } else {
+              skipped.push({ name: label, reason: 'read', ext: info.ext })
+            }
+            step(i + 1)
+            return
           }
-          if (!body) {
-            // 读不出正文（PDF/Word 等二进制）时，至少把文件名留下来，之后能补一句
-            body = '来自「' + name + '」'
-            failed++
+
+          /* ---------- 二进制：名字能读就留个壳，名字不能读就别往列表里塞垃圾 ---------- */
+          if (label) {
+            records.push({ type: 'text', content: '来自「' + label + '」' })
+            shells++
+          } else {
+            skipped.push({ name: label, reason: 'type', ext: info.ext })
           }
-          records.push({ type: 'text', content: body })
           step(i + 1)
         }
 

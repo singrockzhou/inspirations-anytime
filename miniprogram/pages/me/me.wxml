@@ -73,7 +73,7 @@
       <view class="row tap" bindtap="onRemind">
         <view class="row-main">
           <text class="row-k">每日提醒</text>
-          <text class="row-sub">{{!remindReady ? '暂时还不能用' : (remindOn ? '到点提醒你记一条' : '还没开')}}</text>
+          <text class="row-sub">{{!remindReady ? '暂时还不能用' : (remindOn ? remindTime + ' 提醒你' : '还没开，点一下开启')}}</text>
         </view>
         <text class="row-v">{{!remindReady ? '未开通' : (remindOn ? '已开' : '关')}} ›</text>
       </view>
@@ -81,7 +81,7 @@
         <view class="row tap">
           <view class="row-main">
             <text class="row-k">提醒时间</text>
-            <text class="row-sub">{{remindReady ? '记下你想被提醒的时刻' : '先选好，开通后按这个点提醒'}}</text>
+            <text class="row-sub">{{!remindReady ? '先选好，开通后按这个点提醒' : (remindOn ? '微信一次订阅发一条，收到后再点一下续上' : '记下你想被提醒的时刻')}}</text>
           </view>
           <text class="row-v">{{remindTime}} ›</text>
         </view>

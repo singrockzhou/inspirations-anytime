@@ -123,7 +123,10 @@ const CODE_IN_UI = [
   { re: /TMPL_ID/, why: '配置常量 TMPL_ID' },
   { re: /模板\s*ID/, why: '“模板 ID”是后台术语' },
   { re: /小程序后台/, why: '“小程序后台”是后台术语' },
-  { re: /\bopenid\b/i, why: '技术字段 openid' }
+  { re: /\bopenid\b/i, why: '技术字段 openid' },
+  // 原始错误串：requestSubscribeMessage:fail xxx、chooseMessageFile:fail …
+  // 这类东西只在开发者工具里对开发者有用，摆到用户面前只会让人以为「坏了」
+  { re: /\b(?:err|e|error|res)\s*\.\s*(?:message|errMsg)\b/, why: '原始错误串 err.message' }
 ]
 
 /** 从一个 '(' 开始按括号配平，取出整段实参 */

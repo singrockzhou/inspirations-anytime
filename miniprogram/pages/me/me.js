@@ -4,6 +4,17 @@ const transfer = require('../../utils/transfer')
 const remind = require('../../utils/remind')
 const dialog = require('../../utils/dialog')
 
+/**
+ * 开启提醒的四种结果，各说各的。
+ * 不要用 err.message——那是 requestSubscribeMessage:fail xxx 这种原始错误串，
+ * 用户既看不懂，也不该看到内部接口名。
+ */
+const REMIND_ERR = {
+  'no-template': '这个功能还没开通。可以先把时间选好，开通后按这个点提醒你。',
+  unsupported: '当前微信版本还不支持提醒，升级微信之后再试。',
+  fail: '没能申请到提醒权限，过一会儿再试。'
+}
+
 const EXPORT_ERR = {
   empty: '还没有记录可以导出。',
   serialize: '数据转换失败，再试一次。',
@@ -57,7 +68,7 @@ Page({
     remindReady: false,
     remindShow: true,
     busy: false,
-    version: '1.7.2'
+    version: '1.7.3'
   },
 
   onShow() {
@@ -151,12 +162,14 @@ Page({
       .enable()
       .then(res => {
         this.load()
-        if (res.on) wx.showToast({ title: '已开启', icon: 'none' })
+        // 说清"什么时候收到"，而不是一句干巴巴的"已开启"
+        if (res.on) wx.showToast({ title: '已开，明天 ' + this.data.remindTime + ' 提醒你', icon: 'none' })
         else wx.showToast({ title: '没授权，提醒不会来', icon: 'none' })
       })
       .catch(err => {
         if (!err || err.code === 'cancel') return
-        dialog.alert({ title: '没能开启', text: err.message || '再试一次看看。' })
+        const text = REMIND_ERR[err && err.code] || '再试一次看看。'
+        dialog.alert({ title: '没能开启', text: text })
       })
   },
 
