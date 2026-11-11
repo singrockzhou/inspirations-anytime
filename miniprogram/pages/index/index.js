@@ -600,7 +600,9 @@ Page({
     if (!item) return
     const urls = (item.mediaPaths && item.mediaPaths.length) ? item.mediaPaths : item.mediaPath ? [item.mediaPath] : []
     if (!urls.length) return
-    wx.previewImage({ current: urls[0], urls: urls })
+    // 点堆叠里的哪一张，就从哪一张开始看
+    const idx = Math.min(Math.max(Number(e.detail.index) || 0, 0), urls.length - 1)
+    wx.previewImage({ current: urls[idx], urls: urls })
   },
 
   /* ------------------------- 分享 ------------------------- */

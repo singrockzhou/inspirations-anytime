@@ -39,9 +39,9 @@
     <view class="body sub clamp2" wx:if="{{item.content}}">{{item.content}}</view>
   </block>
 
-  <!-- 照片：多张时角上标数量 -->
+  <!-- 照片：单张铺满；多张错落堆叠 -->
   <block wx:else>
-    <view class="photo-wrap">
+    <view class="photo-wrap" wx:if="{{photoCount <= 1}}">
       <image
         class="photo"
         src="{{item.mediaPath}}"
@@ -49,8 +49,24 @@
         lazy-load
         catchtap="onPreview"
       />
-      <view class="photo-n" wx:if="{{photoCount > 1}}">{{photoCount}} 张</view>
     </view>
+
+    <view class="stack-photos" style="height:{{stackH}}rpx" wx:else>
+      <view
+        class="frame"
+        wx:for="{{photoList}}"
+        wx:key="idx"
+        wx:for-item="ph"
+        style="{{ph.style}}"
+        catchtap="onPreview"
+        data-index="{{ph.idx}}"
+      >
+        <image class="frame-img" src="{{ph.src}}" mode="aspectFill" lazy-load />
+        <!-- 超过 4 张时，最上面那张角上补一句 +N，其余张数看角标即可 -->
+        <view class="frame-more" wx:if="{{photoCount > 4 && ph.idx === 3}}">+{{photoCount - 4}}</view>
+      </view>
+    </view>
+
     <view class="body sub clamp2" wx:if="{{item.content}}">{{item.content}}</view>
   </block>
 
