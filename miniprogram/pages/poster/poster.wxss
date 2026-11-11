@@ -1,0 +1,106 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 32rpx 40rpx calc(48rpx + env(safe-area-inset-bottom));
+}
+
+.stage {
+  border-radius: 24rpx;
+  overflow: hidden;
+  box-shadow: 0 10rpx 32rpx rgba(120, 96, 66, 0.12);
+  background: #fff;
+}
+
+.preview {
+  display: block;
+  width: 100%;
+}
+
+.hint {
+  padding: 24rpx 4rpx 0;
+  font-size: 22rpx;
+  color: #b3a795;
+  text-align: center;
+}
+
+.waiting {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+  color: #a2957f;
+  gap: 20rpx;
+}
+
+.dot {
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 10rpx;
+  background: var(--accent, #c4713f);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.err {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  color: #b5673f;
+}
+
+.ops {
+  display: flex;
+  align-items: center;
+  padding-top: 36rpx;
+}
+
+.op {
+  flex: 1;
+  height: 88rpx;
+  margin-left: 16rpx;
+  border-radius: 44rpx;
+  background: #fff;
+  border: 1rpx solid #efe6d8;
+  font-size: 28rpx;
+  color: var(--ink-2, #8b8178);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.op:first-child {
+  margin-left: 0;
+}
+
+.op.main {
+  background: var(--accent, #c4713f);
+  border-color: var(--accent, #c4713f);
+  color: #fff;
+}
+
+.op:active {
+  opacity: 0.82;
+}
+
+/* 画布只负责画，不参与布局 */
+.cv {
+  position: fixed;
+  left: -2000px;
+  top: 0;
+}

@@ -29,22 +29,75 @@
   color: var(--ink-2, #8b8178);
 }
 
+.top-right {
+  display: flex;
+  align-items: center;
+}
+
+.top-act {
+  font-size: 26rpx;
+  color: var(--ink-2, #8b8178);
+  padding: 8rpx 4rpx 8rpx 24rpx;
+}
+
 .mine {
   font-size: 26rpx;
   color: var(--ink-2, #8b8178);
   padding: 8rpx 4rpx 8rpx 24rpx;
 }
 
-/* 吸顶伪输入条 */
+/* 吸顶：伪输入条 + 搜索按钮 */
 .stick {
   position: sticky;
   top: 0;
   z-index: 20;
-  padding: 4rpx 0 20rpx;
+  display: flex;
+  align-items: center;
+  padding: 4rpx 0 18rpx;
   background: var(--bg, #fbf8f3);
 }
 
+/* 纯 CSS 画的放大镜，避免为一个图标引入图片资源 */
+.sbtn {
+  position: relative;
+  flex-shrink: 0;
+  width: 88rpx;
+  height: 88rpx;
+  margin-left: 16rpx;
+  border-radius: 44rpx;
+  background: var(--beige, #f7f1e7);
+  border: 1rpx solid #f0e5d6;
+}
+
+.sbtn-hover {
+  background: #f3ebde;
+}
+
+.s-glass {
+  position: absolute;
+  left: 24rpx;
+  top: 24rpx;
+  width: 26rpx;
+  height: 26rpx;
+  border: 3rpx solid #a2957f;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.s-handle {
+  position: absolute;
+  left: 46rpx;
+  top: 50rpx;
+  width: 16rpx;
+  height: 3rpx;
+  border-radius: 3rpx;
+  background: #a2957f;
+  transform: rotate(45deg);
+  transform-origin: left center;
+}
+
 .composer {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -480,4 +533,129 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+/* ================= 筛选条 ================= */
+
+.chips {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  white-space: nowrap;
+  padding: 0 0 18rpx;
+}
+
+.chip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  height: 56rpx;
+  margin-right: 14rpx;
+  padding: 0 22rpx;
+  border-radius: 28rpx;
+  background: #fff;
+  border: 1rpx solid #efe6d8;
+  font-size: 24rpx;
+  color: var(--ink-2, #8b8178);
+}
+
+.chip.on {
+  background: #f8ece0;
+  border-color: #e6c9ae;
+  color: var(--accent, #c4713f);
+}
+
+.chip-star {
+  margin-right: 6rpx;
+  font-size: 20rpx;
+}
+
+.chip-n {
+  margin-left: 8rpx;
+  font-size: 20rpx;
+  color: #b8ab99;
+}
+
+.chip.on .chip-n {
+  color: var(--accent, #c4713f);
+}
+
+/* ================= 那年今日 ================= */
+
+.anni {
+  margin: 2rpx 0 22rpx;
+  padding: 24rpx 28rpx 26rpx;
+  border-radius: 28rpx;
+  background: linear-gradient(135deg, #fdf3ea 0%, #faf5ec 100%);
+  border: 1rpx solid #f0e2d2;
+}
+
+.anni:active {
+  opacity: 0.85;
+}
+
+.anni-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.anni-label {
+  font-size: 22rpx;
+  letter-spacing: 1rpx;
+  color: var(--accent, #c4713f);
+}
+
+.anni-tip {
+  font-size: 22rpx;
+  color: #b8ab99;
+}
+
+.anni-text {
+  margin-top: 12rpx;
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: #4a423a;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ================= 多选操作条 ================= */
+
+.selbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  padding: 18rpx 32rpx calc(18rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  border-top: 1rpx solid var(--line, #f0e7da);
+}
+
+.sel-count {
+  flex: 1;
+  font-size: 26rpx;
+  color: var(--ink-2, #8b8178);
+}
+
+.sel-act {
+  margin-left: 18rpx;
+  padding: 12rpx 26rpx;
+  border-radius: 30rpx;
+  background: #f7f1e7;
+  font-size: 26rpx;
+  color: var(--ink, #2c2723);
+}
+
+.sel-act:active {
+  opacity: 0.7;
+}
+
+.sel-act.danger {
+  color: #b5673f;
+  background: #faf0ea;
 }

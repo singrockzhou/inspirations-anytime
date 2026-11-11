@@ -3,6 +3,9 @@
     "pages/index/index",
     "pages/record/record",
     "pages/detail/detail",
+    "pages/search/search",
+    "pages/review/review",
+    "pages/poster/poster",
     "pages/me/me"
   ],
   "window": {

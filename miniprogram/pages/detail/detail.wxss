@@ -96,12 +96,14 @@
 .actions {
   margin-top: 64rpx;
   display: flex;
+  flex-wrap: wrap;
 }
 
+/* 五个动作按三列排，最后一个自然落到第二行左起 */
 .act {
-  flex: 1;
+  width: 31.4%;
+  margin: 0 2.9% 16rpx 0;
   height: 84rpx;
-  margin: 0 8rpx;
   border-radius: 42rpx;
   border: 1rpx solid var(--line, #f0e7da);
   background: #fff;
@@ -143,4 +145,87 @@
   font-size: 28rpx;
   display: flex;
   align-items: center;
+}
+
+/* 每行第 3 个去掉右外边距 */
+.act:nth-child(3n) {
+  margin-right: 0;
+}
+
+/* ================= 星标 / 归档 / 补文字 ================= */
+
+.head-right {
+  display: flex;
+  align-items: center;
+}
+
+.star {
+  margin-right: 20rpx;
+  font-size: 22rpx;
+  color: #b3a795;
+  padding: 6rpx 0;
+}
+
+.star.on {
+  color: var(--accent, #c4713f);
+}
+
+.need-text {
+  margin-top: 28rpx;
+  padding: 20rpx 24rpx;
+  border-radius: 16rpx;
+  border: 1rpx dashed #ddcfbd;
+  background: #fdfaf5;
+  font-size: 24rpx;
+  color: #a2957f;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 32rpx;
+}
+
+.tag {
+  margin-right: 14rpx;
+  margin-bottom: 8rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+  background: #f4efe6;
+  color: #8b8178;
+  font-size: 22rpx;
+}
+
+/* ================= 多图 ================= */
+
+.photos.multi {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.photos.multi .photo {
+  width: 31.4%;
+  height: 210rpx;
+  margin: 0 2.9% 16rpx 0;
+  border-radius: 16rpx;
+}
+
+.photos.multi .photo:nth-child(3n) {
+  margin-right: 0;
+}
+
+/* 分享按钮：抹掉原生 button 的边框与底色 */
+.share {
+  margin-top: 16rpx;
+  height: 84rpx;
+  line-height: 84rpx;
+  border-radius: 42rpx;
+  background: transparent;
+  border: none;
+  font-size: 26rpx;
+  color: #a2957f;
+}
+
+.share::after {
+  border: none;
 }

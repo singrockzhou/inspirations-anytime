@@ -2,7 +2,10 @@
 
   <view class="head">
     <view class="badge">{{typeLabel}}</view>
-    <text class="time">{{timeText}}</text>
+    <view class="head-right">
+      <text class="star {{starred ? 'on' : ''}}" catchtap="onToggleStar">{{starred ? '★ 已加星' : '☆ 加星'}}</text>
+      <text class="time">{{timeText}}</text>
+    </view>
   </view>
 
   <!-- 文字 -->
@@ -18,22 +21,47 @@
     <view class="text sub" wx:if="{{record.content}}">{{record.content}}</view>
   </block>
 
-  <!-- 照片 -->
+  <!-- 照片：一张时按原比例，多张时排成三列 -->
   <block wx:else>
-    <image class="photo" src="{{record.mediaPath}}" mode="widthFix" catchtap="onPreview" />
+    <view class="photos {{photos.length > 1 ? 'multi' : ''}}">
+      <image
+        class="photo"
+        wx:for="{{photos}}"
+        wx:key="*this"
+        src="{{item}}"
+        mode="{{photos.length > 1 ? 'aspectFill' : 'widthFix'}}"
+        data-i="{{index}}"
+        catchtap="onPreview"
+      />
+    </view>
     <view class="text sub" wx:if="{{record.content}}">{{record.content}}</view>
   </block>
+
+  <!-- 没有文字时，补一句就能被搜到 -->
+  <view class="need-text" wx:if="{{needText}}" catchtap="onAddText">
+    + 补一句文字，这条就能被搜到
+  </view>
+
+  <!-- 标签 -->
+  <view class="tags" wx:if="{{record.tags.length}}">
+    <text class="tag" wx:for="{{record.tags}}" wx:key="*this" wx:for-item="tg">#{{tg}}</text>
+  </view>
 
   <view class="meta">
     <text class="meta-line">记于 {{timeText}}</text>
     <text class="meta-line" wx:if="{{updatedText}}">改于 {{updatedText}}</text>
+    <text class="meta-line" wx:if="{{archived}}">已归档，不在主列表里</text>
   </view>
 
   <view class="actions">
     <view class="act" catchtap="onEdit">改一改</view>
     <view class="act" catchtap="onCopy">复制</view>
+    <view class="act" catchtap="onPoster">做成图</view>
+    <view class="act" catchtap="onToggleArchive">{{archived ? '取消归档' : '归档'}}</view>
     <view class="act danger" catchtap="onDelete">删了</view>
   </view>
+
+  <button class="share" open-type="share">发给朋友</button>
 
   <view class="toast" wx:if="{{toastText}}">{{toastText}}</view>
 </view>

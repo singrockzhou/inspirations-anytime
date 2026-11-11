@@ -1,0 +1,31 @@
+<view class="page">
+
+  <view class="stage" wx:if="{{ready}}">
+    <image class="preview" src="{{imgPath}}" mode="widthFix" show-menu-by-longpress />
+  </view>
+
+  <view class="hint" wx:if="{{ready}}">长按图片也能保存，或者用下面的按钮</view>
+
+  <view class="waiting" wx:if="{{!ready && !error}}">
+    <view class="dot"></view>
+    <text>正在排版…</text>
+  </view>
+
+  <view class="err" wx:if="{{error}}">{{error}}</view>
+
+  <view class="ops" wx:if="{{ready}}">
+    <view class="op main" catchtap="onSave">保存到相册</view>
+    <view class="op" catchtap="onShareImage">发给朋友</view>
+    <view class="op" catchtap="onCopy">复制文字</view>
+  </view>
+
+  <!-- 离屏画布：只用于绘制与导出，不参与布局 -->
+  <canvas
+    type="2d"
+    id="poster"
+    class="cv"
+    style="width: {{cssW}}px; height: {{cssH}}px"
+  ></canvas>
+
+  <view class="toast" wx:if="{{toastText}}">{{toastText}}</view>
+</view>

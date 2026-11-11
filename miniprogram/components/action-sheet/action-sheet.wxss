@@ -35,6 +35,9 @@
   border-radius: 32rpx 32rpx 0 0;
   padding: 12rpx 24rpx 0;
   animation: rise 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* 菜单项变多以后（卡片长按已有 7 项）在小屏上会顶到状态栏，这里兜住并允许内部滚动 */
+  max-height: 80vh;
+  overflow-y: auto;
 }
 
 @keyframes rise {

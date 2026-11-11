@@ -1,8 +1,38 @@
 <view class="page">
 
   <view class="hero">
-    <text class="hero-num">{{total}}</text>
-    <text class="hero-unit">条灵感</text>
+    <view class="hero-main">
+      <text class="hero-num">{{total}}</text>
+      <text class="hero-unit">条灵感</text>
+    </view>
+    <view class="hero-streak" wx:if="{{streak > 0}}">
+      <text class="streak-num">{{streak}}</text>
+      <text class="streak-unit">天连续</text>
+    </view>
+  </view>
+
+  <!-- 记录热力图：最近 14 周，每列一周，周一在上 -->
+  <view class="block heat-block" wx:if="{{total > 0}}">
+    <view class="heat-head">
+      <text class="heat-t">最近 14 周</text>
+      <text class="heat-s">最多一天 {{heatMax}} 条</text>
+    </view>
+    <view class="heat">
+      <view
+        class="cell level-{{item.level}} {{item.future ? 'future' : ''}}"
+        wx:for="{{heat}}"
+        wx:key="key"
+      ></view>
+    </view>
+    <view class="heat-legend">
+      <text class="lg">少</text>
+      <view class="cell level-0"></view>
+      <view class="cell level-1"></view>
+      <view class="cell level-2"></view>
+      <view class="cell level-3"></view>
+      <view class="cell level-4"></view>
+      <text class="lg">多</text>
+    </view>
   </view>
 
   <view class="block">
@@ -18,6 +48,50 @@
       <text class="row-k">文字 / 语音 / 照片</text>
       <text class="row-v">{{byType.text}} / {{byType.voice}} / {{byType.photo}}</text>
     </view>
+    <view class="row">
+      <text class="row-k">加星 / 归档 / 带标签</text>
+      <text class="row-v">{{starred}} / {{archived}} / {{tagged}}</text>
+    </view>
+  </view>
+
+  <!-- 回顾 -->
+  <view class="sec">回顾</view>
+  <view class="block">
+    <view class="row tap" bindtap="onReview">
+      <view class="row-main">
+        <text class="row-k">随便翻一条</text>
+        <text class="row-sub">从旧记录里抽一条给你看</text>
+      </view>
+      <text class="row-go">›</text>
+    </view>
+    <view class="row tap" bindtap="onArchive">
+      <view class="row-main">
+        <text class="row-k">归档</text>
+        <text class="row-sub">收起来但仍然留着的内容</text>
+      </view>
+      <text class="row-v">{{archived}} 条 ›</text>
+    </view>
+  </view>
+
+  <!-- 提醒 -->
+  <view class="sec">习惯</view>
+  <view class="block">
+    <view class="row tap" bindtap="onRemind">
+      <view class="row-main">
+        <text class="row-k">每日提醒</text>
+        <text class="row-sub">{{remindReady ? (remindOn ? '到点提醒你记一条' : '还没开') : '需要先在后台配订阅消息模板'}}</text>
+      </view>
+      <text class="row-v">{{remindOn ? '已开' : '关'}} ›</text>
+    </view>
+    <picker mode="time" value="{{remindTime}}" bindchange="onRemindTime">
+      <view class="row tap">
+        <view class="row-main">
+          <text class="row-k">提醒时间</text>
+          <text class="row-sub">记下你想被提醒的时刻</text>
+        </view>
+        <text class="row-v">{{remindTime}} ›</text>
+      </view>
+    </picker>
   </view>
 
   <!-- 换手机：一个文件带走，一个文件带回 -->
@@ -34,6 +108,13 @@
       <view class="row-main">
         <text class="row-k">从文件导入</text>
         <text class="row-sub">从聊天里选 .json 备份</text>
+      </view>
+      <text class="row-go">›</text>
+    </view>
+    <view class="row tap" bindtap="onImportChat">
+      <view class="row-main">
+        <text class="row-k">从聊天存一条</text>
+        <text class="row-sub">把聊天里的文件或图片收成灵感</text>
       </view>
       <text class="row-go">›</text>
     </view>

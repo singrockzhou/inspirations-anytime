@@ -5,8 +5,32 @@
 
 .hero {
   display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 24rpx 8rpx 40rpx;
+}
+
+.hero-main {
+  display: flex;
   align-items: baseline;
-  padding: 24rpx 8rpx 48rpx;
+}
+
+/* 连续天数：比总数小一号，作为副信息压在右侧 */
+.hero-streak {
+  display: flex;
+  align-items: baseline;
+  padding-bottom: 10rpx;
+}
+
+.streak-num {
+  font-size: 44rpx;
+  color: var(--accent, #c4713f);
+}
+
+.streak-unit {
+  margin-left: 6rpx;
+  font-size: 22rpx;
+  color: #b3a795;
 }
 
 .hero-num {
@@ -109,4 +133,88 @@
 
 .row.tap .row-k {
   font-size: 28rpx;
+}
+
+/* ================= 热力图 ================= */
+
+.heat-block {
+  padding: 28rpx 28rpx 22rpx;
+}
+
+.heat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 20rpx;
+}
+
+.heat-t {
+  font-size: 24rpx;
+  color: var(--ink, #2c2723);
+}
+
+.heat-s {
+  font-size: 22rpx;
+  color: #b3a795;
+}
+
+/* 7 行 14 列：每列一周，周一在最上面，时间从左往右走 */
+.heat {
+  display: grid;
+  grid-template-rows: repeat(7, 36rpx);
+  grid-auto-flow: column;
+  grid-auto-columns: 36rpx;
+  gap: 8rpx;
+}
+
+/* 底色挂在 .cell 上（而不是 .heat .cell），这样图例里的格子也有底色 */
+.cell {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 8rpx;
+  background: #f2ece2;
+}
+
+.level-1 {
+  background: #f6ddc6;
+}
+
+.level-2 {
+  background: #eec19b;
+}
+
+.level-3 {
+  background: #dd9a68;
+}
+
+.level-4 {
+  background: #c4713f;
+}
+
+.cell.future {
+  background: transparent;
+}
+
+.heat-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 18rpx;
+}
+
+.heat-legend .cell {
+  width: 24rpx;
+  height: 24rpx;
+  margin-left: 8rpx;
+  border-radius: 6rpx;
+}
+
+.lg {
+  margin-left: 8rpx;
+  font-size: 20rpx;
+  color: #c0b4a5;
+}
+
+.lg:first-child {
+  margin-left: 0;
 }

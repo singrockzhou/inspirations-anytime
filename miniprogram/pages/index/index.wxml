@@ -5,15 +5,52 @@
       <text class="title">我的灵感</text>
       <text class="count" wx:if="{{total > 0}}">{{total}} 条</text>
     </view>
-    <view class="mine" catchtap="goMe">我的</view>
+    <view class="top-right">
+      <text class="top-act" catchtap="toggleSelect">{{selectMode ? '取消' : '多选'}}</text>
+      <view class="mine" catchtap="goMe">我的</view>
+    </view>
   </view>
 
-  <!-- 吸顶伪输入条：1 次点击进入输入态 -->
+  <!-- 吸顶：伪输入条 + 搜索入口。一次点击分别进入"写"和"找" -->
   <view class="stick">
     <view class="composer" catchtap="goText">
       <text class="composer-ph">今天想到什么？</text>
       <view class="composer-dot">✎</view>
     </view>
+    <view class="sbtn" hover-class="sbtn-hover" hover-stay-time="80" catchtap="goSearch">
+      <view class="s-glass"></view>
+      <view class="s-handle"></view>
+    </view>
+  </view>
+
+  <!-- 筛选：全部 / 星标 / 归档 / 标签 -->
+  <scroll-view class="chips" scroll-x="true" enable-flex="true" show-scrollbar="{{false}}">
+    <view class="chip {{filter === 'all' && !filterTag ? 'on' : ''}}" data-mode="all" catchtap="onFilter">
+      全部<text class="chip-n">{{counts.all}}</text>
+    </view>
+    <view class="chip {{filter === 'star' ? 'on' : ''}}" data-mode="star" catchtap="onFilter">
+      <text class="chip-star">★</text>星标<text class="chip-n">{{counts.star}}</text>
+    </view>
+    <view class="chip {{filter === 'archive' ? 'on' : ''}}" data-mode="archive" catchtap="onFilter">
+      归档<text class="chip-n">{{counts.archive}}</text>
+    </view>
+    <view
+      class="chip chip-tag {{filterTag === item.tag ? 'on' : ''}}"
+      wx:for="{{tags}}"
+      wx:key="tag"
+      wx:for-item="item"
+      data-tag="{{item.tag}}"
+      catchtap="onFilterTag"
+    >#{{item.tag}}<text class="chip-n">{{item.count}}</text></view>
+  </scroll-view>
+
+  <!-- 那年今日 -->
+  <view class="anni" wx:if="{{anniversary}}" catchtap="openAnniversary">
+    <view class="anni-top">
+      <text class="anni-label">{{anniversary.label}}</text>
+      <text class="anni-tip">点开看看 ›</text>
+    </view>
+    <view class="anni-text">{{anniversary.text}}</view>
   </view>
 
   <!-- 今天平铺 / 非今天按周、月、年堆叠 -->
@@ -27,6 +64,7 @@
           <swipe-cell
             item-id="{{it.id}}"
             open="{{openSwipeId === it.id}}"
+            disabled="{{selectMode}}"
             bind:open="onSwipeOpen"
             bind:close="onSwipeClose"
             bind:delete="onSwipeDelete"
@@ -35,8 +73,11 @@
               item="{{it}}"
               playing="{{playingId === it.id}}"
               highlight="{{highlightId === it.id}}"
+              select-mode="{{selectMode}}"
+              checked="{{it._checked}}"
               bind:open="onCardOpen"
               bind:action="onCardAction"
+              bind:toggle="onCardToggle"
               bind:play="onPlay"
               bind:preview="onPreview"
             />
@@ -77,6 +118,7 @@
             <swipe-cell
               item-id="{{it.id}}"
               open="{{openSwipeId === it.id}}"
+              disabled="{{selectMode}}"
               bind:open="onSwipeOpen"
               bind:close="onSwipeClose"
               bind:delete="onSwipeDelete"
@@ -85,8 +127,11 @@
                 item="{{it}}"
                 playing="{{playingId === it.id}}"
                 highlight="{{highlightId === it.id}}"
+                select-mode="{{selectMode}}"
+                checked="{{it._checked}}"
                 bind:open="onCardOpen"
                 bind:action="onCardAction"
+                bind:toggle="onCardToggle"
                 bind:play="onPlay"
                 bind:preview="onPreview"
               />
@@ -102,13 +147,22 @@
 
   <!-- 空态：一句话 + 直接可点的入口，不放插画 -->
   <view class="empty" wx:if="{{empty && !loading}}">
-    <view class="empty-line">想到什么，就说一句</view>
-    <view class="empty-sub">不用起标题，也不用选分类</view>
-    <view class="empty-btn" catchtap="goText">记下第一条</view>
+    <view class="empty-line">{{emptyText}}</view>
+    <view class="empty-sub">{{emptySub}}</view>
+    <view class="empty-btn" wx:if="{{filter === 'all' && !filterTag}}" catchtap="goText">记下第一条</view>
+    <view class="empty-btn" wx:else catchtap="onFilter" data-mode="all">看全部灵感</view>
+  </view>
+
+  <!-- 多选操作条 -->
+  <view class="selbar" wx:if="{{selectMode}}">
+    <text class="sel-count">已选 {{selectedCount}} 条</text>
+    <view class="sel-act" catchtap="onSelCopy">复制</view>
+    <view class="sel-act" catchtap="onSelExport">导出</view>
+    <view class="sel-act danger" catchtap="onSelDelete">删了</view>
   </view>
 
   <!-- 底部三入口并排：点一下直接进，不再有 + 号的两级菜单 -->
-  <view class="entry-bar">
+  <view class="entry-bar" wx:if="{{!selectMode}}">
     <view class="entry" hover-class="entry-hover" hover-stay-time="80" catchtap="goText">
       <view class="entry-ic ic-text">
         <view class="ln ln-a"></view>

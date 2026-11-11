@@ -14,12 +14,20 @@ Component({
       type: String,
       value: ''
     },
+    /** 多选等场景下关掉手势，避免误滑出删除按钮 */
+    disabled: {
+      type: Boolean,
+      value: false,
+      observer(next) {
+        if (next && this.data.x !== 0) this.slideTo(0, true)
+      }
+    },
     /** 由页面根据 openId 下发，保证同时只有一条处于打开状态 */
     open: {
       type: Boolean,
       value: false,
       observer(next) {
-        if (this._dragging) return
+        if (this._dragging || this.data.disabled) return
         this.slideTo(next ? -BTN_PX : 0, true)
       }
     }
@@ -40,6 +48,7 @@ Component({
     },
 
     onStart(e) {
+      if (this.data.disabled) return
       const t = e.touches && e.touches[0]
       if (!t) return
       this._startX = t.clientX

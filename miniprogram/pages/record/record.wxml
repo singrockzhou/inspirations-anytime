@@ -26,6 +26,7 @@
         bindinput="onInput"
       />
       <view class="counter">{{content.length}} / {{maxText}}</view>
+      <view class="tip">正文里写 #标签，会在这个标签下自动归好</view>
     </block>
 
     <!-- 语音 -->
@@ -43,6 +44,9 @@
           <text class="rec-sub">{{recording ? (canceling ? '松开取消' : '松手就存') : (clickMode ? '点一下开始' : '上滑可以取消')}}</text>
         </view>
 
+        <!-- 边录边转时的实时文字 -->
+        <view class="asr-live" wx:if="{{recording && asrPartial}}">{{asrPartial}}</view>
+
         <view class="hint" wx:if="{{hint}}">{{hint}}</view>
 
         <view class="chip" wx:if="{{mediaPath && !recording}}" catchtap="playVoice">
@@ -58,7 +62,7 @@
         class="ta ta-note"
         value="{{content}}"
         maxlength="{{maxCaption}}"
-        placeholder="补一句备注（可不填）"
+        placeholder="{{asrReady ? '转写出来的字会填在这里，可以改' : '补一句文字，这条录音就能被搜到'}}"
         placeholder-class="ta-ph"
         auto-height
         show-confirm-bar="{{false}}"
@@ -67,10 +71,24 @@
       />
     </block>
 
-    <!-- 照片 -->
+    <!-- 照片：最多 9 张 -->
     <block wx:else>
-      <view class="photo" wx:if="{{mediaPath}}" catchtap="previewMedia">
-        <image class="photo-img" src="{{mediaPath}}" mode="aspectFill" />
+      <view class="grid" wx:if="{{photos.length}}">
+        <view class="cell" wx:for="{{photos}}" wx:key="path">
+          <image
+            class="cell-img"
+            src="{{item.path}}"
+            mode="aspectFill"
+            data-i="{{index}}"
+            catchtap="previewMedia"
+          />
+          <view class="cell-x" data-i="{{index}}" catchtap="removePhoto">×</view>
+        </view>
+
+        <view class="cell cell-add" wx:if="{{photos.length < maxPhotos}}" catchtap="pickPhoto">
+          <text class="add-plus">+</text>
+          <text class="add-tx">再加</text>
+        </view>
       </view>
 
       <view class="pick" wx:else catchtap="pickPhoto">
@@ -78,10 +96,7 @@
         <text class="pick-tx">拍一张，或从相册选</text>
       </view>
 
-      <view class="ops" wx:if="{{mediaPath}}">
-        <text class="op" catchtap="pickPhoto">重选</text>
-        <text class="op danger" wx:if="{{mode === 'create'}}" catchtap="removePhoto">删掉</text>
-      </view>
+      <view class="counter left" wx:if="{{photos.length}}">{{photos.length}} / {{maxPhotos}} 张 · 点图上的 × 可以去掉</view>
 
       <textarea
         class="ta ta-note"

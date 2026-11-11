@@ -13,6 +13,10 @@ Page({
     timeText: '',
     updatedText: '',
     playing: false,
+    photos: [],
+    starred: false,
+    archived: false,
+    needText: false,
     toastText: ''
   },
 
@@ -42,7 +46,12 @@ Page({
       typeLabel: TYPE_LABEL[rec.type] || '文字',
       timeText: date.fullTime(rec.createdAt),
       // 只有真的改过（超过 1 分钟再保存）才显示修改时间
-      updatedText: rec.updatedAt - rec.createdAt > 60000 ? date.fullTime(rec.updatedAt) : ''
+      updatedText: rec.updatedAt - rec.createdAt > 60000 ? date.fullTime(rec.updatedAt) : '',
+      photos: rec.mediaPaths || [],
+      starred: !!rec.starred,
+      archived: !!rec.archivedAt,
+      // 语音/照片没有文字时，给一个"补一句"的口子，补上就能被搜到
+      needText: rec.type !== 'text' && !(rec.content || '').trim()
     })
   },
 
@@ -51,7 +60,7 @@ Page({
   },
 
   onCopy() {
-    const text = (this.data.record && this.data.record.content || '').trim()
+    const text = ((this.data.record && this.data.record.content) || '').trim()
     if (!text) {
       this.toast('这条没有文字可复制')
       return
@@ -76,6 +85,56 @@ Page({
     })
   },
 
+  /* ------------------------- 星标 / 归档 ------------------------- */
+
+  onToggleStar() {
+    const next = !this.data.starred
+    if (!store.setStar(this.id, next)) return
+    this.setData({ starred: next })
+    this.toast(next ? '加星了' : '从星标里拿下来了')
+  },
+
+  onToggleArchive() {
+    const next = !this.data.archived
+    if (!store.setArchive(this.id, next)) return
+    this.setData({ archived: next })
+    this.toast(next ? '收进归档了' : '回到主列表了')
+  },
+
+  /* ------------------------- 做成图 ------------------------- */
+
+  onPoster() {
+    wx.navigateTo({ url: '/pages/poster/poster?id=' + this.id })
+  },
+
+  /* ------------------------- 补文字 ------------------------- */
+
+  /** 语音/照片没有文字时，补一句就能被搜索命中 */
+  onAddText() {
+    wx.showModal({
+      title: '补一句',
+      editable: true,
+      placeholderText: '这段讲的是什么？',
+      cancelText: '算了',
+      confirmText: '存下',
+      confirmColor: '#C4713F',
+      success: res => {
+        if (!res.confirm) return
+        const text = (res.content || '').trim()
+        if (!text) {
+          // 低版本基础库不支持 editable 弹窗，退回编辑页去写
+          this.onEdit()
+          return
+        }
+        if (!store.update(this.id, { content: text })) return
+        this.load()
+        this.toast('补上了，现在能搜到')
+      }
+    })
+  },
+
+  /* ------------------------- 媒体 ------------------------- */
+
   onPlay() {
     const rec = this.data.record
     if (!rec || !rec.mediaPath) return
@@ -96,14 +155,23 @@ Page({
     this.setData({ playing: true })
   },
 
-  onPreview() {
-    const rec = this.data.record
-    if (!rec || !rec.mediaPath) return
-    wx.previewImage({ current: rec.mediaPath, urls: [rec.mediaPath] })
+  onPreview(e) {
+    const urls = this.data.photos
+    if (!urls.length) return
+    const index = Number((e && e.currentTarget && e.currentTarget.dataset.i) || 0)
+    wx.previewImage({ current: urls[index] || urls[0], urls: urls })
   },
 
   goBack() {
     wx.navigateBack()
+  },
+
+  onShareAppMessage() {
+    const text = ((this.data.record && this.data.record.content) || '').slice(0, 400)
+    return {
+      title: text ? text.slice(0, 30) : '灵感随时记',
+      path: text ? '/pages/index/index?inbox=' + encodeURIComponent(text) : '/pages/index/index'
+    }
   },
 
   toast(message) {

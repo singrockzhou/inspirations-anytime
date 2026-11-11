@@ -1,0 +1,45 @@
+<view class="page">
+
+  <view class="head">
+    <text class="head-t">随便翻一条</text>
+    <text class="head-s" wx:if="{{total}}">从 {{total}} 条里抽的</text>
+  </view>
+
+  <block wx:if="{{item}}">
+    <view class="paper">
+      <view class="meta">
+        <text class="ago">{{agoText}}</text>
+        <text class="star" wx:if="{{starred}}">★</text>
+      </view>
+
+      <scroll-view class="body" scroll-y="true">
+        <view class="text" wx:if="{{item.content}}">{{item.content}}</view>
+        <view class="text dim" wx:else>
+          {{item.type === 'voice' ? '这条是一段录音，去详情里听。' : '这条是照片，去详情里看。'}}
+        </view>
+      </scroll-view>
+
+      <view class="tags" wx:if="{{item.tags.length}}">
+        <text class="tag" wx:for="{{item.tags}}" wx:key="*this" wx:for-item="tg">#{{tg}}</text>
+      </view>
+
+      <view class="foot">{{timeText}}</view>
+    </view>
+
+    <view class="ops">
+      <view class="op main" catchtap="onNext">再来一条</view>
+      <view class="op" catchtap="onStar">{{starred ? '取消星标' : '加星'}}</view>
+      <view class="op" catchtap="onOpen">看详情</view>
+    </view>
+
+    <button class="share" open-type="share">把这条发给朋友</button>
+  </block>
+
+  <view class="empty" wx:if="{{empty}}">
+    <view class="empty-t">还没有可重温的</view>
+    <view class="empty-s">先记几条，过几天再来抽</view>
+    <view class="empty-btn" catchtap="goWrite">去记一条</view>
+  </view>
+
+  <view class="toast" wx:if="{{toastText}}">{{toastText}}</view>
+</view>

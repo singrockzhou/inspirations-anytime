@@ -1,0 +1,57 @@
+<view class="page">
+
+  <view class="bar">
+    <view class="box">
+      <view class="ic">
+        <view class="glass"></view>
+        <view class="handle"></view>
+      </view>
+      <input
+        class="ipt"
+        value="{{keyword}}"
+        placeholder="搜正文，也搜 #标签"
+        placeholder-class="ipt-ph"
+        focus="{{focus}}"
+        confirm-type="search"
+        bindinput="onInput"
+        bindconfirm="onConfirm"
+      />
+      <view class="clear" wx:if="{{keyword}}" catchtap="onClear">×</view>
+    </view>
+  </view>
+
+  <!-- 标签快捷入口：不输入也能点着找 -->
+  <scroll-view class="tags" scroll-x="true" enable-flex="true" show-scrollbar="{{false}}" wx:if="{{tags.length}}">
+    <view class="tag" wx:for="{{tags}}" wx:key="tag" data-tag="{{item.tag}}" catchtap="onTag">#{{item.tag}}</view>
+  </scroll-view>
+
+  <view class="count" wx:if="{{searched && results.length}}">共 {{results.length}} 条</view>
+
+  <view class="list">
+    <view class="row" wx:for="{{results}}" wx:key="id" data-id="{{item.id}}" catchtap="onOpen">
+      <view class="row-top">
+        <text class="row-type">{{item._type}}</text>
+        <text class="row-time">{{item._time}}</text>
+      </view>
+      <view class="row-hit">
+        <text>{{item._seg.before}}</text>
+        <text class="mk" wx:if="{{item._hit}}">{{item._seg.mid}}</text>
+        <text>{{item._seg.after}}</text>
+      </view>
+      <view class="row-tags" wx:if="{{item.tags.length}}">
+        <text class="row-tag" wx:for="{{item.tags}}" wx:key="*this" wx:for-item="tg">#{{tg}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{searched && !results.length}}">
+    <view class="empty-t">没找到「{{keyword}}」</view>
+    <view class="empty-s">换个词试试，或者去标签里翻</view>
+  </view>
+
+  <view class="empty" wx:if="{{!searched}}">
+    <view class="empty-t">{{emptyText}}</view>
+    <view class="empty-s">{{emptySub}}</view>
+  </view>
+
+</view>

@@ -5,6 +5,19 @@
  * 为什么不用分表/分页存储：单用户上限 1000 条，纯文本记录序列化后不过几百 KB，
  * 一次同步读写比多次异步分片更简单，也不会出现"分片之间时序错乱"的经典坑。
  *
+ * 记录形状：
+ * {
+ *   id, type: 'text'|'voice'|'photo',
+ *   content,                      // 正文；语音/照片时是备注
+ *   mediaPath,                    // 兼容字段：语音=文件，照片=第一张
+ *   mediaPaths: string[],         // 照片最多 9 张
+ *   duration, size,
+ *   tags: string[],               // 从正文 #标签 自动解析 + 手动补充
+ *   starred: 0|1,
+ *   archivedAt: number,           // 非 0 表示已归档，不进主列表
+ *   createdAt, updatedAt, deletedAt
+ * }
+ *
  * 对外只暴露语义化方法，页面不直接碰 wx.getStorageSync。
  */
 const media = require('./media')
@@ -13,12 +26,106 @@ const { uuid } = require('./id')
 const KEY_RECORDS = 'lg.records.v1'
 const KEY_META = 'lg.meta.v1'
 const KEY_DRAFT = 'lg.draft.v1'
+const KEY_PREFS = 'lg.prefs.v1'
 
 const MAX_RECORDS = 1000
 /** 软删记录保留 24 小时再物理清除，够覆盖撤销与误操作排查 */
 const TRASH_TTL = 24 * 60 * 60 * 1000
+/** 单条最多 9 张图，和微信相册选择的常用上限保持一致 */
+const MAX_PHOTOS = 9
+const MAX_TAGS = 8
+
+/** #标签：中文/字母/数字，遇到空白与常见标点即止 */
+const TAG_RE = /#([^\s#，。,.!！?？、;；:：()（）[\]【】"'“”]{1,12})/g
 
 let cache = null
+
+/* ---------------------------- 基础工具 ---------------------------- */
+
+function pad2(n) {
+  return n < 10 ? '0' + n : '' + n
+}
+
+function dayKeyOf(ts) {
+  const d = new Date(ts)
+  return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate())
+}
+
+function startOfDay(ts) {
+  const d = new Date(ts)
+  d.setHours(0, 0, 0, 0)
+  return d.getTime()
+}
+
+/** 从正文里抽 #标签，去重、限长、限个数 */
+function parseTags(content) {
+  const out = []
+  const seen = {}
+  const text = typeof content === 'string' ? content : ''
+  TAG_RE.lastIndex = 0
+  let m = TAG_RE.exec(text)
+  while (m) {
+    const tag = m[1].trim()
+    if (tag && !seen[tag] && out.length < MAX_TAGS) {
+      seen[tag] = 1
+      out.push(tag)
+    }
+    m = TAG_RE.exec(text)
+  }
+  return out
+}
+
+function normalizeTags(list, content) {
+  const out = []
+  const seen = {}
+  const push = t => {
+    const tag = String(t || '').trim().replace(/^#/, '')
+    if (!tag || seen[tag] || out.length >= MAX_TAGS) return
+    seen[tag] = 1
+    out.push(tag)
+  }
+  if (Array.isArray(list)) list.forEach(push)
+  parseTags(content).forEach(push)
+  return out
+}
+
+/**
+ * 读出来的记录统一整形。
+ * 老数据没有 mediaPaths / tags / starred / archivedAt，在这里补齐，
+ * 页面上就不需要到处写兼容判断。
+ */
+function normalizeRecord(r) {
+  const out = Object.assign({}, r)
+  out.content = typeof out.content === 'string' ? out.content : ''
+  out.type = ['text', 'voice', 'photo'].indexOf(out.type) >= 0 ? out.type : 'text'
+
+  let paths = Array.isArray(out.mediaPaths) ? out.mediaPaths.filter(Boolean) : []
+  if (!paths.length && out.mediaPath && out.type === 'photo') paths = [out.mediaPath]
+  out.mediaPaths = out.type === 'photo' ? paths.slice(0, MAX_PHOTOS) : []
+  out.mediaPath = out.type === 'photo' ? out.mediaPaths[0] || '' : out.mediaPath || ''
+
+  out.tags = normalizeTags(out.tags, out.content)
+  out.starred = out.starred ? 1 : 0
+  out.archivedAt = out.archivedAt || 0
+  out.duration = out.duration || 0
+  out.size = out.size || 0
+  out.deletedAt = out.deletedAt || 0
+  return out
+}
+
+function clone(record) {
+  const out = Object.assign({}, record)
+  out.tags = record.tags ? record.tags.slice() : []
+  out.mediaPaths = record.mediaPaths ? record.mediaPaths.slice() : []
+  return out
+}
+
+/** 一条记录里所有需要随记录一起清理的文件 */
+function mediaOf(record) {
+  if (!record) return []
+  if (record.type === 'voice') return record.mediaPath ? [record.mediaPath] : []
+  return (record.mediaPaths || []).slice()
+}
 
 function readAll() {
   if (cache) return cache
@@ -29,7 +136,7 @@ function readAll() {
     console.error('[store] read failed', e)
   }
   if (!Array.isArray(list)) list = []
-  cache = list
+  cache = list.map(normalizeRecord)
   return cache
 }
 
@@ -59,10 +166,6 @@ function sortDesc(list) {
   return list.slice().sort((a, b) => b.createdAt - a.createdAt)
 }
 
-function clone(record) {
-  return Object.assign({}, record)
-}
-
 function activeOnly(list) {
   return list.filter(r => !r.deletedAt)
 }
@@ -87,12 +190,74 @@ function touchMeta(ts) {
 
 /* ------------------------------ 读 ------------------------------ */
 
-/** 列表：默认只返回未删除的，按创建时间倒序 */
+/** 列表：默认只返回未删除、未归档的，按创建时间倒序 */
 function list(options) {
-  const includeDeleted = options && options.includeDeleted
+  const o = options || {}
   const all = readAll()
-  const arr = includeDeleted ? all : activeOnly(all)
+  let arr
+  if (o.includeDeleted) arr = all
+  else if (o.includeArchived) arr = activeOnly(all)
+  else arr = activeOnly(all).filter(r => !r.archivedAt)
   return sortDesc(arr).map(clone)
+}
+
+/**
+ * 带条件的查询：主列表、星标、归档、按标签、按关键词都用它，
+ * 保证「筛选口径」只有一份实现。
+ * @param {{only?:'all'|'star'|'archive', tag?:string, keyword?:string}} opts
+ */
+function query(opts) {
+  const o = opts || {}
+  const keyword = (o.keyword || '').trim().toLowerCase()
+  let arr = activeOnly(readAll())
+
+  if (o.only === 'star') arr = arr.filter(r => r.starred)
+  else if (o.only === 'archive') arr = arr.filter(r => r.archivedAt)
+  else arr = arr.filter(r => !r.archivedAt)
+
+  if (o.tag) arr = arr.filter(r => r.tags.indexOf(o.tag) >= 0)
+  if (keyword) arr = arr.filter(r => hitOf(r, keyword))
+
+  return sortDesc(arr).map(clone)
+}
+
+function hitOf(record, keyword) {
+  if (!keyword) return false
+  if ((record.content || '').toLowerCase().indexOf(keyword) >= 0) return true
+  for (let i = 0; i < record.tags.length; i++) {
+    if (record.tags[i].toLowerCase().indexOf(keyword) >= 0) return true
+  }
+  return false
+}
+
+/**
+ * 搜索：额外算出命中片段（前后各留 12 字），供页面做高亮。
+ * WXML 里没法跑正则，所以切段必须在 JS 里做完。
+ */
+function search(keyword) {
+  const kw = (keyword || '').trim()
+  if (!kw) return []
+  const lower = kw.toLowerCase()
+  const hits = query({ keyword: kw })
+
+  return hits.map(r => {
+    const text = (r.content || '').replace(/\s+/g, ' ')
+    const at = text.toLowerCase().indexOf(lower)
+    let before = ''
+    let mid = ''
+    let after = ''
+    if (at >= 0) {
+      const from = Math.max(0, at - 12)
+      const to = Math.min(text.length, at + kw.length + 12)
+      before = (from > 0 ? '…' : '') + text.slice(from, at)
+      mid = text.slice(at, at + kw.length)
+      after = text.slice(at + kw.length, to) + (to < text.length ? '…' : '')
+    } else {
+      // 命中标签而不是正文：正文原样给前 40 字
+      before = text.slice(0, 40) + (text.length > 40 ? '…' : '')
+    }
+    return Object.assign(clone(r), { _seg: { before: before, mid: mid, after: after } })
+  })
 }
 
 function get(id) {
@@ -101,7 +266,72 @@ function get(id) {
 }
 
 function count() {
-  return activeOnly(readAll()).length
+  return activeOnly(readAll()).filter(r => !r.archivedAt).length
+}
+
+/** 标签云：按出现次数倒序 */
+function tags() {
+  const map = {}
+  activeOnly(readAll()).forEach(r => {
+    if (r.archivedAt) return
+    r.tags.forEach(t => {
+      map[t] = (map[t] || 0) + 1
+    })
+  })
+  return Object.keys(map)
+    .map(t => ({ tag: t, count: map[t] }))
+    .sort((a, b) => b.count - a.count || (a.tag < b.tag ? -1 : 1))
+}
+
+/** 连续记录天数：今天没记就从昨天往前数，断了就是 0 */
+function streak() {
+  const marks = {}
+  activeOnly(readAll()).forEach(r => {
+    marks[dayKeyOf(r.createdAt)] = 1
+  })
+  let n = 0
+  let cursor = startOfDay(Date.now())
+  if (!marks[dayKeyOf(cursor)]) cursor -= 86400000
+  while (marks[dayKeyOf(cursor)]) {
+    n++
+    cursor -= 86400000
+  }
+  return n
+}
+
+/**
+ * 热力图：最近 n 周、以周一为起点的连续格子。
+ * 返回按时间正序的数组，每项 {key, ts, count, level}，level 0-4 给样式用。
+ */
+function heat(weeks) {
+  const n = weeks || 14
+  const counts = {}
+  activeOnly(readAll()).forEach(r => {
+    const k = dayKeyOf(r.createdAt)
+    counts[k] = (counts[k] || 0) + 1
+  })
+
+  const today = startOfDay(Date.now())
+  const offset = (new Date(today).getDay() + 6) % 7 // 周一 = 0
+  const end = today + (6 - offset) * 86400000 // 本周日
+  const start = end - (n * 7 - 1) * 86400000
+
+  const cells = []
+  let max = 0
+  for (let i = 0; i < n * 7; i++) {
+    const ts = start + i * 86400000
+    const key = dayKeyOf(ts)
+    const c = counts[key] || 0
+    if (c > max) max = c
+    cells.push({
+      key: key,
+      ts: ts,
+      count: c,
+      future: ts > today ? 1 : 0,
+      level: c === 0 ? 0 : c === 1 ? 1 : c === 2 ? 2 : c <= 4 ? 3 : 4
+    })
+  }
+  return { cells: cells, weeks: n, max: max }
 }
 
 /** 我的页用的统计 */
@@ -110,19 +340,43 @@ function stats() {
   const byType = { text: 0, voice: 0, photo: 0 }
   let firstAt = 0
   let lastAt = 0
+  let starred = 0
+  let archived = 0
+  let trashed = 0
+  let tagged = 0
+
   arr.forEach(r => {
     byType[r.type] = (byType[r.type] || 0) + 1
     if (!firstAt || r.createdAt < firstAt) firstAt = r.createdAt
     if (r.createdAt > lastAt) lastAt = r.createdAt
+    if (r.starred) starred++
+    if (r.archivedAt) archived++
+    if (r.tags.length) tagged++
   })
-  return { total: arr.length, firstAt: firstAt, lastAt: lastAt, byType: byType }
+  readAll().forEach(r => {
+    if (r.deletedAt) trashed++
+  })
+
+  return {
+    total: arr.length,
+    visible: arr.filter(r => !r.archivedAt).length,
+    firstAt: firstAt,
+    lastAt: lastAt,
+    byType: byType,
+    starred: starred,
+    archived: archived,
+    trashed: trashed,
+    tagged: tagged,
+    streak: streak()
+  }
 }
 
 /* ------------------------------ 写 ------------------------------ */
 
 /**
  * 新建记录
- * @param {{type:string, content?:string, mediaPath?:string, duration?:number, size?:number}} input
+ * @param {{type:string, content?:string, mediaPath?:string, mediaPaths?:string[],
+ *          duration?:number, size?:number, tags?:string[], starred?:number}} input
  * @returns {object|null} 失败返回 null（已提示用户）
  */
 function create(input) {
@@ -138,21 +392,25 @@ function create(input) {
   }
 
   const ts = Date.now()
-  const record = {
+  const record = normalizeRecord({
     id: uuid(),
     type: input.type,
     content: input.content || '',
     mediaPath: input.mediaPath || '',
+    mediaPaths: input.mediaPaths || [],
     duration: input.duration || 0,
     size: input.size || 0,
+    tags: input.tags || [],
+    starred: input.starred || 0,
+    archivedAt: 0,
     createdAt: ts,
     updatedAt: ts,
     deletedAt: 0
-  }
+  })
 
   if (!writeAll(all.concat(record))) {
     // 落库失败，顺手把刚存进来的媒体文件删掉，别留孤儿
-    media.remove(record.mediaPath)
+    mediaOf(record).forEach(p => media.remove(p))
     return null
   }
   touchMeta(ts)
@@ -161,7 +419,7 @@ function create(input) {
 
 /**
  * 更新记录。createdAt 永不变（列表顺序不会因为改一句话而跳动）。
- * 换图/换录音时，旧文件立即删除。
+ * 换图/换录音时，被换掉的旧文件在写盘成功后立即删除。
  */
 function update(id, patch) {
   const all = readAll()
@@ -169,16 +427,26 @@ function update(id, patch) {
   if (index < 0) return null
 
   const prev = all[index]
-  const next = Object.assign({}, prev, patch, { updatedAt: Date.now() })
-  if (typeof next.content === 'string') next.content = next.content
-  if (patch && patch.mediaPath && patch.mediaPath !== prev.mediaPath) {
-    media.remove(prev.mediaPath)
-  }
+  const next = normalizeRecord(Object.assign({}, prev, patch, { updatedAt: Date.now() }))
 
   const copy = all.slice()
   copy[index] = next
   if (!writeAll(copy)) return null
+
+  const keep = mediaOf(next)
+  mediaOf(prev).forEach(p => {
+    if (keep.indexOf(p) < 0) media.remove(p)
+  })
   return clone(next)
+}
+
+/** 单字段开关的轻封装：星标、归档都走这里，避免调用方各自拼 patch */
+function setStar(id, on) {
+  return update(id, { starred: on ? 1 : 0 })
+}
+
+function setArchive(id, on) {
+  return update(id, { archivedAt: on ? Date.now() : 0 })
 }
 
 /** 删除 = 打软删标记，列表立刻消失，5 秒内还能 restore */
@@ -195,14 +463,8 @@ function remove(id) {
 
 /** 撤销删除 */
 function restore(id) {
-  const all = readAll()
-  const index = all.findIndex(r => r.id === id)
-  if (index < 0) return null
-  const next = Object.assign({}, all[index], { deletedAt: 0 })
-  const copy = all.slice()
-  copy[index] = next
-  if (!writeAll(copy)) return null
-  return clone(next)
+  const done = restoreMany([id])
+  return done.length ? get(id) : null
 }
 
 /** 物理清理过期的软删记录（启动、切后台时各跑一次） */
@@ -210,30 +472,45 @@ function purge() {
   const all = readAll()
   const now = Date.now()
   const keep = []
-  let removed = 0
+  const dead = []
   all.forEach(r => {
     if (r.deletedAt && now - r.deletedAt > TRASH_TTL) {
-      media.remove(r.mediaPath)
-      removed++
+      dead.push(r)
       return
     }
     keep.push(r)
   })
-  if (removed) writeAll(keep)
+  if (!dead.length) return
+  if (writeAll(keep)) dead.forEach(r => mediaOf(r).forEach(p => media.remove(p)))
+}
+
+/** 回收站里还在 24 小时窗口内的记录 */
+function trash() {
+  return sortDesc(readAll().filter(r => r.deletedAt)).map(clone)
+}
+
+/** 彻底删掉（回收站里手动清空某条） */
+function destroy(id) {
+  const all = readAll()
+  const found = all.filter(r => r.id === id)[0]
+  if (!found) return false
+  const keep = all.filter(r => r.id !== id)
+  if (!writeAll(keep)) return false
+  mediaOf(found).forEach(p => media.remove(p))
+  return true
 }
 
 /** 清空全部：连媒体文件一起删干净 */
 function clearAll() {
-  readAll().forEach(r => media.remove(r.mediaPath))
-  const ok = writeAll([])
-  if (ok) {
-    try {
-      wx.removeStorageSync(KEY_META)
-    } catch (e) {
-      console.error('[store] meta clear failed', e)
-    }
+  const all = readAll()
+  if (!writeAll([])) return false
+  all.forEach(r => mediaOf(r).forEach(p => media.remove(p)))
+  try {
+    wx.removeStorageSync(KEY_META)
+  } catch (e) {
+    console.error('[store] meta clear failed', e)
   }
-  return ok
+  return true
 }
 
 /* ---------------------------- 批量删除 ---------------------------- */
@@ -343,17 +620,23 @@ function importRecords(records) {
     }
     seen[r.id] = 1
     room--
-    added.push({
-      id: r.id,
-      type: ['text', 'voice', 'photo'].indexOf(r.type) >= 0 ? r.type : 'text',
-      content: typeof r.content === 'string' ? r.content : '',
-      mediaPath: r.mediaPath || '',
-      duration: r.duration || 0,
-      size: r.size || 0,
-      createdAt: r.createdAt || Date.now(),
-      updatedAt: r.updatedAt || r.createdAt || Date.now(),
-      deletedAt: 0
-    })
+    added.push(
+      normalizeRecord({
+        id: r.id,
+        type: r.type,
+        content: typeof r.content === 'string' ? r.content : '',
+        mediaPath: r.mediaPath || '',
+        mediaPaths: r.mediaPaths || [],
+        duration: r.duration || 0,
+        size: r.size || 0,
+        tags: r.tags || [],
+        starred: r.starred || 0,
+        archivedAt: r.archivedAt || 0,
+        createdAt: r.createdAt || Date.now(),
+        updatedAt: r.updatedAt || r.createdAt || Date.now(),
+        deletedAt: 0
+      })
+    )
   })
 
   if (!added.length) return { added: 0, skipped: skipped }
@@ -390,23 +673,66 @@ function clearDraft() {
   }
 }
 
+/* ---------------------------- 偏好 ---------------------------- */
+
+/** 提醒等设置，一个 key 存全部，读的时候补默认值 */
+function getPrefs() {
+  let raw = null
+  try {
+    raw = wx.getStorageSync(KEY_PREFS)
+  } catch (e) {
+    raw = null
+  }
+  const p = raw || {}
+  return {
+    remindOn: !!p.remindOn,
+    remindHour: typeof p.remindHour === 'number' ? p.remindHour : 21,
+    remindMinute: typeof p.remindMinute === 'number' ? p.remindMinute : 0,
+    remindTipShown: !!p.remindTipShown
+  }
+}
+
+function savePrefs(patch) {
+  const next = Object.assign(getPrefs(), patch || {})
+  try {
+    wx.setStorageSync(KEY_PREFS, next)
+    return next
+  } catch (e) {
+    console.error('[store] prefs write failed', e)
+    return getPrefs()
+  }
+}
+
 module.exports = {
   MAX_RECORDS,
+  MAX_PHOTOS,
   list,
+  query,
+  search,
   get,
   count,
+  tags,
+  streak,
+  heat,
   stats,
+  trash,
   create,
   update,
+  setStar,
+  setArchive,
   remove,
   restore,
+  destroy,
   removeMany,
   restoreMany,
-  allRaw,
-  importRecords,
   purge,
   clearAll,
+  allRaw,
+  importRecords,
+  parseTags,
   saveDraft,
   getDraft,
-  clearDraft
+  clearDraft,
+  getPrefs,
+  savePrefs
 }

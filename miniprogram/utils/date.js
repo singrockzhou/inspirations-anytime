@@ -163,15 +163,49 @@ function group(list) {
   return out
 }
 
+/* ------------------------- 回顾：那年今日 ------------------------- */
+
+/**
+ * 在历史记录里找"去年/前年同一天"的那一条。
+ * 只取最近的一年，不一次抛一堆——回顾是惊喜，不是信息轰炸。
+ * @returns {{item:object, yearsAgo:number, label:string}|null}
+ */
+function sameDayPast(list, now) {
+  const base = new Date(now || Date.now())
+  const month = base.getMonth() + 1
+  const date = base.getDate()
+
+  let best = null
+  ;(list || []).forEach(item => {
+    const d = new Date(item.createdAt)
+    if (d.getMonth() + 1 !== month || d.getDate() !== date) return
+    const diff = base.getFullYear() - d.getFullYear()
+    if (diff < 1) return
+    if (!best || diff < best.yearsAgo) best = { item: item, yearsAgo: diff }
+  })
+
+  if (!best) return null
+  best.label = best.yearsAgo === 1 ? '去年的今天' : best.yearsAgo + ' 年前的今天'
+  return best
+}
+
+/** 距今多少天：热力图和无记录提示共用 */
+function daysSince(ts, now) {
+  return dayDiff(ts, now)
+}
+
 module.exports = {
   dayKey,
   dayLabel,
   dayDiff,
+  daysSince,
   relative,
   fullTime,
   clock,
   group,
   bucketOf,
   groupBuckets,
-  startOfWeek
+  startOfDay,
+  startOfWeek,
+  sameDayPast
 }

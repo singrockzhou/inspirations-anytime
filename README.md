@@ -217,3 +217,99 @@ onUndo() { store.restore(this.pendingDeleteId); this.refresh() }
 - 导入后会自动把「开始记录」时间修正到更早的那条。
 
 实现位置：`utils/transfer.js`（打包/解包）+ `utils/store.js`（`importRecords` / `removeMany` / `restoreMany`）。
+
+---
+
+## 九、检索、回顾与输入增强（v1.2）
+
+### 9.1 数据结构的变化
+
+记录从「单一媒体」升级为「一组媒体 + 三个新字段」：
+
+| 字段 | 含义 |
+|---|---|
+| `mediaPaths: string[]` | 照片最多 9 张；语音仍只用 `mediaPath` |
+| `tags: string[]` | 从正文里的 `#标签` 自动解析，最多 8 个 |
+| `starred: 0\|1` | 星标，钉在「星标」筛选里 |
+| `archivedAt: number` | 非 0 表示已归档，不进主列表但不算删除 |
+
+老数据不需要迁移：`store.js` 的 `normalizeRecord()` 在读取时补齐这四个字段，`mediaPath` 会自动升级成 `mediaPaths: [mediaPath]`。
+
+### 9.2 标签怎么写
+
+正文里直接写 `#读书`、`#产品想法`，保存时自动归好，列表卡片上会显示前 3 个。
+标签字符集：中英文数字，遇空格或 `，。！？、` 等标点即止，单个标签最长 12 字。
+
+### 9.3 五个新入口
+
+| 位置 | 作用 |
+|---|---|
+| 首页顶部放大镜 | 进搜索页：全文搜索 + 标签快捷筛选 + 命中高亮 |
+| 首页筛选条 | 全部 / 星标 / 归档 / 单标签，四个维度互斥切换 |
+| 首页「那年今日」卡 | 自动出现去年或前年同一天的那条，点开看全文 |
+| 我的 → 随便翻一条 | 随机重温，偏向 7 天以上的旧记录，可加星、转发 |
+| 我的 → 从聊天存一条 | 从微信聊天里选文件/图片，直接存成灵感 |
+
+### 9.4 长图分享
+
+卡片长按 → 「做成图」，或详情页 → 「做成图」。
+`utils/poster.js` 用 Canvas 2D 排版：750 宽、高度按内容算、正文最多 26 行、带标签与页脚。
+生成后可保存到相册，或走 `wx.showShareImageMenu` 直接发给朋友。
+
+两个技术点值得记一笔：
+
+- canvas 2d 每次改 `width/height` 都会重置上下文，所以必须「先量高 → 再定尺寸 → 再绘制」，量的时候用临时高度。
+- `drawImage` 只吃 `canvas.createImage()` 出来的 Image 对象，喂路径字符串画不出来，因此 `poster.loadImage(canvas, src)` 必须先取尺寸再等 `onload`。
+
+### 9.5 转发与接收
+
+所有页面的转发都会带一段正文进去：`/pages/index/index?inbox=<encodeURIComponent(正文前 400 字)>`。
+接收方打开小程序会看到「收到一条分享」，确认后存成自己的一条本地记录——因为数据本来就只在本机，跨设备只能靠"把内容带过去"，不能靠同步。
+
+### 9.6 语音转文字：说清楚边界
+
+小程序没有「给一个音频文件、还一段文字」的能力。真正可用的只有微信同声传译插件（`WechatSI`），而它是**边录边转**、不能事后转写。
+
+所以这里的实现分两层：
+
+- **默认可用的**：语音记录下方就是文字备注框；详情页对没有文字的语音/照片提供「补一句文字」。补上之后这条就能被搜索命中，这是"语音可检索"的实际达成路径。
+- **需要额外两步的**：`utils/asr.js` 里把 `USE_PLUGIN` 改成 `true`，并在 `app.json` 增加 `plugins` 声明、在小程序后台添加该插件。启用后录音会边录边出字，最终文字直接写进正文。未启用时按钮不会出现，不会出现"点了没反应"。
+
+### 9.7 每日提醒：只做了能做的那一半
+
+订阅消息必须由**服务端**下发。客户端能做的只有「请求授权 + 记住时间」，真正到点弹出通知要靠自建服务端或云函数按 openid 发送。
+
+因此：
+
+- `utils/remind.js` 顶部留了 `TMPL_ID`，填上小程序后台创建的模板 ID 才会真正请求授权；
+- 没填时，点「每日提醒」会如实说明还差一步，并把时间偏好记下来；
+- 我的页的「提醒时间」可以正常选，选完会持久化，等模板配好就生效。
+
+### 9.8 新增文件
+
+```
+新增  pages/search/     搜索页（高亮、标签快捷）
+新增  pages/review/     随机重温
+新增  pages/poster/     长图生成与保存
+新增  utils/asr.js      语音转写适配（默认关闭，见 9.6）
+新增  utils/poster.js   Canvas 2D 排版
+新增  utils/remind.js   订阅提醒客户端半边
+
+改    utils/store.js    tags/starred/archivedAt/mediaPaths、query/search/tags/streak/heat/trash/destroy/prefs
+改    utils/date.js     sameDayPast（那年今日）
+改    utils/media.js    chooseImages / saveImages / removeAll（多图）
+改    utils/transfer.js mediaList 格式（v2）、exportText 文本导出、importFromChat
+改    components/card   星标、标签、多图角标、多选勾选
+改    components/swipe-cell   disabled（多选时关掉手势）
+改    pages/index       搜索入口、筛选条、那年今日、多选模式、转发接收
+改    pages/record      最多 9 图、边录边转、标签提示
+改    pages/detail      多图浏览、加星、归档、做成图、补一句
+改    pages/me          热力图、连续天数、提醒、从聊天存一条、归档入口
+```
+
+### 9.9 已知限制
+
+- 长图里的配图只取该条的第一张；9 张图的记录不会拼成九宫格。
+- 热力图固定 14 周，未来日期显示为空格。
+- 搜索是纯文本包含匹配，不做分词与模糊纠错。
+- 导出备份的媒体上限仍是单条 2MB / 总计 15MB，超出的只迁文字。

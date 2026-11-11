@@ -21,6 +21,16 @@ function remove(path) {
   }
 }
 
+/** 一批文件一起删，重复路径只删一次 */
+function removeAll(paths) {
+  const seen = {}
+  ;(paths || []).forEach(p => {
+    if (!p || seen[p]) return
+    seen[p] = 1
+    remove(p)
+  })
+}
+
 function statSize(path) {
   try {
     const info = fs().statSync(path)
@@ -35,7 +45,8 @@ function persist(tempFilePath, prefix, ext) {
   return new Promise(resolve => {
     if (!tempFilePath) return resolve('')
     if (tempFilePath.indexOf(USER_DIR) === 0) return resolve(tempFilePath)
-    const target = USER_DIR + '/' + prefix + '_' + Date.now() + '.' + (ext || 'dat')
+    const target =
+      USER_DIR + '/' + prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) + '.' + (ext || 'dat')
     fs().saveFile({
       tempFilePath: tempFilePath,
       filePath: target,
@@ -69,11 +80,16 @@ function ensurePrivacy() {
 
 /**
  * 选图：优先 chooseMedia（2.10.0+），老基础库回落到 chooseImage
- * options.sourceType 可指定 ['camera'] 直接唤起系统相机，不出现相册/拍照的选择菜单
+ * @param {{sourceType?:string[], count?:number, camera?:string}} options
+ *   sourceType=['camera'] 直接唤起系统相机，不出现相册/拍照的选择菜单
+ *   camera 传 'back' 时优先后置摄像头，拍灵感素材一般用它
+ * @returns {Promise<string[]>} 临时路径数组
  */
-function chooseImage(options) {
+function chooseImages(options) {
   const opts = options || {}
   const sourceType = opts.sourceType && opts.sourceType.length ? opts.sourceType : ['album', 'camera']
+  const count = Math.max(1, Math.min(9, opts.count || 1))
+  const camera = opts.camera || 'back'
 
   return ensurePrivacy().then(
     () =>
@@ -87,34 +103,42 @@ function chooseImage(options) {
         }
 
         if (hasMedia) {
-          wx.chooseMedia({
-            count: 1,
+          const params = {
+            count: count,
             mediaType: ['image'],
             sourceType: sourceType,
             sizeType: ['compressed'],
             success: res => {
-              const file = res && res.tempFiles && res.tempFiles[0]
-              if (file && file.tempFilePath) resolve(file.tempFilePath)
+              const files = (res && res.tempFiles) || []
+              const paths = files.map(f => f && f.tempFilePath).filter(Boolean)
+              if (paths.length) resolve(paths)
               else reject({ errMsg: 'chooseMedia:fail 没有拿到图片' })
             },
             fail: reject
-          })
+          }
+          if (sourceType.indexOf('camera') >= 0) params.camera = camera
+          wx.chooseMedia(params)
           return
         }
 
         wx.chooseImage({
-          count: 1,
+          count: count,
           sizeType: ['compressed'],
           sourceType: sourceType,
           success: res => {
-            const path = res && res.tempFilePaths && res.tempFilePaths[0]
-            if (path) resolve(path)
+            const paths = ((res && res.tempFilePaths) || []).filter(Boolean)
+            if (paths.length) resolve(paths)
             else reject({ errMsg: 'chooseImage:fail 没有拿到图片' })
           },
           fail: reject
         })
       })
   )
+}
+
+/** 单张版本：记录页「拍一张」直达相机时用 */
+function chooseImage(options) {
+  return chooseImages(Object.assign({ count: 1 }, options || {})).then(paths => paths[0])
 }
 
 /** 压缩：目标长边 1280 / ≤300KB（PRD 13 章媒体要求），失败则原图继续 */
@@ -137,6 +161,23 @@ function saveImage(tempFilePath) {
     .then(path => ({ path: path, size: statSize(path) }))
 }
 
+/** 多图：串行处理，避免同时压缩多张大图把内存顶爆 */
+function saveImages(tempPaths) {
+  const list = (tempPaths || []).filter(Boolean)
+  const out = []
+  return list
+    .reduce(
+      (chain, temp) =>
+        chain.then(() =>
+          saveImage(temp).then(res => {
+            if (res.path) out.push(res)
+          })
+        ),
+      Promise.resolve()
+    )
+    .then(() => out)
+}
+
 /** 语音同理，保存为 aac（16kHz 单声道，由录音参数保证） */
 function saveVoice(tempFilePath) {
   return persist(tempFilePath, 'voice', 'aac').then(path => ({
@@ -145,11 +186,23 @@ function saveVoice(tempFilePath) {
   }))
 }
 
+/** 把任意文件存进用户目录（从聊天里导入的文件走这里） */
+function saveFile(tempFilePath, ext) {
+  return persist(tempFilePath, 'file', ext || 'dat').then(path => ({
+    path: path,
+    size: statSize(path)
+  }))
+}
+
 module.exports = {
   remove,
+  removeAll,
   statSize,
   persist,
   chooseImage,
+  chooseImages,
   saveImage,
-  saveVoice
+  saveImages,
+  saveVoice,
+  saveFile
 }

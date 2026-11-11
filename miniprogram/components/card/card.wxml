@@ -1,11 +1,15 @@
 <view
-  class="card {{highlight ? 'fresh' : ''}}"
+  class="card {{highlight ? 'fresh' : ''}} {{selectMode ? 'picking' : ''}} {{checked ? 'picked' : ''}}"
   bindtap="onOpen"
   bindlongpress="onLongPress"
 >
+  <!-- 多选模式左侧的勾选点 -->
+  <view class="pick-dot {{checked ? 'on' : ''}}" wx:if="{{selectMode}}"></view>
+
   <view class="head">
     <view class="badge">{{badge}}</view>
     <view class="meta">
+      <text class="star" wx:if="{{item.starred}}">★</text>
       <text class="flag" wx:if="{{edited}}">改过</text>
       <text class="time">{{timeLabel}}</text>
     </view>
@@ -35,15 +39,24 @@
     <view class="body sub clamp2" wx:if="{{item.content}}">{{item.content}}</view>
   </block>
 
-  <!-- 照片 -->
+  <!-- 照片：多张时角上标数量 -->
   <block wx:else>
-    <image
-      class="photo"
-      src="{{item.mediaPath}}"
-      mode="aspectFill"
-      lazy-load
-      catchtap="onPreview"
-    />
+    <view class="photo-wrap">
+      <image
+        class="photo"
+        src="{{item.mediaPath}}"
+        mode="aspectFill"
+        lazy-load
+        catchtap="onPreview"
+      />
+      <view class="photo-n" wx:if="{{photoCount > 1}}">{{photoCount}} 张</view>
+    </view>
     <view class="body sub clamp2" wx:if="{{item.content}}">{{item.content}}</view>
   </block>
+
+  <!-- 标签：最多露 3 个，多余的折成 +N -->
+  <view class="tags" wx:if="{{tagList.length}}">
+    <text class="tag" wx:for="{{tagList}}" wx:key="*this" wx:for-item="tg">#{{tg}}</text>
+    <text class="tag more" wx:if="{{moreTags > 0}}">+{{moreTags}}</text>
+  </view>
 </view>

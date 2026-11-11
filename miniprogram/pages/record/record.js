@@ -2,10 +2,12 @@ const store = require('../../utils/store')
 const media = require('../../utils/media')
 const date = require('../../utils/date')
 const audio = require('../../utils/audio')
+const asr = require('../../utils/asr')
 
 const MAX_TEXT = 1000
 const MAX_CAPTION = 200
 const MAX_VOICE_SECONDS = 300
+const MAX_PHOTOS = 9
 
 const TYPE_LABEL = { text: '文字', voice: '录音', photo: '照片' }
 
@@ -17,6 +19,10 @@ Page({
     mediaPath: '',
     duration: 0,
     size: 0,
+
+    /** 照片：最多 9 张，结构 [{path, size}] */
+    photos: [],
+    maxPhotos: MAX_PHOTOS,
 
     statusBarHeight: 20,
     canSave: false,
@@ -32,6 +38,10 @@ Page({
     recordSeconds: 0,
     hint: '',
     voicePlaying: false,
+
+    /** 接入同声传译插件后为 true，录音时边录边出字 */
+    asrReady: false,
+    asrPartial: '',
 
     maxText: MAX_TEXT,
     maxCaption: MAX_CAPTION,
@@ -59,6 +69,7 @@ Page({
         type: rec.type,
         content: rec.content,
         mediaPath: rec.mediaPath,
+        photos: (rec.mediaPaths || []).map(p => ({ path: p, size: 0 })),
         duration: rec.duration,
         size: rec.size
       })
@@ -108,9 +119,10 @@ Page({
   onUnload() {
     this.unloaded = true
     this.stopTick()
-    if (this.data.recording && this.rm) {
+    if (this.data.recording) {
       this.cancelFlag = true
-      this.rm.stop()
+      if (this.rt) this.rt.stop()
+      else if (this.rm) this.rm.stop()
     }
     clearTimeout(this.draftTimer)
     audio.stop()
@@ -144,7 +156,10 @@ Page({
 
   syncCanSave() {
     const text = (this.data.content || '').trim()
-    const canSave = this.data.type === 'text' ? !!text : !!this.data.mediaPath
+    let canSave = true
+    if (this.data.type === 'text') canSave = !!text
+    else if (this.data.type === 'photo') canSave = this.data.photos.length > 0
+    else canSave = !!this.data.mediaPath
     this.setData({ canSave: canSave })
   },
 
@@ -177,7 +192,7 @@ Page({
     const next = e.currentTarget.dataset.type
     if (next === this.data.type) {
       // 已经在照片态又点「拍一张」，说明是想立刻拍照，别让它静默无响应
-      if (next === 'photo' && !this.data.mediaPath && !this.data.recording) this.pickPhoto()
+      if (next === 'photo' && !this.data.photos.length && !this.data.recording) this.pickPhoto()
       return
     }
     if (this.data.recording) {
@@ -185,9 +200,10 @@ Page({
       return
     }
 
-    const has = this.data.type === 'text'
-      ? !!(this.data.content || '').trim()
-      : !!this.data.mediaPath
+    let has = false
+    if (this.data.type === 'text') has = !!(this.data.content || '').trim()
+    else if (this.data.type === 'photo') has = this.data.photos.length > 0
+    else has = !!this.data.mediaPath
 
     if (!has) {
       this.applyType(next)
@@ -208,16 +224,21 @@ Page({
 
   applyType(next) {
     // 一条记录只允许一种形态，切换时把已采集的内容彻底清掉
-    if (this.data.mediaPath && this.data.mode === 'create') media.remove(this.data.mediaPath)
+    if (this.data.mode === 'create') {
+      if (this.data.photos.length) media.removeAll(this.data.photos.map(p => p.path))
+      if (this.data.mediaPath) media.remove(this.data.mediaPath)
+    }
     if (this.data.mode === 'create' && this.data.type === 'text') store.clearDraft()
 
     this.setData({
       type: next,
       content: '',
       mediaPath: '',
+      photos: [],
       duration: 0,
       size: 0,
       hint: '',
+      asrPartial: '',
       recording: false,
       focus: next === 'text' && this.data.mode === 'create'
     })
@@ -237,8 +258,12 @@ Page({
       this.toast('还没写呢')
       return
     }
-    if (type !== 'text' && !this.data.mediaPath) {
-      this.toast(type === 'voice' ? '还没录' : '还没选照片')
+    if (type === 'photo' && !this.data.photos.length) {
+      this.toast('还没选照片')
+      return
+    }
+    if (type === 'voice' && !this.data.mediaPath) {
+      this.toast('还没录')
       return
     }
 
@@ -247,9 +272,16 @@ Page({
     const payload = {
       type: type,
       content: text,
-      mediaPath: this.data.mediaPath,
-      duration: this.data.duration,
-      size: this.data.size
+      duration: this.data.duration
+    }
+
+    if (type === 'photo') {
+      payload.mediaPaths = this.data.photos.map(p => p.path)
+      payload.mediaPath = payload.mediaPaths[0] || ''
+      payload.size = this.data.photos.reduce((sum, p) => sum + (p.size || 0), 0)
+    } else {
+      payload.mediaPath = this.data.mediaPath
+      payload.size = this.data.size
     }
 
     const rec = this.data.mode === 'edit'
@@ -291,11 +323,11 @@ Page({
   },
 
   discard() {
-    if (this.data.mode === 'create') {
-      store.clearDraft()
-      // 编辑模式下 mediaPath 属于库里已有的那条，不能删
-      if (this.data.mediaPath) media.remove(this.data.mediaPath)
-    }
+    if (this.data.mode !== 'create') return
+    store.clearDraft()
+    // 编辑模式下这些文件属于库里已有的那条，不能删
+    if (this.data.photos.length) media.removeAll(this.data.photos.map(p => p.path))
+    if (this.data.mediaPath) media.remove(this.data.mediaPath)
   },
 
   leave() {
@@ -312,6 +344,25 @@ Page({
   /* ------------------------- 录音 ------------------------- */
 
   initRecorder() {
+    // 有转写能力时优先用插件的识别器（它自己录音并出字），否则用系统录音器
+    const state = asr.availability()
+    if (state.ok) {
+      this.rt = asr.createRealtime({
+        onPartial: text => {
+          if (!this.data.recording) return
+          this.setData({ asrPartial: text })
+        },
+        onFinal: res => this.onRealtimeStop(res),
+        onError: err => {
+          console.warn('[record] 转写中断', err)
+          this.stopTick()
+          this.setData({ recording: false, canceling: false })
+          this.toast('转写中断了，再试一次')
+        }
+      })
+      if (this.rt) this.setData({ asrReady: true })
+    }
+
     if (!wx.getRecorderManager) return
     const rm = wx.getRecorderManager()
     this.rm = rm
@@ -383,7 +434,7 @@ Page({
 
   startRecord() {
     if (this.data.recording) return
-    if (!this.rm) {
+    if (!this.rm && !this.rt) {
       this.toast('当前环境不支持录音')
       return
     }
@@ -396,15 +447,19 @@ Page({
       this.recordStartAt = Date.now()
       this.hinted60 = false
       this.hinted240 = false
-      this.setData({ recordSeconds: 0, recordClock: '00:00', hint: '', canceling: false })
+      this.setData({ recordSeconds: 0, recordClock: '00:00', hint: '', canceling: false, asrPartial: '' })
 
-      this.rm.start({
-        duration: MAX_VOICE_SECONDS * 1000,
-        sampleRate: 16000,
-        numberOfChannels: 1,
-        encodeBitRate: 48000,
-        format: 'aac'
-      })
+      if (this.rt) {
+        this.rt.start()
+      } else {
+        this.rm.start({
+          duration: MAX_VOICE_SECONDS * 1000,
+          sampleRate: 16000,
+          numberOfChannels: 1,
+          encodeBitRate: 48000,
+          format: 'aac'
+        })
+      }
       this.setData({ recording: true })
       this.startTick()
 
@@ -449,7 +504,8 @@ Page({
     this.cancelFlag = !!cancel
     this.stopTick()
     this.setData({ recording: false, canceling: false })
-    this.rm.stop()
+    if (this.rt) this.rt.stop()
+    else this.rm.stop()
   },
 
   onRecordStop(res) {
@@ -470,17 +526,56 @@ Page({
       return
     }
 
-    const seconds = Math.round(ms / 1000)
-    media.saveVoice(res.tempFilePath).then(({ path, size }) => {
+    this.saveVoice(res.tempFilePath, Math.round(ms / 1000), '')
+  },
+
+  /** 插件路径：录音和识别一起回来的那种 */
+  onRealtimeStop(res) {
+    this.stopTick()
+    if (this.unloaded) return
+    this.setData({ recording: false, canceling: false })
+
+    if (this.cancelFlag) {
+      this.cancelFlag = false
+      this.setData({ hint: '', recordSeconds: 0, recordClock: '00:00', asrPartial: '' })
+      return
+    }
+
+    const text = (res && res.text) || ''
+    const path = (res && res.tempFilePath) || ''
+    const seconds = Math.round(((res && res.duration) || Date.now() - (this.recordStartAt || 0)) / 1000)
+
+    if (!path) {
+      // 转写拿到了字，但没有音频文件：退化成一条文字记录，别把内容丢了
+      if (text) {
+        this.setData({ type: 'text', content: text, asrPartial: '' })
+        this.syncCanSave()
+        this.markDirty()
+        this.toast('只拿到文字，已按文字记录')
+      } else {
+        this.toast('太短了，再说一次')
+      }
+      return
+    }
+
+    this.saveVoice(path, Math.max(1, seconds), text)
+  },
+
+  saveVoice(tempFilePath, seconds, text) {
+    media.saveVoice(tempFilePath).then(({ path, size }) => {
       if (this.data.mediaPath && this.data.mode === 'create') media.remove(this.data.mediaPath)
-      this.setData({
+      const patch = {
         mediaPath: path,
         duration: seconds,
         size: size,
         hint: '',
         recordSeconds: 0,
-        recordClock: '00:00'
-      })
+        recordClock: '00:00',
+        asrPartial: ''
+      }
+      // 转写出来的字直接进正文，这样语音也能被搜到
+      if (text && !(this.data.content || '').trim()) patch.content = text
+      this.setData(patch)
       this.syncCanSave()
       this.markDirty()
     })
@@ -543,6 +638,11 @@ Page({
 
   /* ------------------------- 照片 ------------------------- */
 
+  /**
+   * 选图。分两种语义：
+   *   cameraOnly=true  → 追加时替换全部（首页「拍一张」、重拍）
+   *   cameraOnly=false → 往已有的后面追加，最多 9 张
+   */
   pickPhoto(opts) {
     const cameraOnly = !!(opts && opts.cameraOnly)
 
@@ -558,18 +658,38 @@ Page({
       return
     }
 
-    media.chooseImage({ sourceType: cameraOnly ? ['camera'] : ['album', 'camera'] })
-      .then(temp => {
+    const left = MAX_PHOTOS - this.data.photos.length
+    if (!cameraOnly && left <= 0) {
+      this.toast('最多 ' + MAX_PHOTOS + ' 张')
+      return
+    }
+
+    media.chooseImages({
+      count: cameraOnly ? 1 : left,
+      sourceType: cameraOnly ? ['camera'] : ['album', 'camera'],
+      camera: 'back'
+    })
+      .then(tempPaths => {
         // 相机/相册回来之后才挂 loading，避免用户看到加载圈却等不到界面
         wx.showLoading({ title: '处理中', mask: true })
-        return media.saveImage(temp).then(res => {
+        return media.saveImages(tempPaths).then(saved => {
           this.hideLoading()
-          return res
+          return saved
         })
       })
-      .then(res => {
-        if (this.data.mediaPath && this.data.mode === 'create') media.remove(this.data.mediaPath)
-        this.setData({ mediaPath: res.path, size: res.size })
+      .then(saved => {
+        const next = cameraOnly ? saved : this.data.photos.concat(saved)
+        const kept = next.slice(0, MAX_PHOTOS)
+        // 超出 9 张的被丢掉，文件也要删掉，别留孤儿
+        if (next.length > MAX_PHOTOS) {
+          media.removeAll(next.slice(MAX_PHOTOS).map(p => p.path))
+          this.toast('最多 ' + MAX_PHOTOS + ' 张')
+        }
+        // 替换时，被换掉的旧图要删（编辑态除外，那些属于库里那条记录）
+        if (cameraOnly && this.data.mode === 'create' && this.data.photos.length) {
+          media.removeAll(this.data.photos.map(p => p.path))
+        }
+        this.setData({ photos: kept })
         this.syncCanSave()
         this.markDirty()
       })
@@ -598,18 +718,27 @@ Page({
     }
   },
 
-  removePhoto() {
-    if (this.data.mediaPath && this.data.mode === 'create') media.remove(this.data.mediaPath)
-    if (this.data.mode === 'edit') {
-      // 编辑态删图 = 让这条记录没有图，交给保存时统一处理
-      this.setData({ mediaPath: '', size: 0 })
-    } else {
-      this.setData({ mediaPath: '', size: 0 })
-    }
+  removePhoto(e) {
+    const index = Number(e.currentTarget.dataset.i)
+    const photos = this.data.photos.slice()
+    const hit = photos[index]
+    if (!hit) return
+    photos.splice(index, 1)
+    if (this.data.mode === 'create') media.remove(hit.path)
+    this.setData({ photos: photos })
     this.syncCanSave()
+    if (photos.length) this.markDirty()
+    else this.unmarkDirty()
   },
 
-  previewMedia() {
+  previewMedia(e) {
+    const index = Number(e.currentTarget.dataset.i)
+    const urls = this.data.photos.map(p => p.path)
+    if (!urls.length) return
+    wx.previewImage({ current: urls[index] || urls[0], urls: urls })
+  },
+
+  previewVoice() {
     if (!this.data.mediaPath) return
     wx.previewImage({ current: this.data.mediaPath, urls: [this.data.mediaPath] })
   },

@@ -3,7 +3,9 @@ const store = require('./utils/store')
 App({
   globalData: {
     // 保存成功后由记录页写入，首页读一次即清空，用于新卡片的一次性高亮
-    flashId: ''
+    flashId: '',
+    // 「我的 → 归档」这类跨页跳筛选，用一个一次性信使，不走 url 参数
+    pendingFilter: ''
   },
 
   onLaunch() {

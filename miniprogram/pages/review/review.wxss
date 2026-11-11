@@ -1,0 +1,188 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 32rpx 40rpx calc(56rpx + env(safe-area-inset-bottom));
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 8rpx 4rpx 28rpx;
+}
+
+.head-t {
+  font-size: 34rpx;
+  font-weight: 500;
+  color: var(--ink, #2c2723);
+  letter-spacing: 1rpx;
+}
+
+.head-s {
+  font-size: 22rpx;
+  color: #b8ab99;
+}
+
+/* 一张纸的感觉：白底、轻投影、左侧一道暖色书脊 */
+.paper {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-height: 62vh;
+  padding: 36rpx 36rpx 28rpx;
+  border-radius: 28rpx;
+  background: #fff;
+  border: 1rpx solid #f1e8db;
+  box-shadow: 0 8rpx 28rpx rgba(120, 96, 66, 0.07);
+  overflow: hidden;
+}
+
+.paper::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 36rpx;
+  bottom: 36rpx;
+  width: 6rpx;
+  border-radius: 0 6rpx 6rpx 0;
+  background: linear-gradient(180deg, #e0a472, #c4713f);
+  opacity: 0.55;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 18rpx;
+}
+
+.ago {
+  font-size: 22rpx;
+  color: #b3a795;
+  letter-spacing: 1rpx;
+}
+
+.star {
+  font-size: 24rpx;
+  color: var(--accent, #c4713f);
+}
+
+.body {
+  flex: 1;
+  max-height: 40vh;
+}
+
+.text {
+  font-size: 34rpx;
+  line-height: 1.8;
+  color: var(--ink, #2c2723);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.text.dim {
+  color: #a2957f;
+  font-size: 30rpx;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  padding-top: 20rpx;
+}
+
+.tag {
+  margin-right: 12rpx;
+  font-size: 22rpx;
+  color: #a2957f;
+}
+
+.foot {
+  padding-top: 20rpx;
+  font-size: 22rpx;
+  color: #c0b4a5;
+  text-align: right;
+}
+
+.ops {
+  display: flex;
+  align-items: center;
+  padding: 28rpx 0 0;
+}
+
+.op {
+  flex: 1;
+  height: 88rpx;
+  margin-left: 16rpx;
+  border-radius: 44rpx;
+  background: #fff;
+  border: 1rpx solid #efe6d8;
+  font-size: 28rpx;
+  color: var(--ink-2, #8b8178);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.op:first-child {
+  margin-left: 0;
+}
+
+.op.main {
+  background: var(--accent, #c4713f);
+  border-color: var(--accent, #c4713f);
+  color: #fff;
+}
+
+.op:active {
+  opacity: 0.82;
+}
+
+/* 分享按钮：抹掉原生 button 的白底与边框 */
+.share {
+  margin-top: 20rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  border-radius: 44rpx;
+  background: transparent;
+  border: none;
+  font-size: 26rpx;
+  color: #a2957f;
+}
+
+.share::after {
+  border: none;
+}
+
+.empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 120rpx;
+}
+
+.empty-t {
+  font-size: 32rpx;
+  color: #8b8178;
+}
+
+.empty-s {
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  color: #b8ab99;
+}
+
+.empty-btn {
+  margin-top: 40rpx;
+  padding: 0 48rpx;
+  height: 84rpx;
+  line-height: 84rpx;
+  border-radius: 42rpx;
+  background: var(--accent, #c4713f);
+  color: #fff;
+  font-size: 28rpx;
+}
