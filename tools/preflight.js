@@ -35,6 +35,33 @@ const walk = (dir, out) => {
   return out
 }
 
+/* ---------------- 0. 项目身份：AppID 决定代码传给谁 ---------------- */
+// 最容易致命、又最没人检查的一步。2026-11-11 真踩过：project.config.json 里
+// 写的是「国色天湘香菜」的 AppID，于是灵感随时记的所有版本都传进了那个餐厅
+// 小程序的开发版本槽位；再往前走一步点提审、发布，被换掉的就是它的线上版本。
+const WRONG_APPID = {
+  wxa12c398753852198: '国色天湘香菜（另一个业务的小程序，不是本项目）'
+}
+let pcfg = null
+try {
+  pcfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'project.config.json'), 'utf8'))
+} catch (e) {
+  err('appid.config', 'project.config.json 缺失或不是合法 JSON：' + e.message)
+}
+if (pcfg) {
+  const id = String(pcfg.appid || '')
+  if (!id) {
+    err('appid.empty', 'project.config.json 没有 appid，上传会被拒')
+  } else if (id === 'touristappid' || /^wxid_/.test(id)) {
+    err('appid.tourist', 'appid 是游客号（' + id + '），只能本地看，不能上传发布')
+  } else if (WRONG_APPID[id]) {
+    err('appid.wrong', 'appid 指向「' + WRONG_APPID[id] + '」，上传等于改别人的小程序，提审发布会把它的线上版本换掉')
+  } else if (!/^wx[0-9a-f]{16}$/.test(id)) {
+    warn('appid.format', 'appid 格式可疑：' + id)
+  }
+  note('项目 ' + (pcfg.projectname || '(未命名)') + ' → AppID ' + (id || '(空)'))
+}
+
 /* ---------------- 1. 页面注册与四件套 ---------------- */
 const app = JSON.parse(read('app.json'))
 const pages = app.pages || []
