@@ -54,16 +54,9 @@
     </view>
   </view>
 
-  <!-- 回顾 -->
-  <view class="sec">回顾</view>
+  <!-- 整理：回顾入口已挪到首页（回顾位），这里只留归档 -->
+  <view class="sec">整理</view>
   <view class="block">
-    <view class="row tap" bindtap="onReview">
-      <view class="row-main">
-        <text class="row-k">随便翻一条</text>
-        <text class="row-sub">从旧记录里抽一条给你看</text>
-      </view>
-      <text class="row-go">›</text>
-    </view>
     <view class="row tap" bindtap="onArchive">
       <view class="row-main">
         <text class="row-k">归档</text>

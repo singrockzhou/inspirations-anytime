@@ -46,13 +46,24 @@
     >#{{item.tag}}<text class="chip-n">{{item.count}}</text></view>
   </scroll-view>
 
-  <!-- 那年今日 -->
+  <!-- 回顾位：那年今日优先占这一栏；没有就用「随便翻一条」顶上，不让它空着 -->
   <view class="anni" wx:if="{{anniversary}}" catchtap="openAnniversary">
     <view class="anni-top">
       <text class="anni-label">{{anniversary.label}}</text>
       <text class="anni-tip">点开看看 ›</text>
     </view>
     <view class="anni-text">{{anniversary.text}}</view>
+  </view>
+  <view
+    class="anni review"
+    wx:elif="{{reviewTotal > 1 && filter === 'all' && !filterTag}}"
+    catchtap="openReview"
+  >
+    <view class="anni-top">
+      <text class="anni-label">随便翻一条</text>
+      <text class="anni-tip">从 {{reviewTotal}} 条里抽 ›</text>
+    </view>
+    <view class="anni-text">半年前那句，可能正是现在想要的</view>
   </view>
 
   <!-- 今天平铺 / 非今天按周、月、年堆叠 -->

@@ -610,6 +610,12 @@
   opacity: 0.85;
 }
 
+/* 回顾位：版式同那年今日，换成中性米色——暖橙留给"回忆"，米色留给"随手一翻" */
+.anni.review {
+  background: var(--beige, #f7f1e7);
+  border-color: var(--line, #f0e7da);
+}
+
 .anni-top {
   display: flex;
   align-items: center;

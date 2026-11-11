@@ -16,6 +16,8 @@ const USER_DIR = (wx.env && wx.env.USER_DATA_PATH) || ''
 
 const MAX_MEDIA_ONE = 2 * 1024 * 1024
 const MAX_MEDIA_TOTAL = 15 * 1024 * 1024
+/** 单条正文上限，与记录页的 maxlength 对齐；从剪贴板/文件进来的文字都按它截 */
+const MAX_TEXT = 1000
 
 const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
@@ -435,7 +437,7 @@ function importFromChat() {
           let body = ''
           if (isText) {
             try {
-              body = String(fs().readFileSync(f.path, 'utf8') || '').slice(0, 1000)
+              body = String(fs().readFileSync(f.path, 'utf8') || '').slice(0, MAX_TEXT)
             } catch (e) {
               body = ''
             }
@@ -459,12 +461,60 @@ function importFromChat() {
   })
 }
 
+/**
+ * 从剪贴板收一条文字。
+ *
+ * 为什么只能这么做：微信不开放"读取聊天消息"的接口，
+ * wx.chooseMessageFile 拿到的是文件，聊天里直接打的字不会出现在选择器里。
+ * 唯一的合法通路是用户自己在聊天里长按复制，再由这里读剪贴板。
+ *
+ * 因此有两个必须守住的边界：
+ *   1. 只能由用户点击触发，绝不自动读（iOS 读剪贴板会弹系统提示，偷偷读会吓到人）；
+ *   2. 超长要如实告知截断位置，不静默丢字。
+ *
+ * @returns {Promise<{text:string, total:number, truncated:boolean}>}
+ */
+function fromClipboard() {
+  return new Promise((resolve, reject) => {
+    if (typeof wx.getClipboardData !== 'function') {
+      reject({ code: 'unsupported' })
+      return
+    }
+
+    const read = () => {
+      wx.getClipboardData({
+        success: res => {
+          const raw = String((res && res.data) || '')
+          // 首尾空白清掉；中间换行保留，那是用户原本的排版
+          const text = raw.replace(/^\s+|\s+$/g, '')
+          if (!text) {
+            reject({ code: 'empty' })
+            return
+          }
+          const kept = text.slice(0, MAX_TEXT)
+          resolve({ text: kept, total: text.length, truncated: text.length > kept.length })
+        },
+        fail: err => {
+          const msg = String((err && err.errMsg) || '')
+          // 用户拒绝：「auth deny」；后台没声明隐私用途：「api scope is not declared」
+          reject({ code: /deny|auth|privacy|scope/i.test(msg) ? 'denied' : 'read' })
+        }
+      })
+    }
+
+    // 剪贴板是隐私接口：先争取一次授权，失败也继续读，让具体错误浮现出来
+    require('./media').ensurePrivacy().then(read, read)
+  })
+}
+
 module.exports = {
   APP_TAG,
   FORMAT_VERSION,
+  MAX_TEXT,
   exportBackup,
   exportText,
   importBackup,
   importFromChat,
+  fromClipboard,
   buildPayload
 }

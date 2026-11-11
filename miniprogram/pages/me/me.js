@@ -56,7 +56,7 @@ Page({
     remindTime: '21:00',
     remindReady: false,
     busy: false,
-    version: '1.6.1'
+    version: '1.7.0'
   },
 
   onShow() {
@@ -100,11 +100,7 @@ Page({
     })
   },
 
-  /* ------------------------- 回顾 ------------------------- */
-
-  onReview() {
-    wx.navigateTo({ url: '/pages/review/review' })
-  },
+  /* ------------------------- 整理 ------------------------- */
 
   /** 归档列表复用首页的筛选，不另做一页 */
   onArchive() {

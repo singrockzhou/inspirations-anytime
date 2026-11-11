@@ -3,6 +3,8 @@ const date = require('../../utils/date')
 const audio = require('../../utils/audio')
 const transfer = require('../../utils/transfer')
 const dialog = require('../../utils/dialog')
+const share = require('../../utils/share')
+const flip = require('../../utils/flip')
 
 const PAGE_SIZE = 20
 const UNDO_SECONDS = 5
@@ -13,6 +15,8 @@ const COLLECT_ERR = {
   nofile: '没选到文件。',
   choose: '没能打开选择器，再试一次。',
   read: '文件读不出来，可能已经损坏。',
+  empty: '剪贴板里没有文字，先在聊天里长按复制一段。',
+  denied: '没有读到剪贴板的权限，去「设置」里允许后再试。',
   full: '攒满了，先清几条再收。'
 }
 
@@ -63,6 +67,8 @@ Page({
 
     /** 那年今日：只在默认列表里出现，搜素/筛选时不打扰 */
     anniversary: null,
+    /** 回顾位的备选人数：没有那年今日时，用「随便翻一条」顶上这一栏 */
+    reviewTotal: 0,
 
     /** 多选 */
     selectMode: false,
@@ -148,7 +154,9 @@ Page({
     this.setData({
       counts: { all: stats.visible, star: stats.starred, archive: stats.archived },
       tags: store.tags().slice(0, 12),
-      anniversary: this.computeAnniversary()
+      anniversary: this.computeAnniversary(),
+      // 和重温页用的是同一个口径（含归档），页面上写的条数不会和进去后看到的对不上
+      reviewTotal: flip.total()
     })
     this.render()
   },
@@ -247,14 +255,34 @@ Page({
     wx.navigateTo({ url: '/pages/me/me' })
   },
 
-  /* ------------------------- 从聊天存一条 ------------------------- */
+  /* ------------------------- 从聊天 / 剪贴板存一条 ------------------------- */
 
   /**
-   * 从聊天里挑文件/图片，收成本机的灵感。
-   * 原来在「我的」页，挪到首页后走的还是 transfer.importFromChat，
-   * 只是这一步必须真正落库——之前只提示"已存下"，其实什么都没写进去。
+   * 一个入口，两种来源。
+   * 微信不开放"读聊天消息"的接口，所以能收的只有两样：
+   * 聊天里的文件/图片，以及用户自己在聊天里复制的那段文字。
    */
   onCollect() {
+    if (this.collecting) return
+    this.actionItem = null
+    this.setData({
+      sheet: {
+        visible: true,
+        mode: 'collect',
+        title: '从聊天收一条',
+        items: [
+          { key: 'file', label: '选图片 / 文件', desc: '图片、txt、md、csv 都行，最多 9 个' },
+          { key: 'paste', label: '粘贴刚复制的文字', desc: '在聊天里长按复制，回来点这里' }
+        ]
+      }
+    })
+  },
+
+  /**
+   * 聊天文件：图片落盘成照片，txt/md/csv 读正文，其它二进制只留文件名。
+   * 必须真正落库——老版本只提示"已存下"，其实什么都没写进去。
+   */
+  collectFiles() {
     if (this.collecting) return
     this.collecting = true
     wx.showLoading({ title: '处理中', mask: true })
@@ -278,10 +306,8 @@ Page({
           if (rec) made.push(rec)
         })
 
-        if (!made.length) {
-          dialog.alert({ title: '没存成', text: COLLECT_ERR.full })
-          return
-        }
+        // 一条都没存下：store.create 已经说过原因（满 1000 条/写不进去），不再叠一层弹窗
+        if (!made.length) return
 
         this.setData({ filter: 'all', filterTag: '' })
         this.limit = PAGE_SIZE
@@ -299,6 +325,57 @@ Page({
         if (!err || err.code === 'cancel') return
         dialog.alert({ title: '没存成', text: COLLECT_ERR[err.code] || '再试一次看看。' })
       })
+  },
+
+  /** 剪贴板：聊天里复制的文字——这才是灵感的常见形态 */
+  collectClipboard() {
+    if (this.collecting) return
+    this.collecting = true
+    wx.showLoading({ title: '正在读', mask: true })
+
+    transfer
+      .fromClipboard()
+      .then(res => {
+        wx.hideLoading()
+        this.collecting = false
+
+        const rec = store.create({ type: 'text', content: res.text })
+        // 落库失败时 store 已经提示过了
+        if (!rec) return
+
+        this.setData({ filter: 'all', filterTag: '' })
+        this.limit = PAGE_SIZE
+        this.refresh()
+        this.flash(rec.id)
+
+        if (res.truncated) {
+          dialog.alert({
+            title: '只收了前半段',
+            text:
+              '这段有 ' + res.total + ' 字，一条最多存 ' + transfer.MAX_TEXT +
+              ' 字，先收了前 ' + res.text.length + ' 字。剩下的可以再复制一段存进来。'
+          })
+          return
+        }
+        this.toast('存下了，就在最上面')
+      })
+      .catch(err => {
+        wx.hideLoading()
+        this.collecting = false
+        const code = (err && err.code) || ''
+        if (code === 'empty') {
+          this.toast('剪贴板里没有文字')
+          return
+        }
+        dialog.alert({ title: '没读成', text: COLLECT_ERR[code] || '再试一次看看。' })
+      })
+  },
+
+  /* ------------------------- 回顾 ------------------------- */
+
+  /** 首页的回顾位：没有那年今日时，用「随便翻一条」顶上这一栏 */
+  openReview() {
+    wx.navigateTo({ url: '/pages/review/review' })
   },
 
   /* ------------------------- 筛选 ------------------------- */
@@ -488,7 +565,15 @@ Page({
 
   onSheetSelect(e) {
     const key = e.detail.key
+    const mode = this.data.sheet.mode
     this.closeSheet()
+
+    // 收集入口的两种来源，和卡片长按菜单共用同一个 action-sheet
+    if (mode === 'collect') {
+      if (key === 'file') this.collectFiles()
+      else if (key === 'paste') this.collectClipboard()
+      return
+    }
 
     const item = this.actionItem
     if (!item) return
@@ -673,17 +758,10 @@ Page({
 
   /**
    * 转发小程序卡片：带一段正文进去，对方打开就能一键存成自己的一条。
-   * 微信的 path 有长度限制，所以截到 400 字，超出部分如实提示已截断。
+   * 长度为什么是 120 字、超出会怎样，见 utils/share.js 的注释。
    */
   onShareAppMessage() {
-    const text = (this.data.anniversary && this.data.anniversary.text) || ''
-    const path = text
-      ? '/pages/index/index?inbox=' + encodeURIComponent(text.slice(0, 400))
-      : '/pages/index/index'
-    return {
-      title: text ? text.slice(0, 30) : '灵感随时记 · 想到什么就记一句',
-      path: path
-    }
+    return share.card((this.data.anniversary && this.data.anniversary.text) || '')
   },
 
   /** 收到别人转发过来的正文：确认后存成本地一条 */

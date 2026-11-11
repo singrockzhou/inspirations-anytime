@@ -3,6 +3,7 @@ const date = require('../../utils/date')
 const audio = require('../../utils/audio')
 const dialog = require('../../utils/dialog')
 const flip = require('../../utils/flip')
+const share = require('../../utils/share')
 
 const TYPE_LABEL = { text: '文字', voice: '语音', photo: '照片' }
 
@@ -314,11 +315,7 @@ Page({
   },
 
   onShareAppMessage() {
-    const text = ((this.data.record && this.data.record.content) || '').slice(0, 400)
-    return {
-      title: text ? text.slice(0, 30) : '灵感随时记',
-      path: text ? '/pages/index/index?inbox=' + encodeURIComponent(text) : '/pages/index/index'
-    }
+    return share.card((this.data.record && this.data.record.content) || '')
   },
 
   toast(message) {

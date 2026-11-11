@@ -61,9 +61,9 @@ function persist(tempFilePath, prefix, ext) {
 
 /**
  * 隐私授权（基础库 2.32.3+）
- * 相册/相机属于隐私接口，用户没同意过隐私协议时调用会直接失败，
+ * 相册/相机/剪贴板都属于隐私接口，用户没同意过隐私协议时调用会直接失败，
  * 表现就是"点了没反应"。这里先争取一次授权机会；
- * 若后台还没配「用户隐私保护指引」，把失败交给 chooseMedia 抛出，便于提示到具体原因。
+ * 若后台还没配「用户隐私保护指引」，把失败交给具体接口抛出，便于提示到具体原因。
  */
 function ensurePrivacy() {
   return new Promise(resolve => {
@@ -199,6 +199,7 @@ module.exports = {
   removeAll,
   statSize,
   persist,
+  ensurePrivacy,
   chooseImage,
   chooseImages,
   saveImage,

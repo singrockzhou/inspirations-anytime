@@ -2,6 +2,7 @@ const store = require('../../utils/store')
 const date = require('../../utils/date')
 const audio = require('../../utils/audio')
 const flip = require('../../utils/flip')
+const share = require('../../utils/share')
 
 /** 横向拖动超过这个距离才算"翻一条"，太小容易和普通点击、纵向滚动冲突 */
 const SWIPE_MIN = 56
@@ -360,11 +361,7 @@ Page({
 
   onShareAppMessage() {
     const item = this.data.item
-    const text = item ? (item.content || '').slice(0, 400) : ''
-    return {
-      title: text ? text.slice(0, 30) : '灵感随时记',
-      path: text ? '/pages/index/index?inbox=' + encodeURIComponent(text) : '/pages/index/index'
-    }
+    return share.card((item && item.content) || '')
   },
 
   toast(message) {
