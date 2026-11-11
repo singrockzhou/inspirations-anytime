@@ -56,7 +56,7 @@ Page({
     remindTime: '21:00',
     remindReady: false,
     busy: false,
-    version: '1.7.0'
+    version: '1.7.1'
   },
 
   onShow() {

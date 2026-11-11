@@ -1,5 +1,5 @@
 /**
- * 从聊天/剪贴板收一条 + 分享 path 长度（19 条断言）
+ * 从聊天/剪贴板收一条 + 分享 path 长度（27 条断言）
  * 用法：node tools/collect.test.js
  *
  * 顶掉 utils/store 与 utils/media，直接驱动真实的 utils/transfer.js 与 utils/share.js。
@@ -16,10 +16,21 @@ const storePath = path.join(B, 'utils', 'store.js')
 const mediaPath = path.join(B, 'utils', 'media.js')
 
 let savedSeq = 0
+const chatCalls = []
 const fakeStore = { MAX_RECORDS: 1000 }
 const fakeMedia = {
   ensurePrivacy: () => Promise.resolve(true),
-  saveFile: (p, ext) => Promise.resolve({ path: '/user/file_' + ++savedSeq + '.' + ext, size: 2048 })
+  saveFile: (p, ext) => Promise.resolve({ path: '/user/file_' + ++savedSeq + '.' + ext, size: 2048 }),
+  // 聊天里的图片必须走压缩，这里记录它被怎么调用
+  saveChatImage: (p, ext, originSize) => {
+    chatCalls.push({ path: p, ext: ext, originSize: originSize })
+    return Promise.resolve({
+      path: '/user/img_' + ++savedSeq + '.jpg',
+      size: 200 * 1024,
+      originSize: originSize || 0,
+      compressed: (originSize || 0) > 200 * 1024
+    })
+  }
 }
 
 require.cache[storePath] = { id: storePath, filename: storePath, loaded: true, exports: fakeStore, children: [], paths: [] }
@@ -130,7 +141,7 @@ function ok(name, cond, extra) {
 
   pickup = [
     { path: '/tmp/a.txt', name: 'a.txt' },
-    { path: '/tmp/b.png', name: 'b.png' },
+    { path: '/tmp/b.png', name: 'b.png', size: 3000 * 1024 },
     { path: '/tmp/c.docx', name: 'c.docx' }
   ]
   const res = await transfer.importFromChat()
@@ -140,6 +151,12 @@ function ok(name, cond, extra) {
   ok('图片落盘成照片并带路径', res.records[1].type === 'photo' && res.records[1].mediaPaths.length === 1)
   ok('读不出正文的只留文件名', res.records[2].content === '来自「c.docx」', res.records[2].content)
   ok('读不出的计入 failed', res.failed === 1, res.failed)
+
+  console.log('3.1) 聊天图片必须压缩后再落盘')
+  ok('图片走的是会压缩的 saveChatImage', chatCalls.length === 1, chatCalls)
+  ok('原始体积与扩展名都传给了压缩层', chatCalls[0].path === '/tmp/b.png' && chatCalls[0].ext === 'png', chatCalls[0])
+  ok('原始体积不丢，便于算省了多少', chatCalls[0].originSize === 3000 * 1024, chatCalls[0].originSize)
+  ok('压缩张数与省下的字节回传上层', res.compressed === 1 && res.savedBytes === 3000 * 1024 - 200 * 1024, [res.compressed, res.savedBytes])
 
   files['/tmp/big.md'] = '甲'.repeat(1500)
   pickup = [{ path: '/tmp/big.md', name: 'big.md' }]

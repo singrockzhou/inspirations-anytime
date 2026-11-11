@@ -900,3 +900,96 @@ node tools/dialog.test.js  → 27 passed
 node tools/media.test.js   → 31 passed
 node tools/design-lint.js  → ✓ 通过
 ```
+
+## 十八、聊天图片压缩落盘（v1.7.1）
+
+### 18.1 问题：从聊天收进来的图是原图
+
+`transfer.importFromChat()` 的图片分支原来调 `media.saveFile(f.path, ext)`，
+这是「原样搬进沙箱」——**不压缩、不缩边、不改格式**。而相册/相机那条链路走的是
+`saveImage()` → `compress()`，早就压到 300KB 以内了。同一个产品里两条导入路径待遇不同。
+
+实际后果很直接：手机截图 1~3MB，手机照片 4~10MB，从聊天里选 9 张进来能吃掉 30~60MB。
+本机文件空间是 200MB 量级，几十张原图就顶掉几千条文字记录——这是当前最容易被忽略的"存储漏水点"。
+
+### 18.2 改法：新增 `media.saveChatImage()`，两级压缩
+
+```
+原图（例如 4000×3000，5MB）
+  ↓ 第 1 轮：缩小到长边 1280 + 质量 70
+200~300KB 左右
+  ↓ 若仍 > 300KB：只降质量到 45 再来一轮（不再缩边）
+通常 < 150KB
+  ↓ 仍压不动：交原件，绝不为了省空间把图弄丢
+```
+
+第 1 轮就同时给 `compressedWidth / compressedHeight`，而不是只给 `quality`——
+只降质量对 4000px 的大图效果有限（尺寸才是体积的主因），先把长边压到 1280 才是关键。
+宽高按原图比例算，短边不裁切、不变形。
+
+### 18.3 为什么不直接复用 `saveFile` 或 `saveImage`
+
+| 候选 | 为什么不行 |
+| --- | --- |
+| `saveFile` | 原名原图搬进去，正是要修的问题 |
+| `saveImage` | 只有 `quality: 70`，无长边控制；且无法告知"原始体积 / 省了多少" |
+| 在 `transfer.js` 里现写一遍 | 压缩逻辑会分裂成两份，以后调整阈值必然漏掉一处 |
+
+现在 `compress()` 也升级为「先取尺寸、再决定是否缩边」，所以相册链路同样受益；
+`saveImage` / `saveImages` 签名不变，`record` 页不用改。
+
+### 18.4 四条边界，都写进实现里了
+
+1. **gif 不压**。压缩会把动图变成一张静图——宁可多占点空间，也不悄悄改掉这个东西的性质。
+2. **老基础库不认宽高参数**（`compressedWidth/Height` 需 2.26.0+）时，`compressImage` 会直接 fail。
+   实现里捕获这次失败，退回"只给质量"再压一次，而不是把图丢掉。
+3. **压不动就交原件**：没有 `wx.compressImage`、两轮都失败、或压缩后反而更大，都保留原文件。
+4. **原始体积优先用选择器报的 `f.size`**，拿不到才现场 `statSync`，避免多一次 IO。
+
+`importFromChat()` 的返回值多两个字段：`compressed`（压了几张）与 `savedBytes`（省了多少字节），
+首页弹窗因此能具体说"3 张照片压到 300KB 以内，省下 12.4 MB"，而不是一句模糊的"已优化"。
+
+### 18.5 预期效果
+
+| 来源 | 原始 | 落盘 | 变化 |
+| --- | --- | --- | --- |
+| 手机截图（1290×2796） | 1.8 MB | ~200 KB | 省 89% |
+| 手机照片（4000×3000） | 5.2 MB | ~240 KB | 省 95% |
+| 微信转发的小图（800×600） | 90 KB | 不再压（长边 < 1280，体积已达标） | 不变 |
+| 表情 gif | 900 KB | 900 KB | 不压（保动图） |
+
+9 张照片一次性导入：原来 45MB 左右，现在 2MB 出头。
+
+### 18.6 改动清单
+
+```
+新  tools/image.test.js        18 条断言：缩边参数 / 两轮压缩 / 老基础库回退 / gif / 体积未知
+改  utils/media.js             新增 imageMeta / shrinkTo / compressToTarget / saveChatImage；
+                               compress() 升级为带长边限制；导出 MAX_EDGE / MAX_IMAGE_BYTES
+改  utils/transfer.js          图片分支改走 saveChatImage；返回值多 compressed / savedBytes
+改  pages/index/index.js       收图后弹窗如实报告压了几张、省了多少（新增 bytesText）
+改  tools/collect.test.js      新增 4 条：图片确实走压缩层、原始体积不丢、汇总字段正确
+改  pages/me/me.js             版本 1.7.1
+改  README.md                  本章
+```
+
+### 18.7 验证场景
+
+1. 从聊天选 1 张手机照片（>4MB）→ 存下后弹窗写"1 张照片压到 300KB 以内，省下 4.9 MB"；
+   进「我的」看"图片与录音"占用，增量应是几百 KB 而不是几 MB；
+2. 选 9 张大图 → 处理时间稍长（逐张串行，避免内存顶爆），最终占用 < 3MB，9 条记录都点得开、图能放大；
+3. 选一张小图（<300KB、长边 <1280）→ 不压缩，弹窗不提"省下"；
+4. 选一张 gif → 存下来还是动图（预览时能动）；
+5. 相册/相机拍一张 → 与改造前观感一致（长边现在限到 1280，屏幕上看不出差别）；
+6. 压缩接口不可用的极端环境（老版本开发者工具）→ 图片仍然存得下，只是没变小。
+
+### 18.8 验证命令
+
+```
+node tools/image.test.js   → 18 passed
+node tools/collect.test.js → 27 passed
+node tools/flip.test.js    → 49 passed
+node tools/dialog.test.js  → 27 passed
+node tools/media.test.js   → 31 passed
+node tools/design-lint.js  → ✓ 通过
+```

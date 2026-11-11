@@ -407,11 +407,13 @@ function importFromChat() {
 
         const records = []
         let failed = 0
+        let compressed = 0
+        let savedBytes = 0
 
         const step = i => {
           if (i >= files.length) {
             if (!records.length) reject({ code: failed ? 'read' : 'nofile' })
-            else resolve({ records: records, failed: failed })
+            else resolve({ records: records, failed: failed, compressed: compressed, savedBytes: savedBytes })
             return
           }
           const f = files[i]
@@ -421,11 +423,16 @@ function importFromChat() {
           const isText = ['txt', 'md', 'markdown', 'json', 'csv'].indexOf(ext) >= 0
 
           if (isImage) {
+            // 聊天里的图是原图，必须压缩后再落盘，否则一张截图顶掉几十条文字
             require('./media')
-              .saveFile(f.path, ext)
+              .saveChatImage(f.path, ext, f.size || 0)
               .then(r => {
                 if (r.path) {
                   records.push({ type: 'photo', content: '来自「' + name + '」', mediaPaths: [r.path], size: r.size })
+                  if (r.compressed) {
+                    compressed++
+                    savedBytes += Math.max(0, r.originSize - r.size)
+                  }
                 } else {
                   failed++
                 }

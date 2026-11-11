@@ -20,6 +20,15 @@ const COLLECT_ERR = {
   full: '攒满了，先清几条再收。'
 }
 
+/** 字节数 → "3.2 MB"，只用在收图后的提示里 */
+function bytesText(bytes) {
+  const n = bytes || 0
+  if (n < 1024) return n + ' B'
+  if (n < 1024 * 1024) return Math.round(n / 1024) + ' KB'
+  const mb = n / 1024 / 1024
+  return (mb >= 100 ? Math.round(mb) : Math.round(mb * 10) / 10) + ' MB'
+}
+
 /** 卡片上那句话的摘要，堆叠组、那年今日、多选都用它 */
 function peekOf(item) {
   const text = (item.content || '').replace(/\s+/g, ' ').trim()
@@ -315,6 +324,9 @@ Page({
         this.flash(made[0].id)
 
         const lines = ['已存下 ' + made.length + ' 条，就在最上面。']
+        if (res.compressed) {
+          lines.push(res.compressed + ' 张照片压到 300KB 以内，省下 ' + bytesText(res.savedBytes) + '。')
+        }
         if (res.failed) lines.push(res.failed + ' 个文件读不出正文，只留了文件名，可以自己补一句。')
         if (made.length < res.records.length) lines.push('有 ' + (res.records.length - made.length) + ' 条没存下，可能已经满 ' + store.MAX_RECORDS + ' 条了。')
         dialog.alert({ title: '收到', text: lines.join('\n') })

@@ -5,6 +5,10 @@
  */
 const USER_DIR = (wx.env && wx.env.USER_DATA_PATH) || ''
 
+/** 照片的体积目标：长边 1280、单张 ≤300KB（PRD 13 章媒体要求） */
+const MAX_EDGE = 1280
+const MAX_IMAGE_BYTES = 300 * 1024
+
 function fs() {
   return wx.getFileSystemManager()
 }
@@ -141,17 +145,59 @@ function chooseImage(options) {
   return chooseImages(Object.assign({ count: 1 }, options || {})).then(paths => paths[0])
 }
 
-/** 压缩：目标长边 1280 / ≤300KB（PRD 13 章媒体要求），失败则原图继续 */
-function compress(src) {
+/** 取原图尺寸，拿不到就当没有（只按质量压，不缩边） */
+function imageMeta(src) {
   return new Promise(resolve => {
-    if (!wx.compressImage) return resolve(src)
-    wx.compressImage({
+    if (typeof wx.getImageInfo !== 'function') return resolve(null)
+    wx.getImageInfo({
       src: src,
-      quality: 70,
-      success: res => resolve(res.tempFilePath || src),
-      fail: () => resolve(src)
+      success: r => resolve({ w: (r && r.width) || 0, h: (r && r.height) || 0 }),
+      fail: () => resolve(null)
     })
   })
+}
+
+/**
+ * 压一次：长边超 1280 的同时给出缩放尺寸（基础库 2.26.0+ 才认），
+ * 老基础库不认这两个参数会直接 fail，此时退回"只给质量"再试一次——
+ * 宁可压得不够狠，也不能把图丢了。
+ * @returns {Promise<string>} 压缩后的临时路径；压不了时返回空串
+ */
+function shrinkTo(src, quality, meta) {
+  return new Promise(resolve => {
+    if (typeof wx.compressImage !== 'function') return resolve('')
+
+    const opts = {
+      src: src,
+      quality: quality,
+      success: r => resolve((r && r.tempFilePath) || src),
+      fail: () => {
+        if (!opts.compressedWidth) return resolve('')
+        wx.compressImage({
+          src: src,
+          quality: quality,
+          success: r => resolve((r && r.tempFilePath) || src),
+          fail: () => resolve('')
+        })
+      }
+    }
+    if (meta && meta.w && meta.h) {
+      const long = Math.max(meta.w, meta.h)
+      if (long > MAX_EDGE) {
+        const scale = MAX_EDGE / long
+        opts.compressedWidth = Math.round(meta.w * scale)
+        opts.compressedHeight = Math.round(meta.h * scale)
+      }
+    }
+    wx.compressImage(opts)
+  })
+}
+
+/** 压缩：目标长边 1280 / ≤300KB（PRD 13 章媒体要求），失败则原图继续 */
+function compress(src) {
+  return imageMeta(src)
+    .then(meta => shrinkTo(src, 70, meta))
+    .then(path => path || src)
 }
 
 /** 选图 → 压缩 → 落盘，返回可直接入库的路径 */
@@ -194,6 +240,65 @@ function saveFile(tempFilePath, ext) {
   }))
 }
 
+/**
+ * 压到 300KB 以内：先按「长边 1280 + 质量 70」，还超就把质量降到 45 再压一轮。
+ * 两轮都压不下去（或环境不支持压缩）就交原件，绝不为了省空间把图弄丢。
+ * @returns {Promise<{path:string, ext:string}>} 压成功统一按 jpg 落盘；交原件时用原扩展名
+ */
+function compressToTarget(src, before, originExt) {
+  const keep = originExt || 'jpg'
+  return imageMeta(src)
+    .then(meta => shrinkTo(src, 70, meta))
+    .then(first => {
+      if (!first) return { path: src, ext: keep }
+      if (!before || statSize(first) <= MAX_IMAGE_BYTES) return { path: first, ext: 'jpg' }
+      return shrinkTo(first, 45, null).then(second => {
+        if (!second) return { path: first, ext: 'jpg' }
+        const a = statSize(first)
+        const b = statSize(second)
+        return { path: b > 0 && b < a ? second : first, ext: 'jpg' }
+      })
+    })
+}
+
+/**
+ * 从聊天里收来的图片：压缩后再落盘。
+ *
+ * 为什么单独一个函数，不复用 saveFile：
+ * 聊天里的图片是原图（手机截图常见 2~5MB，照片 5~10MB），
+ * 一张就能顶掉几十条文字记录，不压的话存储很快见底。
+ *
+ * gif 例外：压缩会把它变成一张静图，宁可不压也不悄悄改掉这个东西的性质。
+ *
+ * @param {string} tempFilePath 选择器给的临时路径
+ * @param {string} ext 扩展名（不含点）
+ * @param {number} originSize 选择器报的原始体积，拿不到就现场 stat
+ * @returns {Promise<{path:string,size:number,originSize:number,compressed:boolean}>}
+ */
+function saveChatImage(tempFilePath, ext, originSize) {
+  const e = String(ext || '').toLowerCase()
+  const before = originSize > 0 ? originSize : statSize(tempFilePath)
+
+  if (e === 'gif') {
+    return persist(tempFilePath, 'img', 'gif').then(path => {
+      const size = statSize(path)
+      return { path: path, size: size, originSize: before, compressed: false }
+    })
+  }
+
+  return compressToTarget(tempFilePath, before, e || 'jpg')
+    .then(hit => persist(hit.path, 'img', hit.ext))
+    .then(path => {
+      const size = statSize(path)
+      return {
+        path: path,
+        size: size,
+        originSize: before,
+        compressed: before > 0 && size > 0 && size < before
+      }
+    })
+}
+
 module.exports = {
   remove,
   removeAll,
@@ -205,5 +310,8 @@ module.exports = {
   saveImage,
   saveImages,
   saveVoice,
-  saveFile
+  saveFile,
+  saveChatImage,
+  MAX_EDGE,
+  MAX_IMAGE_BYTES
 }
