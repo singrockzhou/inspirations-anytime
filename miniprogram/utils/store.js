@@ -1,9 +1,9 @@
 /**
  * 数据层（唯一读写本地存储的入口）
  *
- * 存储结构：一条平铺的数组，全部记录放在同一个 key 下。
- * 为什么不用分表/分页存储：单用户上限 1000 条，纯文本记录序列化后不过几百 KB，
- * 一次同步读写比多次异步分片更简单，也不会出现"分片之间时序错乱"的经典坑。
+ * 存储结构：记录按 id 哈希分到 10 个键（lg.r.v1.0 … lg.r.v1.9），对外仍是一个数组。
+ * 老版本的单键 lg.records.v1 在首次启动时自动迁移，迁移完成后删除。
+ * 为什么要分片、为什么按 id 哈希分，见下方常量处那段注释。
  *
  * 记录形状：
  * {
@@ -24,7 +24,28 @@ const media = require('./media')
 const { uuid } = require('./id')
 const dialog = require('./dialog')
 
-const KEY_RECORDS = 'lg.records.v1'
+/**
+ * 记录分片：lg.r.v1.0 … lg.r.v1.9
+ *
+ * 为什么必须分片：微信给「单个 key」的上限是 1MB，10MB 是整个 Storage 的总量。
+ * 原来 1000 条全塞一个 key，平均每条 800 字节就会撞到单键上限——那时总量才用掉
+ * 不到 1MB，却已经写不进去了，用户看到的是"存不下了"，其实空间还剩九成。
+ *
+ * 为什么按 id 哈希分、而不按下标切片：下标切片在列表中间插入或删除一条时，
+ * 后面所有记录都要换到别的片里，一次改动会波及大部分片，写放大比单键还差。
+ * 按 id 哈希则一条记录永远只属于一个片，新增/修改/删除通常只写 1 个键。
+ */
+const SHARD_PREFIX = 'lg.r.v1.'
+const SHARD_COUNT = 10
+/** 老版本的单键存储，只在迁移时读一次 */
+const KEY_LEGACY = 'lg.records.v1'
+/**
+ * 结构版本。2 = 分片存储。
+ * 迁移成功后写它，用来区分"没迁移过"和"迁移过但旧键没删干净"——
+ * 后者必须跳过迁移，否则旧数据会把迁移之后新记的内容覆盖掉。
+ */
+const KEY_SCHEMA = 'lg.schema.v1'
+const SCHEMA_VERSION = 2
 const KEY_META = 'lg.meta.v1'
 const KEY_DRAFT = 'lg.draft.v1'
 const KEY_PREFS = 'lg.prefs.v1'
@@ -45,6 +66,8 @@ const MAX_TAGS = 8
 const TAG_RE = /#([^\s#，。,.!！?？、;；:：()（）[\]【】"'“”]{1,12})/g
 
 let cache = null
+/** 每个分片在磁盘上的序列化快照；null = 未知（比如刚写完失败），下次全量重写 */
+let shardRaw = null
 
 /* ---------------------------- 基础工具 ---------------------------- */
 
@@ -136,16 +159,140 @@ function mediaOf(record) {
   return (record.mediaPaths || []).slice()
 }
 
+function shardKey(i) {
+  return SHARD_PREFIX + i
+}
+
+/**
+ * FNV-1a：只要求把 id 稳定地摊到 0..9，不要求密码学强度。
+ * id 形如 r + base36 时间戳 + 6 位随机串，前缀高度相似，
+ * 所以要先异或累积再乘质数，让尾部随机性把前缀的规律打散。
+ */
+function shardOf(id) {
+  const s = String(id || '')
+  let h = 2166136261
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619) >>> 0
+  }
+  return h % SHARD_COUNT
+}
+
+/** 读全部分片，拼成一个数组；顺手记下每片的快照供后续增量写比对 */
+function readShards() {
+  const raw = []
+  const list = []
+  for (let i = 0; i < SHARD_COUNT; i++) {
+    let part = ''
+    try {
+      part = wx.getStorageSync(shardKey(i))
+    } catch (e) {
+      console.error('[store] read shard failed', i, e)
+      part = ''
+    }
+    if (!Array.isArray(part)) part = []
+    const norm = part.map(normalizeRecord)
+    // 快照记"归一化之后"的形状，才能和 writeShards 传进来的数组直接比对
+    raw.push(JSON.stringify(norm))
+    for (let j = 0; j < norm.length; j++) list.push(norm[j])
+  }
+  shardRaw = raw
+  return list
+}
+
+/**
+ * 按 id 分组写回，只写内容真的变了的片。
+ *
+ * 写失败时的语义要说清楚：某一篇写失败，只代表"这一片的这次改动没生效"，
+ * 该片旧内容仍在盘上，记录不会凭空消失——丢的是一次修改，不是整条记录。
+ * 同时把快照置空，下次写入会全量重写，避免内存与磁盘长期分叉。
+ */
+function writeShards(list) {
+  const buckets = []
+  for (let i = 0; i < SHARD_COUNT; i++) buckets.push([])
+  for (let i = 0; i < list.length; i++) {
+    buckets[shardOf(list[i].id)].push(list[i])
+  }
+
+  const next = []
+  for (let i = 0; i < SHARD_COUNT; i++) next.push(JSON.stringify(buckets[i]))
+
+  try {
+    for (let i = 0; i < SHARD_COUNT; i++) {
+      if (shardRaw && shardRaw[i] === next[i]) continue
+      wx.setStorageSync(shardKey(i), buckets[i])
+    }
+  } catch (e) {
+    console.error('[store] write shard failed', e)
+    shardRaw = null
+    return false
+  }
+  shardRaw = next
+  return true
+}
+
+/**
+ * 单键 → 分片的迁移。只跑一次，且可以安全重跑：
+ *   写分片（覆盖写，幂等） → 落版本标记 → 删旧键
+ * 任何一步失败都不丢数据：标记没写上就下次重来，旧键没删掉只是多占点空间。
+ *
+ * @returns {Array|null} 刚迁移的数组（已归一化），无需迁移时返回 null
+ */
+function ensureSchema() {
+  let v = 0
+  try {
+    v = wx.getStorageSync(KEY_SCHEMA) || 0
+  } catch (e) {
+    v = 0
+  }
+  if (v >= SCHEMA_VERSION) return null
+
+  let legacy = null
+  try {
+    legacy = wx.getStorageSync(KEY_LEGACY)
+  } catch (e) {
+    console.error('[store] read legacy failed', e)
+  }
+
+  // 新用户：没有旧键可迁，直接落标记，不写 10 个空片白占空间
+  if (!Array.isArray(legacy)) {
+    try {
+      wx.setStorageSync(KEY_SCHEMA, SCHEMA_VERSION)
+    } catch (e) {
+      // 落标记失败不影响使用，下次再试
+    }
+    return null
+  }
+
+  const records = legacy.map(normalizeRecord)
+
+  // 旧键存在但是空数组（老用户清空过全部记录）：不必写 10 个空片白占空间
+  if (!records.length) {
+    try {
+      wx.setStorageSync(KEY_SCHEMA, SCHEMA_VERSION)
+      wx.removeStorageSync(KEY_LEGACY)
+    } catch (e) {
+      // 同上，失败不影响使用
+    }
+    return []
+  }
+
+  if (!writeShards(records)) return records
+
+  try {
+    wx.setStorageSync(KEY_SCHEMA, SCHEMA_VERSION)
+    wx.removeStorageSync(KEY_LEGACY)
+  } catch (e) {
+    // 标记或删除失败：旧键可能残留，但标记已尽量写入，下次不会重复迁移
+    console.error('[store] mark schema failed', e)
+  }
+  return records
+}
+
 function readAll() {
   if (cache) return cache
-  let list = []
-  try {
-    list = wx.getStorageSync(KEY_RECORDS)
-  } catch (e) {
-    console.error('[store] read failed', e)
-  }
-  if (!Array.isArray(list)) list = []
-  cache = list.map(normalizeRecord)
+  const migrated = ensureSchema()
+  cache = migrated || readShards()
   return cache
 }
 
@@ -154,19 +301,16 @@ function readAll() {
  * 保证内存与磁盘不会静默分叉。
  */
 function writeAll(list) {
-  try {
-    wx.setStorageSync(KEY_RECORDS, list)
+  if (writeShards(list)) {
     cache = list
     return true
-  } catch (e) {
-    console.error('[store] write failed', e)
-    cache = null
-    dialog.alert({
-      title: '存不下了',
-      text: '本机存储空间不足，先删掉几条旧灵感再试试。'
-    })
-    return false
   }
+  cache = null
+  dialog.alert({
+    title: '存不下了',
+    text: '本机存储空间不足，先删掉几条旧灵感再试试。'
+  })
+  return false
 }
 
 function sortDesc(list) {
@@ -757,8 +901,9 @@ function snoozeBackup(now) {
 
 /**
  * 本机占用，两本账要分开看：
- * 1) storage：wx.setStorage 的键值存储，记录数组 + 偏好 + 草稿都在这里。
+ * 1) storage：wx.setStorage 的键值存储，记录分片 + 偏好 + 草稿都在这里。
  *    上限由微信给（通常 10240KB = 10MB），跟账号/设备绑定，卸载小程序才清空。
+ *    注意单键还有 1MB 的独立上限，所以记录拆成 10 片，这片统计看的是总量。
  * 2) media：USER_DATA_PATH 下的图片、录音文件。这些是"文件"，不吃上面的 10MB，
  *    单独有约 200MB 的本地文件配额；删记录时会顺手 unlink。
  *
