@@ -11,7 +11,7 @@ const dialog = require('../../utils/dialog')
 const AUTHOR = 'zhouguoxiang'
 const WECHAT = '不卷的迭代老爸'
 const EMAIL = '77111904@qq.com'
-const CONTACT = '作者：' + AUTHOR + '\n微信：' + WECHAT + '\n邮箱：' + EMAIL
+const CONTACT = '作者：' + AUTHOR + '\n公众号：' + WECHAT + '\n邮箱：' + EMAIL
 
 const IMPORT_ERR = {
   nofile: '没选到文件。',
@@ -56,7 +56,7 @@ Page({
     /** 备份账本的两个事实：什么时候备过、该不该标成提醒色 */
     backupText: '',
     backupWarn: false,
-    version: '1.7.6'
+    version: '1.7.7'
   },
 
   onShow() {
@@ -226,7 +226,7 @@ Page({
 
   /**
    * 关于：一个只说明"这是什么"的弹窗是死的，所以第二个按钮做成真动作——
-   * 想找作者的人，最需要的就是把微信或邮箱带走，而不是手抄一遍。
+   * 想找作者的人，最需要的就是把公众号或邮箱带走，而不是手抄一遍。
    */
   onAbout() {
     const text = [
@@ -235,7 +235,7 @@ Page({
       '所有记录只保存在这台手机上，不上传、不联网、不需要登录。换手机时用上面的「导出到文件」带走。',
       '',
       '作者：' + AUTHOR,
-      '微信：' + WECHAT,
+      '公众号：' + WECHAT,
       '邮箱：' + EMAIL
     ].join('\n')
 
