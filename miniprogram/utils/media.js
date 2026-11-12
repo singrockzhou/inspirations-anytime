@@ -37,6 +37,7 @@ function removeAll(paths) {
 }
 
 function statSize(path) {
+  if (!path) return 0
   try {
     const info = fs().statSync(path)
     return (info && info.size) || 0
@@ -45,7 +46,30 @@ function statSize(path) {
   }
 }
 
-/** 把临时文件转存到用户目录，失败时降级为临时路径（本次会话可见） */
+/**
+ * 最近一次落盘失败的原因：'' 没失败过 / 'space' 空间不够 / 'other' 其它。
+ *
+ * 为什么单独记：persist 的返回值只有一个字符串（路径），调用方拿不到"为什么失败"。
+ * 空间满和"文件读不出来"要提示不同的话，所以把原因留在模块状态里给 lastFailReason() 取。
+ * 任何一次成功落盘都会清掉它，避免旧结论一直挂着。
+ */
+let lastFail = ''
+
+/** 微信的文件配额错误文案各端不统一，只能按关键字认 */
+function isSpaceErr(err) {
+  const msg = String((err && (err.errMsg || err.message)) || err || '')
+  return /exceed|max.{0,10}file|no space|storage.{0,10}limit|quota|full/i.test(msg)
+}
+
+/**
+ * 把临时文件转存到用户目录。
+ *
+ * 失败时返回空串，**不再退回临时路径**。临时路径在小程序本次会话结束后会被微信清掉，
+ * 写进记录等于埋一个"过几天自己消失"的照片/录音，而且当场完全看不出来——用户要等到
+ * 某天翻旧记录才发现。宁可让调用方明确失败、当场提示，也不要静默降级。
+ *
+ * @returns {Promise<string>} 落盘后的路径；失败为空串（原因见 lastFailReason()）
+ */
 function persist(tempFilePath, prefix, ext) {
   return new Promise(resolve => {
     if (!tempFilePath) return resolve('')
@@ -55,13 +79,27 @@ function persist(tempFilePath, prefix, ext) {
     fs().saveFile({
       tempFilePath: tempFilePath,
       filePath: target,
-      success: res => resolve(res.savedFilePath || target),
+      success: res => {
+        lastFail = ''
+        resolve(res.savedFilePath || target)
+      },
       fail: err => {
-        console.error('[media] saveFile failed', err)
-        resolve(tempFilePath)
+        lastFail = isSpaceErr(err) ? 'space' : 'other'
+        console.error('[media] saveFile failed (' + lastFail + ')', err)
+        resolve('')
       }
     })
   })
+}
+
+/** 最近一次落盘失败的原因：'' / 'space' / 'other'（见 lastFail 的注释） */
+function lastFailReason() {
+  return lastFail
+}
+
+/** 忘掉上次失败（测试用；用户清理空间后也可以主动清） */
+function clearFail() {
+  lastFail = ''
 }
 
 /**
@@ -305,6 +343,8 @@ module.exports = {
   removeAll,
   statSize,
   persist,
+  lastFailReason,
+  clearFail,
   ensurePrivacy,
   chooseImage,
   chooseImages,

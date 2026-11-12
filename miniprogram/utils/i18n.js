@@ -535,6 +535,10 @@ const ZH_DICT = {
   'record:toast_privacy': '需先在后台配置隐私保护指引',
   'record:toast_no_perm': '没拿到相机或相册权限',
   'record:toast_pick_fail': '没选上：{msg}',
+  'record:toast_space_full': '本机空间满了，先删几条带图的记录',
+  'record:toast_media_fail': '这个文件没存下来，再试一次',
+  'record:space_warn': '照片和录音已占 {size}，快满了。建议先导出一份备份，或删掉几条旧的带图记录。',
+  'record:space_full': '本机空间满了，现在只能记文字。删掉几条带图的记录就能恢复拍照和录音。',
 
   /* —— 详情页 —— */
   'detail:star_on': '★ 已加星',
@@ -1009,6 +1013,10 @@ const EN_DICT = {
   'record:toast_privacy': 'Configure the privacy policy in the console first',
   'record:toast_no_perm': 'No camera or album permission',
   'record:toast_pick_fail': "Didn't pick: {msg}",
+  'record:toast_space_full': 'Local storage is full — delete a few entries with photos',
+  'record:toast_media_fail': "That file couldn't be saved. Try again",
+  'record:space_warn': 'Photos and audio take {size}. Nearly full — export a backup, or delete a few old entries with photos.',
+  'record:space_full': 'Local storage is full. Text only for now — delete a few entries with photos to bring camera and recording back.',
 
   /* —— detail —— */
   'detail:star_on': '★ Starred',

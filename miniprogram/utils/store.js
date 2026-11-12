@@ -63,6 +63,17 @@ const TRASH_TTL = 24 * 60 * 60 * 1000
 const MAX_PHOTOS = 9
 const MAX_TAGS = 8
 
+/**
+ * 媒体文件配额。微信给单个小程序的 USER_DATA_PATH 是 200MB（官方口径），
+ * 这里留一点余量：195MB 就当作"写不进去了"，免得每次都在真机上撞到失败边界。
+ *
+ * 三档放在 store 里统一出入口，页面只管引用——两处（我的页 / 记录页）
+ * 各写一个魔法数字，迟早会出现"这边说快满了、那边还说没事"。
+ */
+const MEDIA_LIMIT_BYTES = 200 * 1024 * 1024
+const MEDIA_FULL_BYTES = 195 * 1024 * 1024
+const MEDIA_WARN_BYTES = 150 * 1024 * 1024
+
 /** #标签：中文/字母/数字，遇到空白与常见标点即止 */
 const TAG_RE = /#([^\s#，。,.!！?？、;；:：()（）[\]【】"'“”]{1,12})/g
 
@@ -957,6 +968,9 @@ function usage() {
 module.exports = {
   MAX_RECORDS,
   MAX_PHOTOS,
+  MEDIA_LIMIT_BYTES,
+  MEDIA_FULL_BYTES,
+  MEDIA_WARN_BYTES,
   usage,
   list,
   query,

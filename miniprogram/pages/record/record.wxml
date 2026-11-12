@@ -9,6 +9,9 @@
     </view>
   </view>
 
+  <!-- 本机空间提示：快满了 / 已满只留文字。三种形态都能看到，所以放在 body 之前 -->
+  <view class="space-tip {{spaceFull ? 'full' : ''}}" wx:if="{{spaceTip}}">{{spaceTip}}</view>
+
   <view class="body">
 
     <!-- 文字 -->
@@ -116,8 +119,8 @@
   <!-- 底部类型切换：一条记录只存一种形态 -->
   <view class="tools">
     <view class="tool {{type === 'text' ? 'on' : ''}}" data-type="text" catchtap="onTab">{{t.tab_text}}</view>
-    <view class="tool {{type === 'voice' ? 'on' : ''}}" data-type="voice" catchtap="onTab">{{t.tab_voice}}</view>
-    <view class="tool {{type === 'photo' ? 'on' : ''}}" data-type="photo" catchtap="onTab">{{t.tab_photo}}</view>
+    <view class="tool {{type === 'voice' ? 'on' : ''}} {{spaceFull ? 'off' : ''}}" data-type="voice" catchtap="onTab">{{t.tab_voice}}</view>
+    <view class="tool {{type === 'photo' ? 'on' : ''}} {{spaceFull ? 'off' : ''}}" data-type="photo" catchtap="onTab">{{t.tab_photo}}</view>
   </view>
 
   <view class="toast" wx:if="{{toastText}}">{{toastText}}</view>

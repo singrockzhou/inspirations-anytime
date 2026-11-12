@@ -238,6 +238,28 @@
   color: #fff;
 }
 
+/* 空间满了：语音/拍照两个入口置灰，点了会提示"只能记文字" */
+.tool.off {
+  opacity: 0.45;
+}
+
+/* ================= 本机空间提示 ================= */
+
+.space-tip {
+  margin: 8rpx 24rpx 0;
+  padding: 16rpx 20rpx;
+  border-radius: 16rpx;
+  background: var(--beige, #f7f1e7);
+  color: var(--ink-2, #8b8178);
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+.space-tip.full {
+  background: var(--beige, #f7f1e7);
+  color: var(--accent, #c4713f);
+}
+
 /* ================= 多图网格 ================= */
 
 .grid {

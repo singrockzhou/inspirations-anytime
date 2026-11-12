@@ -59,7 +59,7 @@ Page({
     /** 备份账本的两个事实：什么时候备过、该不该标成提醒色 */
     backupText: '',
     backupWarn: false,
-    version: '1.8.0',
+    version: '1.8.1',
     /** 当前语言与文案包；切换语言后由 applyLang 重新填 */
     t: {},
     lang: 'zh',
@@ -124,7 +124,7 @@ Page({
 
     let storageWarn = ''
     if (u.percent >= 80) storageWarn = i18n.t('me:warn_index')
-    else if (u.mediaBytes >= 150 * 1024 * 1024) storageWarn = i18n.t('me:warn_media')
+    else if (u.mediaBytes >= store.MEDIA_WARN_BYTES) storageWarn = i18n.t('me:warn_media')
 
     this.setData({
       total: stats.visible,

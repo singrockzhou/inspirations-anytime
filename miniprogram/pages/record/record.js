@@ -57,7 +57,10 @@ Page({
     t: {},
     /** 需要带数字或状态的句子，先在 js 里拼好再给 wxml */
     voiceRecordedText: '',
-    counterText: ''
+    counterText: '',
+    /** 本机媒体用量提示条：'' 不显示 / 快满了 / 已满（只能记文字） */
+    spaceTip: '',
+    spaceFull: false
   },
 
   onLoad(options) {
@@ -126,6 +129,10 @@ Page({
   },
 
   onReady() {
+    // 放在 onReady 而不是 onLoad：checkSpace 要把用户目录里的文件全 stat 一遍，
+    // 几百张图时可能要一百多毫秒。等首帧画完再算，别让"点加号"顿一下。
+    this.checkSpace()
+
     if (this.data.type === 'text') {
       // 让键盘跟着页面一起起来，少一次点击
       setTimeout(() => this.setData({ focus: true }), 120)
@@ -232,6 +239,11 @@ Page({
 
   onTab(e) {
     const next = e.currentTarget.dataset.type
+    // 空间满了只留文字：不能等用户拍完 9 张、发现一张都没存下来才说
+    if (next !== 'text' && next !== this.data.type && this.data.spaceFull) {
+      this.toast(i18n.t('record:toast_space_full'))
+      return
+    }
     if (next === this.data.type) {
       // 已经在照片态又点「拍一张」，说明是想立刻拍照，别让它静默无响应
       if (next === 'photo' && !this.data.photos.length && !this.data.recording) this.pickPhoto()
@@ -286,6 +298,60 @@ Page({
     })
     this.unmarkDirty()
     this.syncCanSave()
+  },
+
+  /* ---------------------- 本机空间 ---------------------- */
+
+  /**
+   * 媒体用量检查：决定「提醒快满了」还是「只让记文字」。
+   *
+   * 为什么一定要放在记录页：用户是在这里拍照、录音，也只有在这个瞬间才需要
+   * 知道「再存一张会发生什么」。只在「我的」页提示，等于把告示牌挂在仓库角落。
+   *
+   * @param {boolean} force 跳过 60 秒节流（落盘失败后要立刻重算）
+   */
+  checkSpace(force) {
+    const now = Date.now()
+    if (!force && this.spaceAt && now - this.spaceAt < 60000) return
+    this.spaceAt = now
+
+    let bytes = 0
+    try {
+      bytes = store.usage().mediaBytes || 0
+    } catch (e) {
+      bytes = 0
+    }
+
+    // 写盘失败过就算真满了：各端给的实际配额未必整齐的 200MB，
+    // 一次真实的失败比一次估算可信。
+    const full = !!this.spaceFailed || bytes >= store.MEDIA_FULL_BYTES
+    const warn = !full && bytes >= store.MEDIA_WARN_BYTES
+
+    let tip = ''
+    if (full) tip = i18n.t('record:space_full')
+    else if (warn) tip = i18n.t('record:space_warn', { size: this.sizeText(bytes) })
+
+    this.setData({ spaceFull: full, spaceTip: tip })
+  },
+
+  /** 用量给用户看：MB / GB 不翻译，口径和「我的」页保持一致 */
+  sizeText(bytes) {
+    const mb = bytes / 1024 / 1024
+    if (mb >= 1024) return (mb / 1024).toFixed(1) + ' GB'
+    return mb < 1 ? '<1 MB' : Math.round(mb) + ' MB'
+  },
+
+  /**
+   * 落盘失败时统一走这里：记下"满了"、当场出声、立刻重算提示条。
+   *
+   * 以前静默退回临时路径，用户以为存住了，过几天照片自己消失——
+   * 这类问题在评论区只会留下"小程序会丢东西"，说不清也修不掉。
+   */
+  onMediaFail() {
+    const space = media.lastFailReason() === 'space'
+    if (space) this.spaceFailed = true
+    this.toast(space ? i18n.t('record:toast_space_full') : i18n.t('record:toast_media_fail'))
+    this.checkSpace(true)
   },
 
   /* ------------------------- 保存 / 离开 ------------------------- */
@@ -477,6 +543,10 @@ Page({
 
   startRecord() {
     if (this.data.recording) return
+    if (this.data.spaceFull) {
+      this.toast(i18n.t('record:toast_space_full'))
+      return
+    }
     if (!this.rm && !this.rt) {
       this.toast(i18n.t('record:toast_no_recorder'))
       return
@@ -606,6 +676,13 @@ Page({
 
   saveVoice(tempFilePath, seconds, text) {
     media.saveVoice(tempFilePath).then(({ path, size }) => {
+      // 没落盘（空间满 / 文件读不出来）：绝不能把空路径写进记录，
+      // 否则会留下一条"标着 8 秒、点开什么都没有"的语音
+      if (!path) {
+        this.onMediaFail()
+        this.setData({ recordSeconds: 0, recordClock: '00:00', hint: '', asrPartial: '' })
+        return
+      }
       if (this.data.mediaPath && this.data.mode === 'create') media.remove(this.data.mediaPath)
       const patch = {
         mediaPath: path,
@@ -689,6 +766,12 @@ Page({
   pickPhoto(opts) {
     const cameraOnly = !!(opts && opts.cameraOnly)
 
+    // 空间满了就别唤起相机了：拍完存不下来，比不让拍更伤人
+    if (this.data.spaceFull) {
+      this.toast(i18n.t('record:toast_space_full'))
+      return
+    }
+
     if (this.data.recording) {
       this.toast(i18n.t('record:toast_end_rec_first'))
       return
@@ -715,13 +798,15 @@ Page({
       .then(tempPaths => {
         // 相机/相册回来之后才挂 loading，避免用户看到加载圈却等不到界面
         wx.showLoading({ title: i18n.t('common:processing'), mask: true })
+        this.expectPhotos = tempPaths.length
         return media.saveImages(tempPaths).then(saved => {
           this.hideLoading()
           return saved
         })
       })
       .then(saved => {
-        const next = cameraOnly ? saved : this.data.photos.concat(saved)
+        // 重拍时如果一张都没落盘，保留原来那几张：不能因为一次失败把已有的图清空
+        const next = cameraOnly ? (saved.length ? saved : this.data.photos) : this.data.photos.concat(saved)
         const kept = next.slice(0, MAX_PHOTOS)
         // 超出 9 张的被丢掉，文件也要删掉，别留孤儿
         if (next.length > MAX_PHOTOS) {
@@ -729,12 +814,15 @@ Page({
           this.toast(i18n.t('record:toast_max_photos', { n: MAX_PHOTOS }))
         }
         // 替换时，被换掉的旧图要删（编辑态除外，那些属于库里那条记录）
-        if (cameraOnly && this.data.mode === 'create' && this.data.photos.length) {
+        // 只有真的换上了新图才删——否则会把保留下来的旧图文件删掉
+        if (cameraOnly && saved.length && this.data.mode === 'create' && this.data.photos.length) {
           media.removeAll(this.data.photos.map(p => p.path))
         }
         this.setData({ photos: kept })
         this.syncCanSave()
         this.markDirty()
+        // 放在最后：万一前面还提示了「最多 9 张」，也要让"没存下来"这条盖住它
+        if (this.expectPhotos && saved.length < this.expectPhotos) this.onMediaFail()
       })
       .catch(err => {
         this.hideLoading()
