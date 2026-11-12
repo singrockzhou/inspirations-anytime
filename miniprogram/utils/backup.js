@@ -23,7 +23,10 @@ const GAP_DAYS = 7
 /** 点"以后再说"后安静多少天 */
 const SNOOZE_DAYS = 7
 
-const LABEL_ONLY = '只在这台手机上'
+const i18n = require('./i18n')
+
+/** 导出给页面兜底；渲染时以 of() 返回的当前语言文案为准 */
+const LABEL_ONLY = i18n.t('backup:only_local')
 
 /**
  * @param {{total:number}} stats store.stats() 的返回值（total 含归档）
@@ -56,8 +59,8 @@ function of(stats, meta, opts) {
       kind: 'later',
       total: total,
       days: days,
-      text: '上次备份是 ' + days + ' 天前',
-      tip: '再备一份 ›'
+      text: i18n.t('backup:again', { n: days }),
+      tip: i18n.t('backup:again_tip')
     }
   }
 
@@ -65,8 +68,8 @@ function of(stats, meta, opts) {
     kind: 'first',
     total: total,
     days: -1,
-    text: '已记 ' + total + ' 条 · ' + LABEL_ONLY,
-    tip: '备份一份 ›'
+    text: i18n.t('backup:first', { n: total, s: i18n.t('backup:only_local') }),
+    tip: i18n.t('backup:first_tip')
   }
 }
 

@@ -10,6 +10,7 @@
  *  4. 圆角、字号只能取设计规范里的档位
  *  5. 页面里不许直接调 wx.showModal（统一走 utils/dialog）
  *  6. 给用户看的文案里不许出现代码：文件路径、源码文件名、后台术语
+ *  7. 界面文案一律走 i18n：wxml 里不许有中文字面量，js 里不许有中文文案字面量
  */
 const fs = require('fs')
 const path = require('path')
@@ -185,6 +186,117 @@ function checkCopy(dir) {
 checkCopy(path.join(ROOT, 'pages'))
 checkCopy(path.join(ROOT, 'components'))
 
+/* ---------- 7. 界面文案一律走 i18n ---------- */
+
+const HAN = /[\u4e00-\u9fa5]/
+
+/**
+ * 允许保留中文的地方，一处一条，附上理由。
+ * 判断标准不是"能不能翻"，而是"翻译之后还对不对"：
+ * 品牌名、语言自称、导出文件名，翻成英文反而错。
+ */
+const HAN_ALLOW = [
+  { file: 'utils/i18n.js', any: true, why: '词典本体' },
+  { file: 'pages/me/me.js', re: /不卷的迭代老爸/, why: '公众号名，是品牌不是文案' },
+  { file: 'pages/me/me.js', re: /'中文'/, why: '语言名用本语言写，英文界面上也得是「中文」' },
+  { file: 'utils/transfer.js', re: /灵感随时记-/, why: '导出文件名带品牌，跨语言一致' },
+  { file: 'components/dialog/dialog.js', re: /'算了'|'好'/, why: '未 open 时的 data 初值，界面不可见' }
+]
+
+function allowed(rel, text) {
+  return HAN_ALLOW.some(r => r.file === rel && (r.any || (r.re && r.re.test(text))))
+}
+
+/**
+ * 取一行代码里"不是注释"的部分。
+ * 逐行判断而不是整份解析：某一行引号没配平（中文注释里常出现英文引号），
+ * 最多影响那一行，不会把后面几百行都当成字符串。
+ * @param {string} line
+ * @returns {string} 去掉行尾 // 注释后的代码；整行注释返回 ''
+ */
+function codeOf(line) {
+  const t = line.trim()
+  if (!t) return ''
+  // 整行注释：// 开头，或处在 /** … */ 中间的行（以 * 或 /* 开头）
+  if (t.indexOf('//') === 0 || t.indexOf('*') === 0 || t.indexOf('/*') === 0) return ''
+  let out = ''
+  let quote = null
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i]
+    if (quote) {
+      out += c
+      if (c === '\\') {
+        out += line[i + 1] || ''
+        i++
+      } else if (c === quote) {
+        quote = null
+      }
+      continue
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      quote = c
+      out += c
+      continue
+    }
+    if (c === '/' && line[i + 1] === '/') break
+    out += c
+  }
+  return out
+}
+
+/** 从代码里抠出所有字符串字面量 */
+function literals(src) {
+  const out = []
+  const re = /'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)"|`((?:[^`\\]|\\.)*)`/g
+  let m
+  while ((m = re.exec(src))) out.push(m[1] || m[2] || m[3] || '')
+  return out
+}
+
+function walk(dir, ext, hit) {
+  fs.readdirSync(dir).forEach(name => {
+    const p = path.join(dir, name)
+    const st = fs.statSync(p)
+    if (st.isDirectory()) return walk(p, ext, hit)
+    if (name.endsWith(ext)) hit(p)
+  })
+}
+
+// 7a. wxml：注释之外不许有汉字
+walk(ROOT, '.wxml', p => {
+  const src = fs.readFileSync(p, 'utf8').replace(/<!--[\s\S]*?-->/g, '')
+  const rel = path.relative(ROOT, p).split(path.sep).join('/')
+  src.split('\n').forEach((line, i) => {
+    if (!HAN.test(line)) return
+    fail('wxml 里有中文字面量（应改走 {{t.xxx}}）：' + rel + ':' + (i + 1) + ' → ' + line.trim())
+  })
+})
+
+// 7b. js：注释之外，字符串字面量里不许有汉字（console 日志不算给用户看的文案）
+walk(ROOT, '.js', p => {
+  const rel = path.relative(ROOT, p).split(path.sep).join('/')
+  if (allowed(rel, '')) return // any:true 的整份跳过
+  fs.readFileSync(p, 'utf8')
+    .split('\n')
+    .forEach((line, i) => {
+      if (line.indexOf('console.') >= 0) return
+      const code = codeOf(line)
+      if (!code) return
+      literals(code).forEach(text => {
+        if (!HAN.test(text)) return
+        if (allowed(rel, "'" + text + "'")) return
+        fail(
+          'js 里有中文文案字面量（应走 i18n.t）：' +
+            rel +
+            ':' +
+            (i + 1) +
+            ' → ' +
+            JSON.stringify(text).slice(0, 60)
+        )
+      })
+    })
+})
+
 /* ---------- 输出 ---------- */
 notes.forEach(n => console.log('  · ' + n))
 if (errors.length) {
@@ -192,4 +304,4 @@ if (errors.length) {
   errors.forEach(e => console.log('  - ' + e))
   process.exit(1)
 }
-console.log('\n✓ 设计检查通过：颜色/单位/可点区/圆角/字号/弹窗出口/文案洁净 均符合规范')
+console.log('\n✓ 设计检查通过：颜色/单位/可点区/圆角/字号/弹窗出口/文案洁净/双语化 均符合规范')

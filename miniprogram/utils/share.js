@@ -13,6 +13,7 @@
  * 截断对用户是可见的：发送前标题就是前 30 字，接收端存下的也是同一段，
  * 不存在"发出去 400 字、收到 120 字"的静默丢失。
  */
+const i18n = require('./i18n')
 const MAX_IN_PATH = 120
 
 /**
@@ -26,7 +27,7 @@ function card(text) {
     .trim()
 
   if (!src) {
-    return { title: '灵感随时记 · 想到什么就记一句', path: '/pages/index/index' }
+    return { title: i18n.t('share:title'), path: '/pages/index/index' }
   }
 
   const kept = src.slice(0, MAX_IN_PATH)

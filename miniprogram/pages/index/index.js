@@ -6,6 +6,7 @@ const dialog = require('../../utils/dialog')
 const share = require('../../utils/share')
 const flip = require('../../utils/flip')
 const nudge = require('../../utils/nudge')
+const i18n = require('../../utils/i18n')
 const backup = require('../../utils/backup')
 
 const PAGE_SIZE = 20
@@ -19,22 +20,18 @@ const UNDO_SECONDS = 5
  *     读不出内容 / 存不进来 / 环境不支持），能分辨就不要合并成一句。
  *   - 每条都给一个"接下来能做什么"，因为用户此刻唯一想知道的就是这个。
  */
-const COLLECT_ERR = {
-  unsupported: '当前环境打不开聊天文件，请用手机微信再试。',
-  nofile: '没选到文件。',
-  choose: '没能打开选择器，再试一次。',
-  read: '这些文件读不出内容。截图发过来、或者长按复制文字，这两条路更稳。',
-  empty: '剪贴板里没有文字，先在聊天里长按复制一段。',
-  denied: '没有读到剪贴板的权限，去「设置」里允许后再试。',
-  full: '攒满了，先清几条再收。'
-}
+const COLLECT_ERR = i18n.table('index', [
+  'unsupported',
+  'nofile',
+  'choose',
+  'read',
+  'empty',
+  'denied',
+  'full'
+], 'err')
 
 /** 没存下的原因，说人话；三个码分别对应"认不出/读不出/存不进" */
-const SKIP_REASON = {
-  type: '看不出是什么文件',
-  read: '读不出内容',
-  save: '没能存进来，可能是空间不够'
-}
+const SKIP_REASON = i18n.table('index', ['type', 'read', 'save'], 'skip')
 
 /**
  * 把没存下的文件说成一句人话。
@@ -52,9 +49,9 @@ function skippedText(list) {
   const parts = []
   if (names.length) {
     const head = names.slice(0, 3).join('、')
-    parts.push(head + (names.length > 3 ? ' 等 ' + names.length + ' 个' : ''))
+    parts.push(head + (names.length > 3 ? i18n.t('index:skipped_etc', { n: names.length }) : ''))
   }
-  if (unknown > 0) parts.push(unknown + ' 个认不出名字的文件')
+  if (unknown > 0) parts.push(i18n.t('index:skipped_unknown', { n: unknown }))
   return parts.join('、')
 }
 
@@ -62,7 +59,12 @@ function skippedText(list) {
 function skippedDetail(list) {
   return (list || [])
     .slice(0, 3)
-    .map(s => '· ' + (s.name || '一个认不出的文件') + '（' + (SKIP_REASON[s.reason] || '没能存下') + '）')
+    .map(s =>
+      i18n.t('index:skip_line', {
+        name: s.name || i18n.t('index:skip_unknown_name'),
+        reason: SKIP_REASON[s.reason] || i18n.t('index:skip_save')
+      })
+    )
     .join('\n')
 }
 
@@ -79,17 +81,17 @@ function bytesText(bytes) {
 function peekOf(item) {
   const text = (item.content || '').replace(/\s+/g, ' ').trim()
   if (text) return text.length > 42 ? text.slice(0, 42) + '…' : text
-  if (item.type === 'voice') return '一段 ' + (item.duration || 0) + ' 秒的录音'
-  if (item.type === 'photo') return ((item.mediaPaths || []).length || 1) + ' 张照片'
+  if (item.type === 'voice') return i18n.t('index:sum_voice', { n: item.duration || 0 })
+  if (item.type === 'photo') return i18n.t('index:sum_photo', { n: (item.mediaPaths || []).length || 1 })
   return ''
 }
 
 function decorate(item, selected) {
-  let badge = '文字'
-  if (item.type === 'voice') badge = '语音 ' + (item.duration || 0) + '″'
+  let badge = i18n.t('index:badge_text')
+  if (item.type === 'voice') badge = i18n.t('index:badge_voice', { n: item.duration || 0 })
   else if (item.type === 'photo') {
     const n = (item.mediaPaths || []).length || 1
-    badge = n > 1 ? '照片 ' + n + ' 张' : '照片'
+    badge = n > 1 ? i18n.t('index:badge_photo', { n: n }) : i18n.t('index:badge_photo_one')
   }
 
   return Object.assign({}, item, {
@@ -117,8 +119,10 @@ Page({
     filterTag: '',
     counts: { all: 0, star: 0, archive: 0 },
     tags: [],
-    emptyText: '想到什么，就说一句',
-    emptySub: '不用起标题，也不用选分类',
+    /** 当前语言的文案包，wxml 里用 {{t.xxx}} */
+    t: {},
+    emptyText: '',
+    emptySub: '',
 
     /** 那年今日：只在默认列表里出现，搜素/筛选时不打扰 */
     anniversary: null,
@@ -147,6 +151,10 @@ Page({
     toastText: ''
   },
 
+  applyLang() {
+    this.setData({ t: i18n.pack('index') })
+  },
+
   onLoad(options) {
     this.limit = PAGE_SIZE
     this.all = []
@@ -161,6 +169,7 @@ Page({
 
   /** 从记录页返回时刷新，并让刚存下的那条闪一下 */
   onShow(options) {
+    this.applyLang()
     // 热启动时分享进来的内容也从这里进
     this.handleInbox(options)
 
@@ -216,6 +225,7 @@ Page({
       anniversary: this.computeAnniversary(),
       // 和重温页用的是同一个口径（含归档），页面上写的条数不会和进去后看到的对不上
       reviewTotal: flip.total(),
+      reviewTip: i18n.t('index:review_tip', { n: flip.total() }),
       nudge: this.computeNudge(stats),
       backup: this.computeBackup(stats)
     })
@@ -280,7 +290,7 @@ Page({
   onBackup() {
     if (this.busyBackup) return
     this.busyBackup = true
-    wx.showLoading({ title: '打包中', mask: true })
+    wx.showLoading({ title: i18n.t('common:packing'), mask: true })
 
     transfer
       .exportBackup()
@@ -296,15 +306,15 @@ Page({
 
         // 账本由 transfer.exportBackup 记账（含归档，且用户取消时不记），这里只收尾
         this.setData({ backup: null })
-        wx.showToast({ title: '已生成备份，转发给文件传输助手', icon: 'none' })
+        wx.showToast({ title: i18n.t('index:toast_backup_done'), icon: 'none' })
       })
       .catch(err => {
         wx.hideLoading()
         this.busyBackup = false
         if (err && err.code === 'cancel') return
         dialog.alert({
-          title: '没导出成',
-          text: transfer.EXPORT_ERR[err && err.code] || '再试一次看看。'
+          title: i18n.t('index:dialog_export_fail'),
+          text: transfer.EXPORT_ERR[err && err.code] || i18n.t('common:retry')
         })
       })
   },
@@ -313,7 +323,7 @@ Page({
   onBackupClose() {
     store.snoozeBackup()
     this.setData({ backup: null })
-    wx.showToast({ title: '7 天内不再提，备份还在「我的」', icon: 'none' })
+    wx.showToast({ title: i18n.t('index:toast_snooze'), icon: 'none' })
   },
 
   render() {
@@ -324,31 +334,35 @@ Page({
 
     buckets.forEach(g => {
       g.open = !!this.expanded[g.key]
+      g.moreText = i18n.t('index:more_in_group', { n: g.count - 1 })
+      g.countText = i18n.t('index:grp_count', { n: g.count })
     })
 
     const filtering = this.data.filter !== 'all' || !!this.data.filterTag
-    let emptyText = '想到什么，就说一句'
-    let emptySub = '不用起标题，也不用选分类'
+    let emptyText = i18n.t('index:empty_default')
+    let emptySub = i18n.t('index:empty_sub')
     if (this.data.filter === 'star') {
-      emptyText = '还没有加星的'
-      emptySub = '长按一条，选「加星」就钉在这里'
+      emptyText = i18n.t('index:empty_star')
+      emptySub = i18n.t('index:empty_star_sub')
     } else if (this.data.filter === 'archive') {
-      emptyText = '归档里是空的'
-      emptySub = '长按一条，选「归档」就收进来'
+      emptyText = i18n.t('index:empty_archive')
+      emptySub = i18n.t('index:empty_archive_sub')
     } else if (this.data.filterTag) {
-      emptyText = '#' + this.data.filterTag + ' 下还没有'
-      emptySub = '正文里写 #' + this.data.filterTag + ' 就会自动归到这个标签'
+      emptyText = i18n.t('index:empty_tag', { tag: this.data.filterTag })
+      emptySub = i18n.t('index:empty_tag_sub', { tag: this.data.filterTag })
     }
 
     this.setData({
       groups: buckets,
       total: all.length,
+      countText: i18n.t('index:count', { n: all.length }),
       empty: all.length === 0,
       loading: false,
       hasMore: all.length > slice.length,
       emptyText: emptyText,
       emptySub: emptySub,
       selectedCount: Object.keys(selected).length,
+      selCountText: i18n.t('index:sel_count', { n: Object.keys(selected).length }),
       filterTag: this.data.filterTag
     })
 
@@ -405,10 +419,18 @@ Page({
       sheet: {
         visible: true,
         mode: 'collect',
-        title: '从聊天收一条',
+        title: i18n.t('index:collect_title'),
         items: [
-          { key: 'file', label: '选图片 / 文件', desc: '图片、txt、md、csv 都行，最多 9 个' },
-          { key: 'paste', label: '粘贴刚复制的文字', desc: '在聊天里长按复制，回来点这里' }
+          {
+            key: 'file',
+            label: i18n.t('index:collect_file'),
+            desc: i18n.t('index:collect_file_desc')
+          },
+          {
+            key: 'paste',
+            label: i18n.t('index:collect_paste'),
+            desc: i18n.t('index:collect_paste_desc')
+          }
         ]
       }
     })
@@ -421,7 +443,7 @@ Page({
   collectFiles() {
     if (this.collecting) return
     this.collecting = true
-    wx.showLoading({ title: '处理中', mask: true })
+    wx.showLoading({ title: i18n.t('common:processing'), mask: true })
 
     transfer
       .importFromChat()
@@ -450,20 +472,35 @@ Page({
         this.refresh()
         this.flash(made[0].id)
 
-        const lines = ['已存下 ' + made.length + ' 条，就在最上面。']
+        const lines = [i18n.t('index:received_first', { n: made.length })]
         if (res.compressed) {
-          lines.push(res.compressed + ' 张照片压到 300KB 以内，省下 ' + bytesText(res.savedBytes) + '。')
+          lines.push(
+            i18n.t('index:received_compressed', {
+              n: res.compressed,
+              b: bytesText(res.savedBytes)
+            })
+          )
         }
         if (res.shells) {
-          lines.push(res.shells + ' 个文件只留下了名字（PDF、Word 这类打不开文字），可以自己补一句。')
+          lines.push(i18n.t('index:received_shells', { n: res.shells }))
         }
         if (res.skipped && res.skipped.length) {
-          lines.push('还有 ' + res.skipped.length + ' 个没存下：' + skippedText(res.skipped) + '。')
+          lines.push(
+            i18n.t('index:received_skipped', {
+              n: res.skipped.length,
+              list: skippedText(res.skipped)
+            })
+          )
         }
         if (made.length < res.records.length) {
-          lines.push('有 ' + (res.records.length - made.length) + ' 条没写进去，可能已经满 ' + store.MAX_RECORDS + ' 条了。')
+          lines.push(
+            i18n.t('index:received_partial', {
+              n: res.records.length - made.length,
+              m: store.MAX_RECORDS
+            })
+          )
         }
-        dialog.alert({ title: '收到', text: lines.join('\n') })
+        dialog.alert({ title: i18n.t('index:received_title'), text: lines.join('\n') })
       })
       .catch(err => {
         wx.hideLoading()
@@ -472,13 +509,19 @@ Page({
 
         // 全部失败：不再用一句"文件可能已损坏"打包所有原因，而是把哪个文件、为什么，摆在明面上
         if (err.code === 'read' && err.skipped && err.skipped.length) {
-          const head = '选中的 ' + err.skipped.length + ' 个文件都没能存下来。'
+          const head = i18n.t('index:all_failed_head', { n: err.skipped.length })
           const body = skippedDetail(err.skipped)
-          const tail = '换成截图，或者在聊天里长按复制文字，这两种更稳。'
-          dialog.alert({ title: '这次没存成', text: head + '\n\n' + body + '\n\n' + tail })
+          const tail = i18n.t('index:all_failed_tail')
+          dialog.alert({
+            title: i18n.t('index:all_failed_title'),
+            text: head + '\n\n' + body + '\n\n' + tail
+          })
           return
         }
-        dialog.alert({ title: '没存成', text: COLLECT_ERR[err.code] || '再试一次看看。' })
+        dialog.alert({
+          title: i18n.t('index:fail_title'),
+          text: COLLECT_ERR[err.code] || i18n.t('common:retry')
+        })
       })
   },
 
@@ -486,7 +529,7 @@ Page({
   collectClipboard() {
     if (this.collecting) return
     this.collecting = true
-    wx.showLoading({ title: '正在读', mask: true })
+    wx.showLoading({ title: i18n.t('common:reading'), mask: true })
 
     transfer
       .fromClipboard()
@@ -505,24 +548,30 @@ Page({
 
         if (res.truncated) {
           dialog.alert({
-            title: '只收了前半段',
+            title: i18n.t('index:clip_trunc_title'),
             text:
-              '这段有 ' + res.total + ' 字，一条最多存 ' + transfer.MAX_TEXT +
-              ' 字，先收了前 ' + res.text.length + ' 字。剩下的可以再复制一段存进来。'
+              i18n.t('index:clip_trunc_text', {
+                n: res.total,
+                m: transfer.MAX_TEXT,
+                k: res.text.length
+              })
           })
           return
         }
-        this.toast('存下了，就在最上面')
+        this.toast(i18n.t('index:clip_saved'))
       })
       .catch(err => {
         wx.hideLoading()
         this.collecting = false
         const code = (err && err.code) || ''
         if (code === 'empty') {
-          this.toast('剪贴板里没有文字')
+          this.toast(i18n.t('index:clip_empty'))
           return
         }
-        dialog.alert({ title: '没读成', text: COLLECT_ERR[code] || '再试一次看看。' })
+        dialog.alert({
+          title: i18n.t('index:clip_fail_title'),
+          text: COLLECT_ERR[code] || i18n.t('common:retry')
+        })
       })
   },
 
@@ -597,7 +646,7 @@ Page({
     const removed = store.remove(item.id)
     if (!removed) return
     this.refresh()
-    this.showUndo([item.id], '删了 1 条')
+    this.showUndo([item.id], i18n.t('index:undo_one'))
   },
 
   /** 整组删除：先确认条数和分组名，再批量软删，撤销可整组回来 */
@@ -608,10 +657,10 @@ Page({
 
     dialog
       .confirm({
-        title: '删掉「' + group.label + '」整组？',
-        text: '共 ' + group.count + ' 条，删了之后 5 秒内可以撤回。',
-        cancelText: '算了',
-        confirmText: '删整组',
+        title: i18n.t('index:group_del_title', { name: group.label }),
+        text: i18n.t('index:group_del_text', { n: group.count }),
+        cancelText: i18n.t('common:cancel'),
+        confirmText: i18n.t('index:group_del_ok'),
         danger: true
       })
       .then(res => {
@@ -619,12 +668,12 @@ Page({
         const ids = group.items.map(it => it.id)
         const done = store.removeMany(ids)
         if (!done.length) {
-          this.toast('没删掉，再试一次')
+          this.toast(i18n.t('index:del_fail'))
           return
         }
         this.setData({ openSwipeId: '' })
         this.refresh()
-        this.showUndo(done, '删了「' + group.label + '」' + done.length + ' 条')
+        this.showUndo(done, i18n.t('index:undo_group', { name: group.label, n: done.length }))
       })
   },
 
@@ -635,14 +684,24 @@ Page({
     if (this.undoTimer) clearInterval(this.undoTimer)
 
     let left = UNDO_SECONDS
-    this.setData({ undo: { visible: true, left: left, label: label } })
+    this.setData({
+      undo: {
+        visible: true,
+        left: left,
+        label: label,
+        text: i18n.t('index:undo_text', { label: label, n: left })
+      }
+    })
 
     this.undoTimer = setInterval(() => {
       left -= 1
       if (left <= 0) {
         this.hideUndo()
       } else {
-        this.setData({ 'undo.left': left })
+        this.setData({
+          'undo.left': left,
+          'undo.text': i18n.t('index:undo_text', { label: this.data.undo.label, n: left })
+        })
       }
     }, 1000)
   },
@@ -665,7 +724,7 @@ Page({
     if (!done.length) return
     this.refresh()
     if (done.length === 1) this.flash(done[0])
-    this.toast(done.length > 1 ? done.length + ' 条回来了' : '回来了')
+    this.toast(done.length > 1 ? i18n.t('index:back_count', { n: done.length }) : i18n.t('index:back_one'))
   },
 
   /* ------------------------- 卡片操作 ------------------------- */
@@ -703,21 +762,21 @@ Page({
         mode: 'card',
         title: '',
         items: [
-          { key: 'edit', label: '改一改', desc: '只改这句话，不重新写' },
-          { key: 'copy', label: '复制', desc: '把文字复制到剪贴板' },
+          { key: 'edit', label: i18n.t('index:menu_edit'), desc: i18n.t('index:menu_edit_desc') },
+          { key: 'copy', label: i18n.t('index:menu_copy'), desc: i18n.t('index:menu_copy_desc') },
           {
             key: 'star',
-            label: item.starred ? '取消加星' : '加星',
-            desc: item.starred ? '从星标里拿下来' : '钉在「星标」里，不容易被时间流冲走'
+            label: item.starred ? i18n.t('index:menu_unstar') : i18n.t('index:menu_star'),
+            desc: item.starred ? i18n.t('index:menu_unstar_desc') : i18n.t('index:menu_star_desc')
           },
           {
             key: 'archive',
-            label: inArchive ? '移出归档' : '归档',
-            desc: inArchive ? '回到主列表' : '不删除，但从主列表收起来'
+            label: inArchive ? i18n.t('index:menu_unarchive') : i18n.t('index:menu_archive'),
+            desc: inArchive ? i18n.t('index:menu_unarchive_desc') : i18n.t('index:menu_archive_desc')
           },
-          { key: 'poster', label: '做成图', desc: '排成一张图，可以存下来或发出去' },
-          { key: 'select', label: '多选', desc: '勾几条一起复制、导出或删掉' },
-          { key: 'delete', label: '删了', desc: '5 秒内可以撤回', danger: true }
+          { key: 'poster', label: i18n.t('index:menu_poster'), desc: i18n.t('index:menu_poster_desc') },
+          { key: 'select', label: i18n.t('index:menu_select'), desc: i18n.t('index:menu_select_desc') },
+          { key: 'delete', label: i18n.t('index:menu_delete'), desc: i18n.t('index:menu_delete_desc'), danger: true }
         ]
       }
     })
@@ -745,12 +804,12 @@ Page({
     } else if (key === 'star') {
       store.setStar(item.id, !item.starred)
       this.refresh()
-      this.toast(item.starred ? '从星标里拿下来了' : '加星了')
+      this.toast(item.starred ? i18n.t('index:toast_unstarred') : i18n.t('index:toast_starred'))
     } else if (key === 'archive') {
       const on = !item.archivedAt
       store.setArchive(item.id, on)
       this.refresh()
-      this.toast(on ? '收进归档了' : '回到主列表了')
+      this.toast(on ? i18n.t('index:toast_archived') : i18n.t('index:toast_unarchived'))
     } else if (key === 'poster') {
       wx.navigateTo({ url: '/pages/poster/poster?id=' + item.id })
     } else if (key === 'select') {
@@ -767,12 +826,12 @@ Page({
   copyItem(item) {
     const text = (item.content || '').trim()
     if (!text) {
-      this.toast('这条没有文字可复制')
+      this.toast(i18n.t('index:toast_no_text'))
       return
     }
     wx.setClipboardData({
       data: text,
-      success: () => this.toast('复制了')
+      success: () => this.toast(i18n.t('common:copy_ok'))
     })
   },
 
@@ -807,7 +866,7 @@ Page({
   onSelCopy() {
     const list = this.selectedRecords()
     if (!list.length) {
-      this.toast('先勾几条')
+      this.toast(i18n.t('index:toast_first_select'))
       return
     }
     const text = list
@@ -817,66 +876,72 @@ Page({
       .filter(Boolean)
       .join('\n\n')
     if (!text) {
-      this.toast('选中的都没有文字')
+      this.toast(i18n.t('index:toast_selected_no_text'))
       return
     }
     wx.setClipboardData({
       data: text,
-      success: () => this.toast('复制了 ' + list.length + ' 条')
+      success: () => this.toast(i18n.t('index:toast_copied_n', { n: list.length }))
     })
   },
 
   onSelExport() {
     const list = this.selectedRecords()
     if (!list.length) {
-      this.toast('先勾几条')
+      this.toast(i18n.t('index:toast_first_select'))
       return
     }
-    wx.showLoading({ title: '打包中', mask: true })
+    wx.showLoading({ title: i18n.t('common:packing'), mask: true })
     transfer
       .exportText(list)
       .then(res => {
         wx.hideLoading()
         if (res.mode === 'cancel') return
         dialog.alert({
-          title: '导出完成',
+          title: i18n.t('index:export_done_title'),
           text:
-            '共 ' + res.total + ' 条，已生成 ' + res.fileName + '。' +
-            (res.mode === 'share' ? '转发给「文件传输助手」即可在电脑上打开。' : '已保存到电脑。')
+            i18n.t('index:export_done_text', { n: res.total, name: res.fileName }) +
+            (res.mode === 'share'
+              ? i18n.t('index:export_done_share')
+              : i18n.t('index:export_done_saved'))
         })
       })
       .catch(err => {
         wx.hideLoading()
         if (!err || err.code === 'cancel') return
-        this.toast(err.code === 'unsupported' ? '当前环境不支持导出' : '没导出成，再试一次')
+        this.toast(
+          err.code === 'unsupported'
+            ? i18n.t('index:toast_export_unsupported')
+            : i18n.t('index:toast_export_fail')
+        )
       })
   },
 
   onSelDelete() {
     const list = this.selectedRecords()
     if (!list.length) {
-      this.toast('先勾几条')
+      this.toast(i18n.t('index:toast_first_select'))
       return
     }
     dialog
       .confirm({
-        title: '删掉选中的 ' + list.length + ' 条？',
-        text: '删了之后 5 秒内可以撤回。',
-        cancelText: '算了',
-        confirmText: '删了',
+        title: i18n.t('index:sel_del_title', { n: list.length }),
+        text: i18n.t('index:sel_del_text'),
+        cancelText: i18n.t('common:cancel'),
+        confirmText: i18n.t('index:menu_delete'),
         danger: true
       })
       .then(res => {
         if (!res.confirmed) return
         const done = store.removeMany(list.map(r => r.id))
         if (!done.length) {
-          this.toast('没删掉，再试一次')
+          this.toast(i18n.t('index:del_fail'))
           return
         }
         this.selected = {}
         this.setData({ selectMode: false })
         this.refresh()
-        this.showUndo(done, '删了 ' + done.length + ' 条')
+        this.showUndo(done, i18n.t('index:undo_group_plain', { n: done.length }))
       })
   },
 
@@ -897,7 +962,7 @@ Page({
       end: () => this.setData({ playingId: '' }),
       error: () => {
         this.setData({ playingId: '' })
-        this.toast('这条语音找不到了')
+        this.toast(i18n.t('index:toast_voice_missing'))
       }
     })
     this.setData({ playingId: item.id })
@@ -942,10 +1007,10 @@ Page({
     const preview = text.length > 60 ? text.slice(0, 60) + '…' : text
     dialog
       .confirm({
-        title: '收到一条分享',
+        title: i18n.t('index:share_title'),
         text: preview,
-        cancelText: '不用',
-        confirmText: '存下来'
+        cancelText: i18n.t('index:share_cancel'),
+        confirmText: i18n.t('index:share_ok')
       })
       .then(res => {
         if (!res.confirmed) return
@@ -953,7 +1018,7 @@ Page({
         if (!rec) return
         this.refresh()
         this.flash(rec.id)
-        this.toast('存进你的灵感了')
+        this.toast(i18n.t('index:share_saved'))
       })
   },
 

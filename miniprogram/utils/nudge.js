@@ -9,9 +9,11 @@
  * 文案调整和边界就都能直接被测试驱动，不用起整个 Page。
  */
 const date = require('./date')
+const i18n = require('./i18n')
 
-const LABEL = '今天还没记一句'
-const TIP = '记一句 ›'
+/** 导出给页面兜底用；真正渲染时以 of() 返回的当前语言文案为准 */
+const LABEL = i18n.t('nudge:label')
+const TIP = i18n.t('nudge:tip')
 
 /**
  * 今天还没记就说一句话。
@@ -34,20 +36,20 @@ function of(stats, opts) {
   // gap ≤ 0 包含"今天已经记过"和"手机时钟超前写下的未来记录"，都不该催
   if (gap <= 0) return null
 
-  let text = '昨天那句还热着，今天也留一句'
+  let text = i18n.t('nudge:yesterday')
   if (s.streak >= 2 && gap === 1) {
     // 连续的日子里断在今天最可惜，先把这件事说出来——比"你该记了"有用
-    text = '连续 ' + s.streak + ' 天了，今天补一句就不断'
+    text = i18n.t('nudge:keep', { n: s.streak })
   } else if (gap >= 7) {
-    text = '隔了 ' + gap + ' 天，现在想点什么？'
+    text = i18n.t('nudge:gap_long', { n: gap })
   } else if (gap > 1) {
-    text = '隔了 ' + gap + ' 天，随手一句就能接上'
+    text = i18n.t('nudge:gap_short', { n: gap })
   }
 
   return {
     gap: gap,
-    label: LABEL,
-    tip: TIP,
+    label: i18n.t('nudge:label'),
+    tip: i18n.t('nudge:tip'),
     text: text
   }
 }

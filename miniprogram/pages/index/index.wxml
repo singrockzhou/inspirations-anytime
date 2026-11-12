@@ -2,21 +2,21 @@
 
   <view class="top">
     <view class="top-left">
-      <text class="title">我的灵感</text>
-      <text class="count" wx:if="{{total > 0}}">{{total}} 条</text>
+      <text class="title">{{t.title}}</text>
+      <text class="count" wx:if="{{total > 0}}">{{countText}}</text>
     </view>
     <view class="top-right">
       <!-- 从聊天存一条：原在「我的」页，挪到首页后一眼能看到 -->
-      <text class="collect" catchtap="onCollect">从聊天存</text>
-      <text class="top-act" catchtap="toggleSelect">{{selectMode ? '取消' : '多选'}}</text>
-      <view class="mine" catchtap="goMe">我的</view>
+      <text class="collect" catchtap="onCollect">{{t.collect}}</text>
+      <text class="top-act" catchtap="toggleSelect">{{selectMode ? t.cancel : t.select}}</text>
+      <view class="mine" catchtap="goMe">{{t.mine}}</view>
     </view>
   </view>
 
   <!-- 吸顶：伪输入条 + 搜索入口。一次点击分别进入"写"和"找" -->
   <view class="stick">
     <view class="composer" catchtap="goText">
-      <text class="composer-ph">今天想到什么？</text>
+      <text class="composer-ph">{{t.composer}}</text>
       <view class="composer-dot">✎</view>
     </view>
     <view class="sbtn" hover-class="sbtn-hover" hover-stay-time="80" catchtap="goSearch">
@@ -28,13 +28,13 @@
   <!-- 筛选：全部 / 星标 / 归档 / 标签 -->
   <scroll-view class="chips" scroll-x="true" enable-flex="true" show-scrollbar="{{false}}">
     <view class="chip {{filter === 'all' && !filterTag ? 'on' : ''}}" data-mode="all" catchtap="onFilter">
-      全部<text class="chip-n">{{counts.all}}</text>
+      {{t.chip_all}}<text class="chip-n">{{counts.all}}</text>
     </view>
     <view class="chip {{filter === 'star' ? 'on' : ''}}" data-mode="star" catchtap="onFilter">
-      <text class="chip-star">★</text>星标<text class="chip-n">{{counts.star}}</text>
+      <text class="chip-star">★</text>{{t.chip_star}}<text class="chip-n">{{counts.star}}</text>
     </view>
     <view class="chip {{filter === 'archive' ? 'on' : ''}}" data-mode="archive" catchtap="onFilter">
-      归档<text class="chip-n">{{counts.archive}}</text>
+      {{t.chip_archive}}<text class="chip-n">{{counts.archive}}</text>
     </view>
     <view
       class="chip chip-tag {{filterTag === item.tag ? 'on' : ''}}"
@@ -75,7 +75,7 @@
   <view class="anni" wx:elif="{{anniversary}}" catchtap="openAnniversary">
     <view class="anni-top">
       <text class="anni-label">{{anniversary.label}}</text>
-      <text class="anni-tip">点开看看 ›</text>
+      <text class="anni-tip">{{t.anni_open}}</text>
     </view>
     <view class="anni-text">{{anniversary.text}}</view>
   </view>
@@ -85,10 +85,10 @@
     catchtap="openReview"
   >
     <view class="anni-top">
-      <text class="anni-label">随便翻一条</text>
-      <text class="anni-tip">从 {{reviewTotal}} 条里抽 ›</text>
+      <text class="anni-label">{{t.review_label}}</text>
+      <text class="anni-tip">{{reviewTip}}</text>
     </view>
-    <view class="anni-text">半年前那句，可能正是现在想要的</view>
+    <view class="anni-text">{{t.review_text}}</view>
   </view>
 
   <!-- 今天平铺 / 非今天按周、月、年堆叠 -->
@@ -97,7 +97,7 @@
 
       <!-- ========== 今天：完整卡片平铺，每条可左滑删除 ========== -->
       <block wx:if="{{g.today}}">
-        <view class="grp">今天</view>
+        <view class="grp">{{t.grp_today}}</view>
         <view class="flat" wx:for="{{g.items}}" wx:key="id" wx:for-item="it">
           <swipe-cell
             item-id="{{it.id}}"
@@ -128,11 +128,11 @@
         <view class="ghead">
           <view class="gleft" catchtap="onToggle" data-key="{{g.key}}">
             <text class="glabel {{g.kind === 'past' ? 'dim' : ''}}">{{g.label}}</text>
-            <text class="gcount">{{g.count}} 条</text>
+            <text class="gcount">{{g.countText}}</text>
           </view>
           <view class="gright">
-            <text class="gtoggle" catchtap="onToggle" data-key="{{g.key}}">{{g.open ? '收起' : '展开'}}</text>
-            <text class="gdel" catchtap="onDeleteGroup" data-key="{{g.key}}">删整组</text>
+            <text class="gtoggle" catchtap="onToggle" data-key="{{g.key}}">{{g.open ? t.collapse : t.expand}}</text>
+            <text class="gdel" catchtap="onDeleteGroup" data-key="{{g.key}}">{{t.group_delete}}</text>
           </view>
         </view>
 
@@ -147,7 +147,7 @@
             </view>
             <view class="peek-line">{{g.items[0]._peek}}</view>
           </view>
-          <view class="stack-more" wx:if="{{g.count > 1}}">还有 {{g.count - 1}} 条</view>
+          <view class="stack-more" wx:if="{{g.count > 1}}">{{g.moreText}}</view>
         </view>
 
         <!-- 展开态：完整列表，同样支持左滑删除单条 -->
@@ -179,25 +179,25 @@
       </view>
     </block>
 
-    <view class="more-hint" wx:if="{{hasMore}}">继续往下滑</view>
-    <view class="end-hint" wx:else>到底了 · 左滑删一条，长按还能改</view>
+    <view class="more-hint" wx:if="{{hasMore}}">{{t.more_hint}}</view>
+    <view class="end-hint" wx:else>{{t.end_hint}}</view>
   </view>
 
   <!-- 空态：一句话 + 直接可点的入口，不放插画 -->
   <view class="empty" wx:if="{{empty && !loading}}">
     <view class="empty-line">{{emptyText}}</view>
     <view class="empty-sub">{{emptySub}}</view>
-    <view class="empty-btn" wx:if="{{filter === 'all' && !filterTag}}" catchtap="goText">记下第一条</view>
-    <view class="empty-btn" wx:else catchtap="onFilter" data-mode="all">看全部灵感</view>
-    <view class="empty-link" wx:if="{{filter === 'all' && !filterTag}}" catchtap="onCollect">或从聊天里存一条 →</view>
+    <view class="empty-btn" wx:if="{{filter === 'all' && !filterTag}}" catchtap="goText">{{t.empty_btn_first}}</view>
+    <view class="empty-btn" wx:else catchtap="onFilter" data-mode="all">{{t.empty_btn_all}}</view>
+    <view class="empty-link" wx:if="{{filter === 'all' && !filterTag}}" catchtap="onCollect">{{t.empty_link}}</view>
   </view>
 
   <!-- 多选操作条 -->
   <view class="selbar" wx:if="{{selectMode}}">
-    <text class="sel-count">已选 {{selectedCount}} 条</text>
-    <view class="sel-act" catchtap="onSelCopy">复制</view>
-    <view class="sel-act" catchtap="onSelExport">导出</view>
-    <view class="sel-act danger" catchtap="onSelDelete">删了</view>
+    <text class="sel-count">{{selCountText}}</text>
+    <view class="sel-act" catchtap="onSelCopy">{{t.sel_copy}}</view>
+    <view class="sel-act" catchtap="onSelExport">{{t.sel_export}}</view>
+    <view class="sel-act danger" catchtap="onSelDelete">{{t.sel_delete}}</view>
   </view>
 
   <!-- 底部三入口并排：点一下直接进，不再有 + 号的两级菜单 -->
@@ -208,7 +208,7 @@
         <view class="ln ln-b"></view>
         <view class="ln ln-c"></view>
       </view>
-      <text class="entry-tx">写一句</text>
+      <text class="entry-tx">{{t.entry_text}}</text>
     </view>
 
     <view class="entry" hover-class="entry-hover" hover-stay-time="80" catchtap="goVoice">
@@ -217,7 +217,7 @@
         <view class="bar bar-b"></view>
         <view class="bar bar-c"></view>
       </view>
-      <text class="entry-tx">说一段</text>
+      <text class="entry-tx">{{t.entry_voice}}</text>
     </view>
 
     <view class="entry entry-key" hover-class="entry-hover-key" hover-stay-time="80" catchtap="goPhoto">
@@ -227,14 +227,14 @@
           <view class="cam-lens"></view>
         </view>
       </view>
-      <text class="entry-tx">拍一张</text>
+      <text class="entry-tx">{{t.entry_photo}}</text>
     </view>
   </view>
 
   <!-- 删除后的撤销条（单条或整组共用） -->
   <view class="undo" wx:if="{{undo.visible}}">
-    <text class="undo-text">{{undo.label}} · {{undo.left}} 秒内可以撤回</text>
-    <view class="undo-btn" catchtap="onUndo">撤回</view>
+    <text class="undo-text">{{undo.text}}</text>
+    <view class="undo-btn" catchtap="onUndo">{{t.undo_btn}}</view>
   </view>
 
   <action-sheet

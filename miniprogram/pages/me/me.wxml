@@ -3,19 +3,19 @@
   <view class="hero">
     <view class="hero-main">
       <text class="hero-num">{{total}}</text>
-      <text class="hero-unit">条灵感</text>
+      <text class="hero-unit">{{t.hero_unit}}</text>
     </view>
     <view class="hero-streak" wx:if="{{streak > 0}}">
       <text class="streak-num">{{streak}}</text>
-      <text class="streak-unit">天连续</text>
+      <text class="streak-unit">{{t.streak_unit}}</text>
     </view>
   </view>
 
   <!-- 记录热力图：最近 14 周，每列一周，周一在上 -->
   <view class="block heat-block" wx:if="{{total > 0}}">
     <view class="heat-head">
-      <text class="heat-t">最近 14 周</text>
-      <text class="heat-s">最多一天 {{heatMax}} 条</text>
+      <text class="heat-t">{{t.heat_title}}</text>
+      <text class="heat-s">{{heatSub}}</text>
     </view>
     <view class="heat">
       <view
@@ -25,92 +25,103 @@
       ></view>
     </view>
     <view class="heat-legend">
-      <text class="lg">少</text>
+      <text class="lg">{{t.heat_less}}</text>
       <view class="cell level-0"></view>
       <view class="cell level-1"></view>
       <view class="cell level-2"></view>
       <view class="cell level-3"></view>
       <view class="cell level-4"></view>
-      <text class="lg">多</text>
+      <text class="lg">{{t.heat_more}}</text>
     </view>
   </view>
 
   <view class="block">
     <view class="row">
-      <text class="row-k">开始记录</text>
+      <text class="row-k">{{t.row_first}}</text>
       <text class="row-v">{{firstText}}</text>
     </view>
     <view class="row">
-      <text class="row-k">最近一条</text>
+      <text class="row-k">{{t.row_last}}</text>
       <text class="row-v">{{lastText}}</text>
     </view>
     <view class="row">
-      <text class="row-k">文字 / 语音 / 照片</text>
+      <text class="row-k">{{t.row_types}}</text>
       <text class="row-v">{{byType.text}} / {{byType.voice}} / {{byType.photo}}</text>
     </view>
     <view class="row">
-      <text class="row-k">加星 / 归档 / 带标签</text>
+      <text class="row-k">{{t.row_flags}}</text>
       <text class="row-v">{{starred}} / {{archived}} / {{tagged}}</text>
     </view>
   </view>
 
   <!-- 整理：回顾入口已挪到首页（回顾位），这里只留归档 -->
-  <view class="sec">整理</view>
+  <view class="sec">{{t.sec_organize}}</view>
   <view class="block">
     <view class="row tap" bindtap="onArchive">
       <view class="row-main">
-        <text class="row-k">归档</text>
-        <text class="row-sub">收起来但仍然留着的内容</text>
+        <text class="row-k">{{t.row_archive}}</text>
+        <text class="row-sub">{{t.row_archive_sub}}</text>
       </view>
-      <text class="row-v">{{archived}} 条 ›</text>
+      <text class="row-v">{{archived}} {{t.unit_item}} ›</text>
     </view>
   </view>
 
   <!-- 换手机：一个文件带走，一个文件带回 -->
-  <view class="sec">换手机</view>
+  <view class="sec">{{t.sec_move}}</view>
   <view class="block">
     <view class="row">
       <view class="row-main">
-        <text class="row-k">上次备份</text>
-        <text class="row-sub">删小程序、换手机都会没</text>
+        <text class="row-k">{{t.row_backup}}</text>
+        <text class="row-sub">{{t.row_backup_sub}}</text>
       </view>
       <text class="row-v {{backupWarn ? 'warn' : ''}}">{{backupText}}</text>
     </view>
     <view class="row tap" bindtap="onExport">
       <view class="row-main">
-        <text class="row-k">导出到文件</text>
-        <text class="row-sub">文字、图片、录音一起打包</text>
+        <text class="row-k">{{t.row_export}}</text>
+        <text class="row-sub">{{t.row_export_sub}}</text>
       </view>
       <text class="row-go">›</text>
     </view>
     <view class="row tap" bindtap="onImport">
       <view class="row-main">
-        <text class="row-k">从文件导入</text>
-        <text class="row-sub">从聊天里选 .json 备份</text>
+        <text class="row-k">{{t.row_import}}</text>
+        <text class="row-sub">{{t.row_import_sub}}</text>
       </view>
       <text class="row-go">›</text>
+    </view>
+  </view>
+
+  <view class="sec">{{t.sec_lang}}</view>
+  <view class="block">
+    <view class="row tap" bindtap="onLang">
+      <view class="row-main">
+        <text class="row-k">{{t.row_lang}}</text>
+        <text class="row-sub">{{t.row_lang_sub}}</text>
+      </view>
+      <text class="row-v">{{langName}} ›</text>
     </view>
   </view>
 
   <view class="block">
     <view class="row tap" bindtap="onAbout">
       <view class="row-main">
-        <text class="row-k">关于小程序</text>
-        <text class="row-sub">作者与联系方式</text>
+        <text class="row-k">{{t.row_about}}</text>
+        <text class="row-sub">{{t.row_about_sub}}</text>
       </view>
       <text class="row-v">v{{version}} ›</text>
     </view>
     <view class="row tap" wx:if="{{storageText}}" bindtap="onStorage">
       <view class="row-main">
-        <text class="row-k">记录索引</text>
-        <text class="row-sub">文字与设置，已用 {{storagePctText}}%</text>
+        <text class="row-k">{{t.row_index}}</text>
+        <text class="row-sub">{{indexSub}}</text>
       </view>
       <text class="row-v">{{storageText}}</text>
     </view>
     <view class="row tap" wx:if="{{mediaText}}" bindtap="onStorage">
       <view class="row-main">
-        <text class="row-k">图片与录音</text>
-        <text class="row-sub">本机文件，单独计配额</text>
+        <text class="row-k">{{t.row_media}}</text>
+        <text class="row-sub">{{t.row_media_sub}}</text>
       </view>
       <text class="row-v">{{mediaText}}</text>
     </view>
@@ -118,13 +129,9 @@
 
   <view class="storage-warn" wx:if="{{storageWarn}}" bindtap="onStorage">{{storageWarn}}</view>
 
-  <view class="note">
-    记录只存在这台手机上，不上传、不联网。删掉小程序、清理微信存储或换手机，本机记录会一起被清掉，且无法找回。
-    所以换手机前先用「导出到文件」带走，到新手机上导入即可。
-    导入只做新增，同一条记录不会重复，也不会覆盖新手机上刚记的内容。
-  </view>
+  <view class="note">{{t.note}}</view>
 
-  <view class="clear" bindtap="onClear">清空全部记录</view>
+  <view class="clear" bindtap="onClear">{{t.clear}}</view>
 
 </view>
 

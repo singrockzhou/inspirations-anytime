@@ -1,3 +1,5 @@
+const i18n = require('../../utils/i18n')
+
 Component({
   properties: {
     visible: {
@@ -15,7 +17,17 @@ Component({
     },
     cancelText: {
       type: String,
-      value: '取消'
+      value: ''
+    }
+  },
+
+  data: {
+    fallbackCancel: ''
+  },
+
+  lifetimes: {
+    attached() {
+      this.setData({ fallbackCancel: i18n.t('common:cancel_plain') })
     }
   },
 

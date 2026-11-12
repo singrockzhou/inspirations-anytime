@@ -13,6 +13,8 @@
  * 为什么两端都适配：宽度是百分比、高度是宽度的百分比，屏多宽格子就多宽，
  * 不写断点、不用 vw，PC 大窗口和手机窄屏是同一套规则。
  */
+const i18n = require('../../utils/i18n')
+
 const MAX_TILES = 9
 
 function colsOf(n) {
@@ -40,11 +42,18 @@ Component({
   data: {
     cols: 1,
     list: [],
-    more: 0
+    more: 0,
+    txt: {}
   },
 
   lifetimes: {
     attached() {
+      this.setData({
+        txt: {
+          missing: i18n.t('media:photo_missing'),
+          lost: i18n.t('media:photo_lost')
+        }
+      })
       this.build(this.data.paths)
     }
   },

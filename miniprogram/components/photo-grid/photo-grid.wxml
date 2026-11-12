@@ -9,7 +9,7 @@
       binderror="onError"
       data-i="0"
     />
-    <view class="ph" wx:else>照片不在了</view>
+    <view class="ph" wx:else>{{txt.missing}}</view>
   </view>
 </block>
 
@@ -26,7 +26,7 @@
         binderror="onError"
         data-i="{{index}}"
       />
-      <view class="ph" wx:else>丢失</view>
+      <view class="ph" wx:else>{{txt.lost}}</view>
       <view class="more" wx:if="{{more && index === list.length - 1}}">+{{more}}</view>
     </view>
   </view>

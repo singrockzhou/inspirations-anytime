@@ -3,7 +3,12 @@
  * 卡片右上角用相对时间：刚刚 / N 分钟前 / 今天 08:20 / 昨天 21:03 / 11月3日
  * 分组标题用自然日：今天 / 昨天 / 11月3日（跨年补年份）
  */
-const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+const i18n = require('./i18n')
+
+/** 0=周日 … 6=周六，取当前语言的短名 */
+function weekName(i) {
+  return i18n.t('date:week' + i)
+}
 
 function pad2(n) {
   return n < 10 ? '0' + n : '' + n
@@ -32,7 +37,13 @@ function hhmm(ts) {
 
 function monthDay(ts) {
   const d = new Date(ts)
-  return d.getMonth() + 1 + '月' + d.getDate() + '日'
+  return i18n.t('date:month_day', { m: d.getMonth() + 1, d: d.getDate() })
+}
+
+/** 跨年时补上年的完整日期 */
+function yearMonthDay(ts) {
+  const d = new Date(ts)
+  return i18n.t('date:year_month_day', { y: d.getFullYear(), m: d.getMonth() + 1, d: d.getDate() })
 }
 
 function sameYear(ts) {
@@ -43,36 +54,33 @@ function sameYear(ts) {
 function relative(ts) {
   const now = Date.now()
   const diff = now - ts
-  if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return Math.floor(diff / 60000) + ' 分钟前'
+  if (diff < 60000) return i18n.t('date:just_now')
+  if (diff < 3600000) return i18n.t('date:min_ago', { n: Math.floor(diff / 60000) })
   const d = dayDiff(ts, now)
-  if (d === 0) return '今天 ' + hhmm(ts)
-  if (d === 1) return '昨天 ' + hhmm(ts)
-  if (d < 7) return WEEK[new Date(ts).getDay()] + ' ' + hhmm(ts)
-  return sameYear(ts) ? monthDay(ts) : new Date(ts).getFullYear() + '年' + monthDay(ts)
+  if (d === 0) return i18n.t('date:today_at', { t: hhmm(ts) })
+  if (d === 1) return i18n.t('date:yesterday_at', { t: hhmm(ts) })
+  if (d < 7) return weekName(new Date(ts).getDay()) + ' ' + hhmm(ts)
+  return sameYear(ts) ? monthDay(ts) : yearMonthDay(ts)
 }
 
 /** 分组标题 */
 function dayLabel(ts) {
   const d = dayDiff(ts, Date.now())
-  if (d === 0) return '今天'
-  if (d === 1) return '昨天'
-  if (d === 2) return '前天'
-  return sameYear(ts) ? monthDay(ts) : new Date(ts).getFullYear() + '年' + monthDay(ts)
+  if (d === 0) return i18n.t('date:today')
+  if (d === 1) return i18n.t('date:yesterday')
+  if (d === 2) return i18n.t('date:before_yesterday')
+  return sameYear(ts) ? monthDay(ts) : yearMonthDay(ts)
 }
 
 /** 详情页用完整时间 */
 function fullTime(ts) {
   const d = new Date(ts)
-  return (
-    d.getFullYear() +
-    '年' +
-    (d.getMonth() + 1) +
-    '月' +
-    d.getDate() +
-    '日 ' +
-    hhmm(ts)
-  )
+  return i18n.t('date:full', {
+    y: d.getFullYear(),
+    m: d.getMonth() + 1,
+    d: d.getDate(),
+    t: hhmm(ts)
+  })
 }
 
 /** 录音计时 00:12 */
@@ -108,24 +116,24 @@ function bucketOf(ts, now) {
   const base = now || Date.now()
 
   if (dayDiff(ts, base) <= 0) {
-    return { key: 'today', label: '今天', kind: 'today' }
+    return { key: 'today', label: i18n.t('date:today'), kind: 'today' }
   }
 
   if (startOfWeek(ts) === startOfWeek(base)) {
-    return { key: 'week:' + startOfWeek(ts), label: '本周', kind: 'week' }
+    return { key: 'week:' + startOfWeek(ts), label: i18n.t('date:this_week'), kind: 'week' }
   }
 
   const d = new Date(ts)
   const n = new Date(base)
   if (d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth()) {
-    return { key: 'month:' + monthKey(ts), label: '本月', kind: 'month' }
+    return { key: 'month:' + monthKey(ts), label: i18n.t('date:this_month'), kind: 'month' }
   }
 
   if (d.getFullYear() === n.getFullYear()) {
-    return { key: 'year:' + d.getFullYear(), label: '今年', kind: 'year' }
+    return { key: 'year:' + d.getFullYear(), label: i18n.t('date:this_year'), kind: 'year' }
   }
 
-  return { key: 'year:' + d.getFullYear(), label: d.getFullYear() + '年', kind: 'past' }
+  return { key: 'year:' + d.getFullYear(), label: i18n.t('date:year', { y: d.getFullYear() }), kind: 'past' }
 }
 
 /** 分桶：返回 [{key, label, kind, today, items, count}]，顺序即展示顺序 */
@@ -185,7 +193,7 @@ function sameDayPast(list, now) {
   })
 
   if (!best) return null
-  best.label = best.yearsAgo === 1 ? '去年的今天' : best.yearsAgo + ' 年前的今天'
+  best.label = best.yearsAgo === 1 ? i18n.t('date:anni_last') : i18n.t('date:anni_n', { n: best.yearsAgo })
   return best
 }
 

@@ -1,4 +1,5 @@
 const date = require('../../utils/date')
+const i18n = require('../../utils/i18n')
 
 /**
  * 多图错落堆叠的版式
@@ -74,12 +75,12 @@ function buildStack(item, paths) {
 /** 类型角标文案，长度和内容都在这里算好，WXML 里只做渲染 */
 function badgeOf(item) {
   if (!item) return ''
-  if (item.type === 'voice') return '语音 ' + (item.duration || 0) + '″'
+  if (item.type === 'voice') return i18n.t('index:badge_voice', { n: item.duration || 0 })
   if (item.type === 'photo') {
     const n = (item.mediaPaths || []).length || (item.mediaPath ? 1 : 0)
-    return n > 1 ? '照片 ' + n + ' 张' : '照片'
+    return n > 1 ? i18n.t('index:badge_photo', { n: n }) : i18n.t('index:badge_photo_one')
   }
-  return '文字'
+  return i18n.t('index:badge_text')
 }
 
 Component({
@@ -119,7 +120,23 @@ Component({
     photoList: [],
     stackH: 0,
     tagList: [],
-    moreTags: 0
+    moreTags: 0,
+    /** 静态文案：组件随页面重建，语言切了自然重新取一次 */
+    txt: {}
+  },
+
+  lifetimes: {
+    attached() {
+      this.setData({
+        txt: {
+          edited: i18n.t('common:edited'),
+          collapse: i18n.t('index:collapse'),
+          expand: i18n.t('index:expand'),
+          playing: i18n.t('card:playing'),
+          listen: i18n.t('card:listen')
+        }
+      })
+    }
   },
 
   observers: {

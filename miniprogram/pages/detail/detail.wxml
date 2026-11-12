@@ -14,7 +14,7 @@
     <view class="head">
       <view class="badge">{{typeLabel}}</view>
       <view class="head-right">
-        <text class="star {{starred ? 'on' : ''}}" catchtap="onToggleStar">{{starred ? '★ 已加星' : '☆ 加星'}}</text>
+        <text class="star {{starred ? 'on' : ''}}" catchtap="onToggleStar">{{starred ? t.star_on : t.star_off}}</text>
         <text class="time">{{timeText}}</text>
       </view>
     </view>
@@ -27,7 +27,7 @@
       <view class="player" catchtap="onPlay">
         <view class="play {{playing ? 'on' : ''}}">{{playing ? '■' : '▶'}}</view>
         <text class="dur">{{record.duration}}″</text>
-        <text class="state">{{playing ? '正在播放' : '点一下听'}}</text>
+        <text class="state">{{playing ? t.playing : t.tap_listen}}</text>
       </view>
       <view class="text sub" wx:if="{{record.content}}">{{record.content}}</view>
     </block>
@@ -40,7 +40,7 @@
 
     <!-- 没有文字时，补一句就能被搜到 -->
     <view class="need-text" wx:if="{{needText}}" catchtap="onAddText">
-      + 补一句文字，这条就能被搜到
+      {{t.add_text}}
     </view>
 
     <!-- 标签 -->
@@ -49,9 +49,9 @@
     </view>
 
     <view class="meta">
-      <text class="meta-line">记于 {{timeText}}</text>
-      <text class="meta-line" wx:if="{{updatedText}}">改于 {{updatedText}}</text>
-      <text class="meta-line" wx:if="{{archived}}">已归档，不在主列表里</text>
+      <text class="meta-line">{{metaCreated}}</text>
+      <text class="meta-line" wx:if="{{updatedText}}">{{metaUpdated}}</text>
+      <text class="meta-line" wx:if="{{archived}}">{{t.meta_archived}}</text>
     </view>
   </view>
 
@@ -59,14 +59,14 @@
   <view class="bottom">
 
     <view class="actions">
-      <view class="act" catchtap="onEdit">改一改</view>
-      <view class="act" catchtap="onCopy">复制</view>
-      <view class="act" catchtap="onPoster">做成图</view>
-      <view class="act" catchtap="onToggleArchive">{{archived ? '取消归档' : '归档'}}</view>
-      <view class="act danger" catchtap="onDelete">删了</view>
+      <view class="act" catchtap="onEdit">{{t.act_edit}}</view>
+      <view class="act" catchtap="onCopy">{{t.act_copy}}</view>
+      <view class="act" catchtap="onPoster">{{t.act_poster}}</view>
+      <view class="act" catchtap="onToggleArchive">{{archived ? t.act_unarchive : t.act_archive}}</view>
+      <view class="act danger" catchtap="onDelete">{{t.act_delete}}</view>
     </view>
 
-    <button class="share" open-type="share">发给朋友</button>
+    <button class="share" open-type="share">{{t.share}}</button>
 
     <!-- 左右翻：手势之外的兜底（PC 端用鼠标滑不动，箭头正好补上） -->
     <view class="flipbar" wx:if="{{total > 1}}">
@@ -75,14 +75,14 @@
         hover-class="{{canPrev ? 'flip-btn-hover' : 'none'}}"
         hover-stay-time="80"
         catchtap="onPrev"
-      >‹ 上一条</view>
-      <text class="flip-tip">左右滑也能翻</text>
+      >{{t.prev}}</view>
+      <text class="flip-tip">{{t.flip_tip}}</text>
       <view
         class="flip-btn"
         hover-class="flip-btn-hover"
         hover-stay-time="80"
         catchtap="onNext"
-      >下一条 ›</view>
+      >{{t.next}}</view>
     </view>
   </view>
 
@@ -90,8 +90,8 @@
 </view>
 
 <view class="page missing" wx:if="{{missing}}">
-  <text class="missing-t">这条已经不在了</text>
-  <view class="missing-btn" catchtap="goBack">回列表</view>
+  <text class="missing-t">{{t.missing}}</text>
+  <view class="missing-btn" catchtap="goBack">{{t.back}}</view>
 </view>
 
 <!-- 统一对话框：页面内只挂一个，命令式调用见 utils/dialog.js -->

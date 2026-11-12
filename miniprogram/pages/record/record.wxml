@@ -3,9 +3,9 @@
   <!-- 自定义导航：取消 / 标题 / 存下，避开系统导航在深色键盘下的割裂感 -->
   <view class="nav" style="padding-top: {{statusBarHeight}}px">
     <view class="nav-bar">
-      <view class="nav-side" catchtap="onCancel">取消</view>
-      <view class="nav-title">{{mode === 'edit' ? '改一改' : '记一条'}}</view>
-      <view class="nav-side nav-save {{canSave ? 'on' : ''}}" catchtap="onSave">存下</view>
+      <view class="nav-side" catchtap="onCancel">{{t.nav_cancel}}</view>
+      <view class="nav-title">{{mode === 'edit' ? t.nav_edit : t.nav_new}}</view>
+      <view class="nav-side nav-save {{canSave ? 'on' : ''}}" catchtap="onSave">{{t.nav_save}}</view>
     </view>
   </view>
 
@@ -17,7 +17,7 @@
         class="ta"
         value="{{content}}"
         maxlength="{{maxText}}"
-        placeholder="想到什么，就说一句…"
+        placeholder="{{t.ph_text}}"
         placeholder-class="ta-ph"
         auto-height
         focus="{{focus}}"
@@ -26,7 +26,7 @@
         bindinput="onInput"
       />
       <view class="counter">{{content.length}} / {{maxText}}</view>
-      <view class="tip">正文里写 #标签，会在这个标签下自动归好</view>
+      <view class="tip">{{t.tip_tag}}</view>
     </block>
 
     <!-- 语音 -->
@@ -40,8 +40,8 @@
           bindtouchcancel="onVoiceTouchEnd"
           bindtap="onVoiceTap"
         >
-          <text class="rec-main">{{recording ? recordClock : (mediaPath ? '重录' : '按住说话')}}</text>
-          <text class="rec-sub">{{recording ? (canceling ? '松开取消' : '松手就存') : (clickMode ? '点一下开始' : '上滑可以取消')}}</text>
+          <text class="rec-main">{{recording ? recordClock : (mediaPath ? t.rec_redo : t.rec_hold)}}</text>
+          <text class="rec-sub">{{recording ? (canceling ? t.rec_release_cancel : t.rec_release_save) : (clickMode ? t.rec_tap_start : t.rec_swipe_cancel)}}</text>
         </view>
 
         <!-- 边录边转时的实时文字 -->
@@ -50,11 +50,11 @@
         <view class="hint" wx:if="{{hint}}">{{hint}}</view>
 
         <view class="chip" wx:if="{{mediaPath && !recording}}" catchtap="playVoice">
-          {{voicePlaying ? '正在播放 · 点一下停' : '已录 ' + duration + '″ · 点这里听'}}
+          {{voicePlaying ? t.voice_playing : voiceRecordedText}}
         </view>
 
         <view class="mode" wx:if="{{!recording}}" catchtap="toggleMode">
-          {{clickMode ? '换成按住说话' : '换成点击录音'}}
+          {{clickMode ? t.voice_mode_hold : t.voice_mode_click}}
         </view>
       </view>
 
@@ -62,7 +62,7 @@
         class="ta ta-note"
         value="{{content}}"
         maxlength="{{maxCaption}}"
-        placeholder="{{asrReady ? '转写出来的字会填在这里，可以改' : '补一句文字，这条录音就能被搜到'}}"
+        placeholder="{{asrReady ? t.ph_asr : t.ph_voice_note}}"
         placeholder-class="ta-ph"
         auto-height
         show-confirm-bar="{{false}}"
@@ -87,22 +87,22 @@
 
         <view class="cell cell-add" wx:if="{{photos.length < maxPhotos}}" catchtap="pickPhoto">
           <text class="add-plus">+</text>
-          <text class="add-tx">再加</text>
+          <text class="add-tx">{{t.add_photo}}</text>
         </view>
       </view>
 
       <view class="pick" wx:else catchtap="pickPhoto">
         <text class="pick-plus">+</text>
-        <text class="pick-tx">拍一张，或从相册选</text>
+        <text class="pick-tx">{{t.pick_photo}}</text>
       </view>
 
-      <view class="counter left" wx:if="{{photos.length}}">{{photos.length}} / {{maxPhotos}} 张 · 点图上的 × 可以去掉</view>
+      <view class="counter left" wx:if="{{photos.length}}">{{counterText}}</view>
 
       <textarea
         class="ta ta-note"
         value="{{content}}"
         maxlength="{{maxCaption}}"
-        placeholder="配一句话（可不填）"
+        placeholder="{{t.ph_photo_note}}"
         placeholder-class="ta-ph"
         auto-height
         show-confirm-bar="{{false}}"
@@ -115,9 +115,9 @@
 
   <!-- 底部类型切换：一条记录只存一种形态 -->
   <view class="tools">
-    <view class="tool {{type === 'text' ? 'on' : ''}}" data-type="text" catchtap="onTab">写一句</view>
-    <view class="tool {{type === 'voice' ? 'on' : ''}}" data-type="voice" catchtap="onTab">说一段</view>
-    <view class="tool {{type === 'photo' ? 'on' : ''}}" data-type="photo" catchtap="onTab">拍一张</view>
+    <view class="tool {{type === 'text' ? 'on' : ''}}" data-type="text" catchtap="onTab">{{t.tab_text}}</view>
+    <view class="tool {{type === 'voice' ? 'on' : ''}}" data-type="voice" catchtap="onTab">{{t.tab_voice}}</view>
+    <view class="tool {{type === 'photo' ? 'on' : ''}}" data-type="photo" catchtap="onTab">{{t.tab_photo}}</view>
   </view>
 
   <view class="toast" wx:if="{{toastText}}">{{toastText}}</view>

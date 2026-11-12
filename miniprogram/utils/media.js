@@ -3,6 +3,7 @@
  * 文字以外的记录（照片/语音）拿到的都是临时路径，重启后失效，
  * 所以必须落到 wx.env.USER_DATA_PATH 里才能长期保存。
  */
+const i18n = require('./i18n')
 const USER_DIR = (wx.env && wx.env.USER_DATA_PATH) || ''
 
 /** 照片的体积目标：长边 1280、单张 ≤300KB（PRD 13 章媒体要求） */
@@ -102,7 +103,7 @@ function chooseImages(options) {
         const hasImage = typeof wx.chooseImage === 'function'
 
         if (!hasMedia && !hasImage) {
-          reject({ errMsg: 'chooseImage:fail 当前环境不支持选图' })
+          reject({ errMsg: 'chooseImage:fail ' + i18n.t('media:not_supported') })
           return
         }
 
@@ -116,7 +117,7 @@ function chooseImages(options) {
               const files = (res && res.tempFiles) || []
               const paths = files.map(f => f && f.tempFilePath).filter(Boolean)
               if (paths.length) resolve(paths)
-              else reject({ errMsg: 'chooseMedia:fail 没有拿到图片' })
+              else reject({ errMsg: 'chooseMedia:fail ' + i18n.t('media:no_image') })
             },
             fail: reject
           }
@@ -132,7 +133,7 @@ function chooseImages(options) {
           success: res => {
             const paths = ((res && res.tempFilePaths) || []).filter(Boolean)
             if (paths.length) resolve(paths)
-            else reject({ errMsg: 'chooseImage:fail 没有拿到图片' })
+            else reject({ errMsg: 'chooseImage:fail ' + i18n.t('media:no_image') })
           },
           fail: reject
         })

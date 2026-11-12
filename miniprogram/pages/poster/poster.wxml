@@ -4,19 +4,19 @@
     <image class="preview" src="{{imgPath}}" mode="widthFix" show-menu-by-longpress />
   </view>
 
-  <view class="hint" wx:if="{{ready}}">长按图片也能保存，或者用下面的按钮</view>
+  <view class="hint" wx:if="{{ready}}">{{t.hint}}</view>
 
   <view class="waiting" wx:if="{{!ready && !error}}">
     <view class="dot"></view>
-    <text>正在排版…</text>
+    <text>{{t.rendering}}</text>
   </view>
 
   <view class="err" wx:if="{{error}}">{{error}}</view>
 
   <view class="ops" wx:if="{{ready}}">
-    <view class="op main" catchtap="onSave">保存到相册</view>
-    <view class="op" catchtap="onShareImage">发给朋友</view>
-    <view class="op" catchtap="onCopy">复制文字</view>
+    <view class="op main" catchtap="onSave">{{t.save}}</view>
+    <view class="op" catchtap="onShareImage">{{t.share}}</view>
+    <view class="op" catchtap="onCopy">{{t.copy}}</view>
   </view>
 
   <!-- 离屏画布：只用于绘制与导出，不参与布局 -->

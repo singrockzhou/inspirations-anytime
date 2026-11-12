@@ -4,13 +4,19 @@ const date = require('../../utils/date')
 const audio = require('../../utils/audio')
 const asr = require('../../utils/asr')
 const dialog = require('../../utils/dialog')
+const i18n = require('../../utils/i18n')
 
 const MAX_TEXT = 1000
 const MAX_CAPTION = 200
 const MAX_VOICE_SECONDS = 300
 const MAX_PHOTOS = 9
 
-const TYPE_LABEL = { text: '文字', voice: '录音', photo: '照片' }
+/** 类型名随语言变，做成函数而不是常量（模块只执行一次，语言切了不会重跑） */
+function typeLabel(type) {
+  if (type === 'voice') return i18n.t('common:type_voice')
+  if (type === 'photo') return i18n.t('common:type_photo')
+  return i18n.t('common:type_text')
+}
 
 Page({
   data: {
@@ -46,10 +52,34 @@ Page({
 
     maxText: MAX_TEXT,
     maxCaption: MAX_CAPTION,
-    toastText: ''
+    toastText: '',
+    /** 当前语言文案包 */
+    t: {},
+    /** 需要带数字或状态的句子，先在 js 里拼好再给 wxml */
+    voiceRecordedText: '',
+    counterText: ''
   },
 
   onLoad(options) {
+    // 把 setData 包一层：只有动到「时长 / 照片」时才重算那两句带数字的话，
+    // 免得在每个改 duration、photos 的地方都手动补一次；录音计时器每秒都在 setData，
+    // 所以必须按字段过滤，不能无条件重算。
+    const raw = this.setData.bind(this)
+    this.setData = (patch, cb) => {
+      raw(patch, cb)
+      if (!patch) return
+      const keys = Object.keys(patch)
+      for (let i = 0; i < keys.length; i++) {
+        const k = keys[i]
+        if (k === 'duration' || k === 'photos' || k === 'maxPhotos') {
+          this.syncDerived(raw)
+          return
+        }
+      }
+    }
+    this.setData({ t: i18n.pack('record') })
+    this.syncDerived(raw)
+    i18n.title(options.mode === 'edit' ? 'record:nav_edit' : 'nav:record')
     const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()
     this.setData({ statusBarHeight: (info && info.statusBarHeight) || 20 })
 
@@ -61,7 +91,7 @@ Page({
     if (mode === 'edit') {
       const rec = store.get(this.recordId)
       if (!rec) {
-        wx.showToast({ title: '这条已经不在了', icon: 'none' })
+        wx.showToast({ title: i18n.t('record:toast_gone'), icon: 'none' })
         setTimeout(() => wx.navigateBack(), 800)
         return
       }
@@ -136,6 +166,17 @@ Page({
     }
   },
 
+  /** 带数字的两句话：改时长、加减照片后重算一次 */
+  syncDerived(raw) {
+    raw({
+      voiceRecordedText: i18n.t('record:voice_recorded', { n: this.data.duration || 0 }),
+      counterText: i18n.t('record:counter_photos', {
+        n: (this.data.photos || []).length,
+        m: this.data.maxPhotos
+      })
+    })
+  },
+
   /* ------------------------- 输入 ------------------------- */
 
   onInput(e) {
@@ -169,7 +210,7 @@ Page({
     this.setData({ dirty: true })
     if (typeof wx.enableAlertBeforeUnload === 'function') {
       try {
-        wx.enableAlertBeforeUnload({ message: '这段还没存下，确定离开吗？' })
+        wx.enableAlertBeforeUnload({ message: i18n.t('record:leave_confirm') })
       } catch (e) {
         // 低版本基础库没有该能力，靠取消按钮的确认兜底
       }
@@ -197,7 +238,7 @@ Page({
       return
     }
     if (this.data.recording) {
-      this.toast('这段还没录完')
+      this.toast(i18n.t('record:toast_unfinished'))
       return
     }
 
@@ -213,10 +254,10 @@ Page({
 
     dialog
       .confirm({
-        title: '换一种？',
-        text: '刚才的' + TYPE_LABEL[this.data.type] + '会清掉',
-        cancelText: '算了',
-        confirmText: '换'
+        title: i18n.t('record:switch_title'),
+        text: i18n.t('record:switch_text', { type: typeLabel(this.data.type) }),
+        cancelText: i18n.t('common:cancel'),
+        confirmText: i18n.t('record:switch_ok')
       })
       .then(res => {
         if (res.confirmed) this.applyType(next)
@@ -256,15 +297,15 @@ Page({
     const text = (this.data.content || '').trim()
 
     if (type === 'text' && !text) {
-      this.toast('还没写呢')
+      this.toast(i18n.t('record:toast_empty_text'))
       return
     }
     if (type === 'photo' && !this.data.photos.length) {
-      this.toast('还没选照片')
+      this.toast(i18n.t('record:toast_no_photo'))
       return
     }
     if (type === 'voice' && !this.data.mediaPath) {
-      this.toast('还没录')
+      this.toast(i18n.t('record:toast_no_voice'))
       return
     }
 
@@ -302,7 +343,7 @@ Page({
 
   onCancel() {
     if (this.data.recording) {
-      this.toast('先松开手')
+      this.toast(i18n.t('record:toast_release_first'))
       return
     }
     if (!this.data.dirty) {
@@ -311,10 +352,10 @@ Page({
     }
     dialog
       .confirm({
-        title: '这段还留着吗？',
-        text: '还没存下，离开就没了',
-        cancelText: '继续写',
-        confirmText: '丢掉',
+        title: i18n.t('record:discard_title'),
+        text: i18n.t('record:discard_text'),
+        cancelText: i18n.t('record:discard_cancel'),
+        confirmText: i18n.t('record:discard_ok'),
         danger: true
       })
       .then(res => {
@@ -359,7 +400,7 @@ Page({
           console.warn('[record] 转写中断', err)
           this.stopTick()
           this.setData({ recording: false, canceling: false })
-          this.toast('转写中断了，再试一次')
+          this.toast(i18n.t('record:toast_asr_break'))
         }
       })
       if (this.rt) this.setData({ asrReady: true })
@@ -374,7 +415,7 @@ Page({
       console.error('[record] recorder error', err)
       this.stopTick()
       this.setData({ recording: false, canceling: false })
-      this.toast('录音没能开始，检查一下麦克风权限')
+      this.toast(i18n.t('record:toast_rec_fail'))
     })
   },
 
@@ -393,9 +434,9 @@ Page({
             // 明确拒绝过，只能引导去设置页重新打开
             dialog
               .confirm({
-                title: '需要麦克风',
-                text: '录一句话需要麦克风权限，去设置里打开？',
-                confirmText: '去设置'
+                title: i18n.t('record:perm_mic_title'),
+                text: i18n.t('record:perm_mic_text'),
+                confirmText: i18n.t('record:perm_go')
               })
               .then(r => {
                 if (!r.confirmed) {
@@ -413,9 +454,9 @@ Page({
           // 从没问过：先自己说明一句，再调起系统授权，避免开门见弹窗
           dialog
             .confirm({
-              title: '用麦克风',
-              text: '录下你说的那句话，只存在这台手机上。',
-              confirmText: '允许'
+              title: i18n.t('record:mic_title'),
+              text: i18n.t('record:mic_text'),
+              confirmText: i18n.t('record:mic_ok')
             })
             .then(r => {
               if (!r.confirmed) {
@@ -437,7 +478,7 @@ Page({
   startRecord() {
     if (this.data.recording) return
     if (!this.rm && !this.rt) {
-      this.toast('当前环境不支持录音')
+      this.toast(i18n.t('record:toast_no_recorder'))
       return
     }
 
@@ -483,12 +524,12 @@ Page({
       if (sec >= 60 && !this.hinted60) {
         this.hinted60 = true
         wx.vibrateShort({ type: 'light', fail() {} })
-        patch.hint = '还能录 4 分钟'
+        patch.hint = i18n.t('record:hint_4min')
       }
       if (sec >= 240 && !this.hinted240) {
         this.hinted240 = true
         wx.vibrateShort({ type: 'light', fail() {} })
-        patch.hint = '还剩 1 分钟'
+        patch.hint = i18n.t('record:hint_1min')
       }
       this.setData(patch)
     }, 200)
@@ -523,7 +564,7 @@ Page({
 
     const ms = (res && res.duration) || Date.now() - (this.recordStartAt || Date.now())
     if (ms < 1000 || !res || !res.tempFilePath) {
-      this.toast('太短了，再说一次')
+      this.toast(i18n.t('record:toast_too_short'))
       this.setData({ hint: '', recordSeconds: 0, recordClock: '00:00' })
       return
     }
@@ -553,9 +594,9 @@ Page({
         this.setData({ type: 'text', content: text, asrPartial: '' })
         this.syncCanSave()
         this.markDirty()
-        this.toast('只拿到文字，已按文字记录')
+        this.toast(i18n.t('record:toast_text_only'))
       } else {
-        this.toast('太短了，再说一次')
+        this.toast(i18n.t('record:toast_too_short'))
       }
       return
     }
@@ -632,7 +673,7 @@ Page({
       end: () => this.setData({ voicePlaying: false }),
       error: () => {
         this.setData({ voicePlaying: false })
-        this.toast('这段录音找不到了')
+        this.toast(i18n.t('common:not_found_voice'))
       }
     })
     this.setData({ voicePlaying: true })
@@ -649,20 +690,20 @@ Page({
     const cameraOnly = !!(opts && opts.cameraOnly)
 
     if (this.data.recording) {
-      this.toast('先结束录音')
+      this.toast(i18n.t('record:toast_end_rec_first'))
       return
     }
 
     // 非小程序环境（网页预览等）里这些 API 不存在，直接调用会抛错并表现为"点了没反应"
     if (typeof wx.chooseMedia !== 'function' && typeof wx.chooseImage !== 'function') {
       console.warn('[record] chooseMedia / chooseImage 均不可用，当前环境不支持选图')
-      this.toast('当前环境不支持拍照')
+      this.toast(i18n.t('record:toast_no_camera'))
       return
     }
 
     const left = MAX_PHOTOS - this.data.photos.length
     if (!cameraOnly && left <= 0) {
-      this.toast('最多 ' + MAX_PHOTOS + ' 张')
+      this.toast(i18n.t('record:toast_max_photos', { n: MAX_PHOTOS }))
       return
     }
 
@@ -673,7 +714,7 @@ Page({
     })
       .then(tempPaths => {
         // 相机/相册回来之后才挂 loading，避免用户看到加载圈却等不到界面
-        wx.showLoading({ title: '处理中', mask: true })
+        wx.showLoading({ title: i18n.t('common:processing'), mask: true })
         return media.saveImages(tempPaths).then(saved => {
           this.hideLoading()
           return saved
@@ -685,7 +726,7 @@ Page({
         // 超出 9 张的被丢掉，文件也要删掉，别留孤儿
         if (next.length > MAX_PHOTOS) {
           media.removeAll(next.slice(MAX_PHOTOS).map(p => p.path))
-          this.toast('最多 ' + MAX_PHOTOS + ' 张')
+          this.toast(i18n.t('record:toast_max_photos', { n: MAX_PHOTOS }))
         }
         // 替换时，被换掉的旧图要删（编辑态除外，那些属于库里那条记录）
         if (cameraOnly && this.data.mode === 'create' && this.data.photos.length) {
@@ -701,14 +742,14 @@ Page({
         console.warn('[record] pickPhoto 失败:', msg)
         if (msg.indexOf('cancel') >= 0) return
         if (/privacy|112|协议/.test(msg)) {
-          this.toast('需先在后台配置隐私保护指引')
+          this.toast(i18n.t('record:toast_privacy'))
           return
         }
         if (/auth|deny|permission|权限/.test(msg)) {
-          this.toast('没拿到相机或相册权限')
+          this.toast(i18n.t('record:toast_no_perm'))
           return
         }
-        this.toast('没选上：' + msg.slice(0, 36))
+        this.toast(i18n.t('record:toast_pick_fail', { msg: msg.slice(0, 36) }))
       })
   },
 

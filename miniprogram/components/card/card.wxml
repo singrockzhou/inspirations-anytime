@@ -10,7 +10,7 @@
     <view class="badge">{{badge}}</view>
     <view class="meta">
       <text class="star" wx:if="{{item.starred}}">★</text>
-      <text class="flag" wx:if="{{edited}}">改过</text>
+      <text class="flag" wx:if="{{edited}}">{{txt.edited}}</text>
       <text class="time">{{timeLabel}}</text>
     </view>
   </view>
@@ -19,7 +19,7 @@
   <block wx:if="{{item.type === 'text'}}">
     <view class="body {{expanded ? '' : 'clamp'}}">{{item.content}}</view>
     <view class="fold" wx:if="{{needFold}}" catchtap="toggleFold">
-      {{expanded ? '收起' : '展开'}}
+      {{expanded ? txt.collapse : txt.expand}}
     </view>
   </block>
 
@@ -34,7 +34,7 @@
         <view class="bar"></view>
       </view>
       <text class="voice-dur">{{item.duration}}″</text>
-      <text class="voice-tip">{{playing ? '正在播放' : '点一下听听'}}</text>
+      <text class="voice-tip">{{playing ? txt.playing : txt.listen}}</text>
     </view>
     <view class="body sub clamp2" wx:if="{{item.content}}">{{item.content}}</view>
   </block>

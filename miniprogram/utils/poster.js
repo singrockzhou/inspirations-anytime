@@ -7,6 +7,7 @@
  * 分两步是必须的：canvas 2d 每次改 width/height 都会重置整个上下文状态，
  * 所以先在临时高度下用 measureText 量出总高，再按真实高度重建上下文绘制。
  */
+const i18n = require('./i18n')
 
 const WIDTH = 750
 const PAD = 60
@@ -26,7 +27,11 @@ const BODY_FONT = '38px sans-serif'
 const BODY_LINE = 64
 const MAX_BODY_LINES = 26
 
-const TYPE_LABEL = { text: '文字', voice: '语音', photo: '照片' }
+function typeLabel(type) {
+  if (type === 'voice') return i18n.t('common:type_voice')
+  if (type === 'photo') return i18n.t('common:type_photo')
+  return i18n.t('common:type_text')
+}
 
 function roundRect(ctx, x, y, w, h, r) {
   const radius = Math.min(r, w / 2, h / 2)
@@ -70,8 +75,8 @@ function wrapText(ctx, text, maxWidth) {
 function bodyText(record) {
   const text = (record.content || '').trim()
   if (text) return text
-  if (record.type === 'voice') return '（一段 ' + (record.duration || 0) + ' 秒的录音）'
-  if (record.type === 'photo') return '（' + (record.mediaPaths || []).length + ' 张照片）'
+  if (record.type === 'voice') return i18n.t('poster:voice_note', { n: record.duration || 0 })
+  if (record.type === 'photo') return i18n.t('poster:photo_note', { n: (record.mediaPaths || []).length })
   return ''
 }
 
@@ -165,7 +170,7 @@ function paint(ctx, record, layout, opts) {
   const topY = 72
 
   // 类型角标
-  const label = TYPE_LABEL[record.type] || '文字'
+  const label = typeLabel(record.type)
   ctx.font = '26px sans-serif'
   const badgeW = ctx.measureText(label).width + 40
   roundRect(ctx, PAD, topY, badgeW, 44, 12)
@@ -242,11 +247,11 @@ function paint(ctx, record, layout, opts) {
   ctx.font = '26px sans-serif'
   ctx.fillStyle = COLOR.ink2
   ctx.textAlign = 'left'
-  ctx.fillText(o.footer || '灵感随时记', PAD, lineY + 48)
+  ctx.fillText(o.footer || '', PAD, lineY + 48)
 
   ctx.textAlign = 'right'
   ctx.fillStyle = '#B8AB99'
-  ctx.fillText('想到什么，就记一句', WIDTH - PAD, lineY + 48)
+  ctx.fillText(i18n.t('poster:slogan'), WIDTH - PAD, lineY + 48)
 }
 
 /**

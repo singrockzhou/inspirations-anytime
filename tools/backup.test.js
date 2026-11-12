@@ -103,10 +103,11 @@ ok('点 × 会写静默时间', /onBackupClose\(\)[\s\S]{0,120}store\.snoozeBack
 /* ---------- 6. 我的页 ---------- */
 console.log('6) 我的页：把"什么时候备过"摆在换手机分区里')
 const meWxml = read('pages/me/me.wxml')
-ok('有一行"上次备份"', /上次备份/.test(meWxml))
+const i18nSrc = read('utils/i18n.js')
+ok('有一行"上次备份"（文案在词典里）', /\{\{t\.row_backup\}\}/.test(meWxml) && /'me:row_backup': '上次备份'/.test(i18nSrc))
 ok('值可能是橙色警示（backupWarn）', /row-v \{\{backupWarn \? 'warn' : ''\}\}/.test(meWxml))
-ok('这一行在"导出到文件"之前（先看状态再动手）', meWxml.indexOf('上次备份') < meWxml.indexOf('导出到文件'))
-ok('说明里讲清了删除小程序会清空本机记录', /删掉小程序、清理微信存储或换手机，本机记录会一起被清掉/.test(meWxml))
+ok('这一行在"导出到文件"之前（先看状态再动手）', meWxml.indexOf('t.row_backup') < meWxml.indexOf('t.row_export'))
+ok('说明里讲清了删除小程序会清空本机记录', /\{\{t\.note\}\}/.test(meWxml) && /删掉小程序、清理微信存储或换手机，本机记录会一起被清掉/.test(i18nSrc))
 ok('store 暴露了账本三个方法', /backupInfo,[\s\S]{0,40}markBackup,[\s\S]{0,40}snoozeBackup/.test(store))
 ok('账本用独立 key，不会被 touchMeta 整份覆盖', /KEY_BACKUP = 'lg\.backup\.v1'/.test(store))
 

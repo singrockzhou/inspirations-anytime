@@ -11,6 +11,6 @@
   </view>
 
   <view class="swipe-btn" catchtap="onDelete">
-    <text class="swipe-btn-tx">删了</text>
+    <text class="swipe-btn-tx">{{txt.del}}</text>
   </view>
 </view>

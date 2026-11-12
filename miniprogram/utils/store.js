@@ -23,6 +23,7 @@
 const media = require('./media')
 const { uuid } = require('./id')
 const dialog = require('./dialog')
+const i18n = require('./i18n')
 
 /**
  * 记录分片：lg.r.v1.0 … lg.r.v1.9
@@ -307,8 +308,8 @@ function writeAll(list) {
   }
   cache = null
   dialog.alert({
-    title: '存不下了',
-    text: '本机存储空间不足，先删掉几条旧灵感再试试。'
+    title: i18n.t('store:nomem_title'),
+    text: i18n.t('store:nomem_text')
   })
   return false
 }
@@ -534,8 +535,8 @@ function create(input) {
   const all = readAll()
   if (activeOnly(all).length >= MAX_RECORDS) {
     dialog.alert({
-      title: '满 ' + MAX_RECORDS + ' 条了',
-      text: '先清掉一些不再需要的灵感，再继续记。'
+      title: i18n.t('store:full_title', { n: MAX_RECORDS }),
+      text: i18n.t('store:full_text')
     })
     return null
   }

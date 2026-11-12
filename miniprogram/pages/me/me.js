@@ -2,6 +2,7 @@ const store = require('../../utils/store')
 const date = require('../../utils/date')
 const transfer = require('../../utils/transfer')
 const dialog = require('../../utils/dialog')
+const i18n = require('../../utils/i18n')
 
 /**
  * 作者与联系方式。
@@ -11,16 +12,15 @@ const dialog = require('../../utils/dialog')
 const AUTHOR = 'zhouguoxiang'
 const WECHAT = '不卷的迭代老爸'
 const EMAIL = '77111904@qq.com'
-const CONTACT = '作者：' + AUTHOR + '\n公众号：' + WECHAT + '\n邮箱：' + EMAIL
-
-const IMPORT_ERR = {
-  nofile: '没选到文件。',
-  choose: '没能打开选择器，再试一次。',
-  read: '文件读不出来，可能已经损坏。',
-  parse: '这个文件不是有效的 JSON。',
-  format: '这不是「灵感随时记」导出的备份文件。',
-  unsupported: '当前环境不支持导入，请用手机微信打开。'
+function contactText() {
+  return [
+    i18n.t('me:about_author', { v: AUTHOR }),
+    i18n.t('me:about_wechat', { v: WECHAT }),
+    i18n.t('me:about_email', { v: EMAIL })
+  ].join('\n')
 }
+
+const IMPORT_ERR = i18n.table('me', ['nofile', 'choose', 'read', 'parse', 'format', 'unsupported'], 'err')
 
 /** 10240KB → "10 MB"，2KB → "2 KB"，别让用户自己换算 */
 function sizeText(kb) {
@@ -38,7 +38,7 @@ Page({
   data: {
     total: 0,
     streak: 0,
-    firstText: '还没有开始',
+    firstText: '',
     lastText: '—',
     byType: { text: 0, voice: 0, photo: 0 },
     starred: 0,
@@ -52,15 +52,53 @@ Page({
     storageWarn: '',
     heat: [],
     heatMax: 0,
+    /** 带数字的句子在 js 里拼好，wxml 只负责显示 */
+    heatSub: '',
+    indexSub: '',
     busy: false,
     /** 备份账本的两个事实：什么时候备过、该不该标成提醒色 */
     backupText: '',
     backupWarn: false,
-    version: '1.7.8'
+    version: '1.8.0',
+    /** 当前语言与文案包；切换语言后由 applyLang 重新填 */
+    t: {},
+    lang: 'zh',
+    langName: ''
   },
 
   onShow() {
+    this.applyLang()
     this.load()
+  },
+
+  /** 把当前语言的文案包塞进 data；页面重建（reLaunch）后由 onShow 再调一次 */
+  applyLang() {
+    const lang = i18n.lang()
+    i18n.title('nav:me')
+
+    this.setData({
+      t: i18n.pack('me'),
+      lang: lang,
+      langName: lang === 'en' ? 'English' : '中文'
+    })
+  },
+
+  /**
+   * 切换语言：写盘后立刻 reLaunch。
+   * 为什么不逐页 setData：八个页面里还有一些文案是在 js 里拼好的（日期、统计、
+   * 状态句），逐页刷新必然漏掉某一处，而 reLaunch 会让所有页面重新 onLoad，
+   * 一次到位。代价是丢掉当前滚动位置，换语言是低频操作，值得。
+   */
+  onLang() {
+    wx.showActionSheet({
+      itemList: ['中文', 'English'],
+      success: res => {
+        const next = res.tapIndex === 1 ? 'en' : 'zh'
+        if (next === i18n.lang()) return
+        i18n.setLang(next)
+        wx.reLaunch({ url: '/pages/me/me' })
+      }
+    })
   },
 
   load() {
@@ -70,24 +108,28 @@ Page({
 
     // 两本账分开显示：索引在 10MB 键值存储里，图片/录音在 200MB 本地文件里
     const storageText = u.limitKB ? sizeText(u.storageKB) + ' / ' + sizeText(u.limitKB) : sizeText(u.storageKB)
-    const mediaText = bytesText(u.mediaBytes) + (u.mediaCount ? ' · ' + u.mediaCount + ' 个' : '')
+    const mediaText =
+      bytesText(u.mediaBytes) + (u.mediaCount ? ' · ' + u.mediaCount + ' ' + i18n.t('me:unit_media') : '')
 
     // 备份账本：这里只摆事实（什么时候、多少条），该不该提醒由首页判断
     const bk = store.backupInfo()
     const bkDays = bk.at ? date.dayDiff(bk.at, Date.now()) : -1
+    const when = bkDays <= 0 ? i18n.t('me:today') : i18n.t('me:days_ago', { n: bkDays })
     const backupText = !bk.at
-      ? '还没备份过'
-      : (bkDays <= 0 ? '今天' : bkDays + ' 天前') + (bk.total ? ' · ' + bk.total + ' 条' : '')
+      ? i18n.t('me:never_backed')
+      : bk.total
+        ? i18n.t('me:backup_meta', { t: when, n: bk.total })
+        : when
     const backupWarn = !bk.at || bkDays >= 7
 
     let storageWarn = ''
-    if (u.percent >= 80) storageWarn = '记录索引快到上限了，建议先导出备份，再清掉一些旧记录。'
-    else if (u.mediaBytes >= 150 * 1024 * 1024) storageWarn = '图片和录音快占满本机文件配额了，建议导出后清理。'
+    if (u.percent >= 80) storageWarn = i18n.t('me:warn_index')
+    else if (u.mediaBytes >= 150 * 1024 * 1024) storageWarn = i18n.t('me:warn_media')
 
     this.setData({
       total: stats.visible,
       streak: stats.streak,
-      firstText: stats.firstAt ? date.fullTime(stats.firstAt) : '还没有开始',
+      firstText: stats.firstAt ? date.fullTime(stats.firstAt) : i18n.t('me:not_started'),
       lastText: stats.lastAt ? date.relative(stats.lastAt) : '—',
       byType: stats.byType,
       starred: stats.starred,
@@ -102,7 +144,9 @@ Page({
       backupText: backupText,
       backupWarn: backupWarn,
       heat: heat.cells,
-      heatMax: heat.max
+      heatMax: heat.max,
+      heatSub: i18n.t('me:heat_sub', { n: heat.max }),
+      indexSub: i18n.t('me:row_index_sub', { n: u.percent < 1 && u.storageKB > 0 ? '<1' : String(u.percent) })
     })
   },
 
@@ -111,7 +155,7 @@ Page({
   /** 归档列表复用首页的筛选，不另做一页 */
   onArchive() {
     if (!this.data.archived) {
-      wx.showToast({ title: '还没有归档的', icon: 'none' })
+      wx.showToast({ title: i18n.t('me:no_archive'), icon: 'none' })
       return
     }
     getApp().globalData.pendingFilter = 'archive'
@@ -123,12 +167,12 @@ Page({
   onExport() {
     if (this.data.busy) return
     if (this.data.total === 0) {
-      wx.showToast({ title: '还没有记录', icon: 'none' })
+      wx.showToast({ title: i18n.t('me:no_records'), icon: 'none' })
       return
     }
 
     this.setData({ busy: true })
-    wx.showLoading({ title: '打包中', mask: true })
+    wx.showLoading({ title: i18n.t('common:packing'), mask: true })
 
     transfer
       .exportBackup()
@@ -137,23 +181,22 @@ Page({
         this.setData({ busy: false })
         if (res.mode === 'cancel') return
 
-        const lines = ['共 ' + res.total + ' 条']
-        if (res.mediaCarried) lines.push('含 ' + res.mediaCarried + ' 个图片/录音')
-        if (res.mediaDropped) lines.push(res.mediaDropped + ' 个媒体超过 2MB 未打包')
+        const lines = [i18n.t('me:export_count', { n: res.total })]
+        if (res.mediaCarried) lines.push(i18n.t('me:export_media', { n: res.mediaCarried }))
+        if (res.mediaDropped) lines.push(i18n.t('me:export_dropped', { n: res.mediaDropped }))
         lines.push('')
-        lines.push(
-          res.mode === 'share'
-            ? '文件已生成，转发给「文件传输助手」。到新手机上从聊天里选它导入。'
-            : '文件已保存到电脑，拷到新手机后再导入。'
-        )
+        lines.push(res.mode === 'share' ? i18n.t('me:export_share') : i18n.t('me:export_saved'))
 
-        dialog.alert({ title: '导出完成', text: lines.join('\n') })
+        dialog.alert({ title: i18n.t('me:export_title'), text: lines.join('\n') })
       })
       .catch(err => {
         wx.hideLoading()
         this.setData({ busy: false })
         if (!err || err.code === 'cancel') return
-        dialog.alert({ title: '没导出成', text: transfer.EXPORT_ERR[err.code] || '再试一次看看。' })
+        dialog.alert({
+          title: i18n.t('me:export_fail'),
+          text: transfer.EXPORT_ERR[err.code] || i18n.t('common:retry')
+        })
       })
   },
 
@@ -164,10 +207,10 @@ Page({
 
     dialog
       .confirm({
-        title: '从备份导入？',
-        text: '会从聊天记录里选一个 .json 备份。导入只做新增，不会覆盖本机已有的记录。',
-        cancelText: '算了',
-        confirmText: '去选文件'
+        title: i18n.t('me:import_ask_title'),
+        text: i18n.t('me:import_ask_text'),
+        cancelText: i18n.t('me:import_ask_cancel'),
+        confirmText: i18n.t('me:import_ask_ok')
       })
       .then(modal => {
         if (!modal.confirmed) return
@@ -185,17 +228,20 @@ Page({
         this.load()
 
         const lines = []
-        lines.push(res.added > 0 ? '导入 ' + res.added + ' 条' : '没有新增记录')
-        if (res.skipped) lines.push(res.skipped + ' 条已存在或超出上限，已跳过')
-        if (res.mediaRestored) lines.push('还原 ' + res.mediaRestored + ' 个图片/录音')
-        if (res.mediaFailed) lines.push(res.mediaFailed + ' 个媒体还原失败')
+        lines.push(res.added > 0 ? i18n.t('me:import_added', { n: res.added }) : i18n.t('me:import_none'))
+        if (res.skipped) lines.push(i18n.t('me:import_skipped', { n: res.skipped }))
+        if (res.mediaRestored) lines.push(i18n.t('me:import_media', { n: res.mediaRestored }))
+        if (res.mediaFailed) lines.push(i18n.t('me:import_media_fail', { n: res.mediaFailed }))
 
-        dialog.alert({ title: '导入完成', text: lines.join('\n') })
+        dialog.alert({ title: i18n.t('me:import_title'), text: lines.join('\n') })
       })
       .catch(err => {
         this.setData({ busy: false })
         if (!err || err.code === 'cancel') return
-        dialog.alert({ title: '没导入成', text: IMPORT_ERR[err.code] || '再试一次看看。' })
+        dialog.alert({
+          title: i18n.t('me:import_fail'),
+          text: IMPORT_ERR[err.code] || i18n.t('common:retry')
+        })
       })
   },
 
@@ -204,22 +250,22 @@ Page({
   /** 清空要连点两次确认，避免误触 */
   onClear() {
     if (this.data.total === 0 && this.data.archived === 0) {
-      wx.showToast({ title: '已经是空的了', icon: 'none' })
+      wx.showToast({ title: i18n.t('me:clear_empty'), icon: 'none' })
       return
     }
     dialog
       .confirm({
-        title: '清空全部灵感？',
-        text: '共 ' + (this.data.total + this.data.archived) + ' 条，清掉之后找不回来。',
-        cancelText: '算了',
-        confirmText: '清空',
+        title: i18n.t('me:clear_ask_title'),
+        text: i18n.t('me:clear_ask_text', { n: this.data.total + this.data.archived }),
+        cancelText: i18n.t('me:clear_ask_cancel'),
+        confirmText: i18n.t('me:clear_ask_ok'),
         danger: true
       })
       .then(res => {
         if (!res.confirmed) return
         if (store.clearAll()) {
           this.load()
-          wx.showToast({ title: '清干净了', icon: 'none' })
+          wx.showToast({ title: i18n.t('me:clear_done'), icon: 'none' })
         }
       })
   },
@@ -230,27 +276,27 @@ Page({
    */
   onAbout() {
     const text = [
-      '灵感随时记 v' + this.data.version,
+      i18n.t('me:about_version', { v: this.data.version }),
       '',
-      '所有记录只保存在这台手机上，不上传、不联网、不需要登录。换手机时用上面的「导出到文件」带走。',
+      i18n.t('me:about_privacy'),
       '',
-      '作者：' + AUTHOR,
-      '公众号：' + WECHAT,
-      '邮箱：' + EMAIL
+      i18n.t('me:about_author', { v: AUTHOR }),
+      i18n.t('me:about_wechat', { v: WECHAT }),
+      i18n.t('me:about_email', { v: EMAIL })
     ].join('\n')
 
     dialog
       .confirm({
-        title: '关于小程序',
+        title: i18n.t('me:about_title'),
         text: text,
-        cancelText: '知道了',
-        confirmText: '复制联系方式'
+        cancelText: i18n.t('me:about_cancel'),
+        confirmText: i18n.t('me:about_confirm')
       })
       .then(r => {
         if (!r.confirmed) return
         wx.setClipboardData({
-          data: CONTACT,
-          success: () => wx.showToast({ title: '联系方式已复制', icon: 'none' })
+          data: contactText(),
+          success: () => wx.showToast({ title: i18n.t('common:contact_copied'), icon: 'none' })
         })
       })
   },
@@ -259,14 +305,14 @@ Page({
   onStorage() {
     const u = store.usage()
     const text = [
-      '记录索引：' + sizeText(u.storageKB) + '，上限 ' + sizeText(u.limitKB) + '。',
-      '存的是文字、标签和设置，不含照片、录音。',
+      i18n.t('me:storage_index', { used: sizeText(u.storageKB), limit: sizeText(u.limitKB) }),
+      i18n.t('me:storage_index_sub'),
       '',
-      '图片与录音：' + bytesText(u.mediaBytes) + '，' + u.mediaCount + ' 个文件。',
-      '它们作为文件放在本机，不占上面这份额度。',
+      i18n.t('me:storage_media', { size: bytesText(u.mediaBytes), n: u.mediaCount }),
+      i18n.t('me:storage_media_sub'),
       '',
-      '索引满了只会写不进新记录，已有的不会自动丢。稳妥做法是先「导出到文件」备份，再清掉不要的。'
+      i18n.t('me:storage_full')
     ].join('\n')
-    dialog.alert({ title: '本机占用怎么看', text: text })
+    dialog.alert({ title: i18n.t('me:storage_title'), text: text })
   }
 })

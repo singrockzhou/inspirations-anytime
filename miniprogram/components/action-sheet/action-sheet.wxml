@@ -15,7 +15,7 @@
       <text class="row-desc" wx:if="{{item.desc}}">{{item.desc}}</text>
     </view>
 
-    <view class="cancel" bindtap="onClose">{{cancelText}}</view>
+    <view class="cancel" bindtap="onClose">{{cancelText || fallbackCancel}}</view>
     <view class="gap"></view>
   </view>
 </view>

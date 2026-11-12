@@ -1,6 +1,7 @@
 const store = require('../../utils/store')
 const poster = require('../../utils/poster')
 const dialog = require('../../utils/dialog')
+const i18n = require('../../utils/i18n')
 
 Page({
   data: {
@@ -9,11 +10,14 @@ Page({
     imgPath: '',
     cssW: 750,
     cssH: 520,
-    toastText: ''
+    toastText: '',
+    t: {}
   },
 
   onLoad(query) {
     this.id = (query && query.id) || ''
+    this.setData({ t: i18n.pack('poster') })
+    i18n.title('nav:poster')
   },
 
   onReady() {
@@ -27,7 +31,7 @@ Page({
   build() {
     const rec = store.get(this.id)
     if (!rec) {
-      this.setData({ error: '这条已经不在了' })
+      this.setData({ error: i18n.t('poster:err_gone') })
       return
     }
 
@@ -38,7 +42,7 @@ Page({
       .exec(res => {
         const node = res && res[0] && res[0].node
         if (!node) {
-          this.setData({ error: '当前环境不支持画布' })
+          this.setData({ error: i18n.t('poster:err_canvas') })
           return
         }
 
@@ -65,7 +69,7 @@ Page({
           ctx.setTransform(1, 0, 0, 1, 0, 0)
           ctx.scale(dpr, dpr)
 
-          poster.paint(ctx, rec, layout, { image: image, footer: '灵感随时记' })
+          poster.paint(ctx, rec, layout, { image: image, footer: i18n.t('poster:slogan') })
 
           this.record = rec
           this.layout = layout
@@ -94,7 +98,7 @@ Page({
       },
       fail: err => {
         console.warn('[poster] 导出失败', err)
-        this.setData({ error: '生成失败了，再试一次' })
+        this.setData({ error: i18n.t('poster:err_fail') })
       }
     })
   },
@@ -104,23 +108,23 @@ Page({
     if (!path) return
     wx.saveImageToPhotosAlbum({
       filePath: path,
-      success: () => this.toast('存到相册了'),
+      success: () => this.toast(i18n.t('poster:toast_saved')),
       fail: err => {
         const msg = String((err && err.errMsg) || '')
         if (msg.indexOf('cancel') >= 0) return
         if (msg.indexOf('auth') >= 0 || msg.indexOf('deny') >= 0) {
           dialog
             .confirm({
-              title: '需要相册权限',
-              text: '保存图片要写入相册，去设置里打开一下？',
-              confirmText: '去设置'
+              title: i18n.t('poster:perm_title'),
+              text: i18n.t('poster:perm_text'),
+              confirmText: i18n.t('poster:perm_go')
             })
             .then(r => {
               if (r.confirmed) wx.openSetting({})
             })
           return
         }
-        this.toast('没存上，试试「发给朋友」')
+        this.toast(i18n.t('poster:toast_save_fail'))
       }
     })
   },
@@ -129,7 +133,7 @@ Page({
     const path = this.data.imgPath
     if (!path) return
     if (typeof wx.showShareImageMenu !== 'function') {
-      this.toast('当前微信版本不支持直接分享图片')
+      this.toast(i18n.t('poster:toast_share_unsupported'))
       return
     }
     wx.showShareImageMenu({
@@ -137,7 +141,7 @@ Page({
       fail: err => {
         const msg = String((err && err.errMsg) || '')
         if (msg.indexOf('cancel') >= 0) return
-        this.toast('没发出去，再试一次')
+        this.toast(i18n.t('poster:toast_share_fail'))
       }
     })
   },
@@ -146,10 +150,10 @@ Page({
     const rec = this.record
     const text = (rec && rec.content) || ''
     if (!text) {
-      this.toast('这条没有文字可复制')
+      this.toast(i18n.t('poster:toast_no_text'))
       return
     }
-    wx.setClipboardData({ data: text, success: () => this.toast('复制了') })
+    wx.setClipboardData({ data: text, success: () => this.toast(i18n.t('common:copy_ok')) })
   },
 
   toast(message) {

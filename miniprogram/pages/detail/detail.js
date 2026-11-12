@@ -4,8 +4,14 @@ const audio = require('../../utils/audio')
 const dialog = require('../../utils/dialog')
 const flip = require('../../utils/flip')
 const share = require('../../utils/share')
+const i18n = require('../../utils/i18n')
 
-const TYPE_LABEL = { text: '文字', voice: '语音', photo: '照片' }
+/** 类型标签随语言变，不能做成模块级常量（模块只执行一次） */
+function typeLabel(type) {
+  if (type === 'voice') return i18n.t('common:type_voice')
+  if (type === 'photo') return i18n.t('common:type_photo')
+  return i18n.t('common:type_text')
+}
 
 /** 横向拖动超过这个距离才算"翻页"，太小容易和普通点击、长按冲突 */
 const SWIPE_MIN = 56
@@ -32,7 +38,8 @@ Page({
     swipeTransition: 'none',
     /** 记录总数 > 1 才显示翻页条；canPrev 决定"上一条"是否置灰 */
     total: 0,
-    canPrev: false
+    canPrev: false,
+    t: {}
   },
 
   onLoad(options) {
@@ -51,6 +58,8 @@ Page({
 
   /** 从编辑页返回时重新读一次，页面内容与库保持一致 */
   onShow() {
+    this.setData({ t: i18n.pack('detail') })
+    i18n.title('nav:detail')
     this.load()
   },
 
@@ -69,10 +78,15 @@ Page({
     this.setData({
       record: rec,
       missing: false,
-      typeLabel: TYPE_LABEL[rec.type] || '文字',
+      typeLabel: typeLabel(rec.type),
       timeText: date.fullTime(rec.createdAt),
       // 只有真的改过（超过 1 分钟再保存）才显示修改时间
       updatedText: rec.updatedAt - rec.createdAt > 60000 ? date.fullTime(rec.updatedAt) : '',
+      metaCreated: i18n.t('detail:meta_created', { t: date.fullTime(rec.createdAt) }),
+      metaUpdated:
+        rec.updatedAt - rec.createdAt > 60000
+          ? i18n.t('detail:meta_updated', { t: date.fullTime(rec.updatedAt) })
+          : '',
       photos: rec.mediaPaths || [],
       starred: !!rec.starred,
       archived: !!rec.archivedAt,
@@ -91,22 +105,22 @@ Page({
   onCopy() {
     const text = ((this.data.record && this.data.record.content) || '').trim()
     if (!text) {
-      this.toast('这条没有文字可复制')
+      this.toast(i18n.t('index:toast_no_text'))
       return
     }
     wx.setClipboardData({
       data: text,
-      success: () => this.toast('复制了')
+      success: () => this.toast(i18n.t('common:copy_ok'))
     })
   },
 
   onDelete() {
     dialog
       .confirm({
-        title: '删了？',
-        text: '删掉之后回到列表，5 秒内还能撤回。',
-        cancelText: '留着',
-        confirmText: '删',
+        title: i18n.t('detail:del_title'),
+        text: i18n.t('detail:del_text'),
+        cancelText: i18n.t('detail:del_cancel'),
+        confirmText: i18n.t('detail:del_ok'),
         danger: true
       })
       .then(res => {
@@ -121,14 +135,14 @@ Page({
     const next = !this.data.starred
     if (!store.setStar(this.id, next)) return
     this.setData({ starred: next })
-    this.toast(next ? '加星了' : '从星标里拿下来了')
+    this.toast(next ? i18n.t('index:toast_starred') : i18n.t('index:toast_unstarred'))
   },
 
   onToggleArchive() {
     const next = !this.data.archived
     if (!store.setArchive(this.id, next)) return
     this.setData({ archived: next })
-    this.toast(next ? '收进归档了' : '回到主列表了')
+    this.toast(next ? i18n.t('index:toast_archived') : i18n.t('index:toast_unarchived'))
   },
 
   /* ------------------------- 做成图 ------------------------- */
@@ -143,11 +157,11 @@ Page({
   onAddText() {
     dialog
       .show({
-        title: '补一句',
+        title: i18n.t('detail:add_title'),
         editable: true,
-        placeholder: '这段讲的是什么？',
-        cancelText: '算了',
-        confirmText: '存下'
+        placeholder: i18n.t('detail:add_placeholder'),
+        cancelText: i18n.t('common:cancel'),
+        confirmText: i18n.t('detail:add_ok')
       })
       .then(res => {
         if (!res.confirmed) return
@@ -159,7 +173,7 @@ Page({
         }
         if (!store.update(this.id, { content: text })) return
         this.load()
-        this.toast('补上了，现在能搜到')
+        this.toast(i18n.t('detail:add_done'))
       })
   },
 
@@ -179,7 +193,7 @@ Page({
       end: () => this.setData({ playing: false }),
       error: () => {
         this.setData({ playing: false })
-        this.toast('这段录音找不到了')
+        this.toast(i18n.t('common:not_found_voice'))
       }
     })
     this.setData({ playing: true })
@@ -198,7 +212,7 @@ Page({
 
     const rec = dir > 0 ? flip.next() : flip.prev()
     if (!rec) {
-      this.toast(dir > 0 ? '没有别的灵感了' : '已经是最早的一条了')
+      this.toast(dir > 0 ? i18n.t('detail:toast_no_next') : i18n.t('detail:toast_no_prev'))
       this.setData({ canPrev: flip.canPrev() })
       this.release()
       return

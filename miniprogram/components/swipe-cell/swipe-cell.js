@@ -7,6 +7,8 @@
  */
 const BTN_PX = 88
 
+const i18n = require('../../utils/i18n')
+
 Component({
   properties: {
     /** 记录 id，随事件回传给页面 */
@@ -35,7 +37,14 @@ Component({
 
   data: {
     x: 0,
-    animating: false
+    animating: false,
+    txt: {}
+  },
+
+  lifetimes: {
+    attached() {
+      this.setData({ txt: { del: i18n.t('common:delete') } })
+    }
   },
 
   methods: {

@@ -9,7 +9,7 @@
       <input
         class="ipt"
         value="{{keyword}}"
-        placeholder="搜正文，也搜 #标签"
+        placeholder="{{t.ph}}"
         placeholder-class="ipt-ph"
         focus="{{focus}}"
         confirm-type="search"
@@ -25,7 +25,7 @@
     <view class="tag" wx:for="{{tags}}" wx:key="tag" data-tag="{{item.tag}}" catchtap="onTag">#{{item.tag}}</view>
   </scroll-view>
 
-  <view class="count" wx:if="{{searched && results.length}}">共 {{results.length}} 条</view>
+  <view class="count" wx:if="{{searched && results.length}}">{{countText}}</view>
 
   <view class="list">
     <view class="row" wx:for="{{results}}" wx:key="id" data-id="{{item.id}}" catchtap="onOpen">
@@ -45,8 +45,8 @@
   </view>
 
   <view class="empty" wx:if="{{searched && !results.length}}">
-    <view class="empty-t">没找到「{{keyword}}」</view>
-    <view class="empty-s">换个词试试，或者去标签里翻</view>
+    <view class="empty-t">{{notFoundText}}</view>
+    <view class="empty-s">{{t.not_found_sub}}</view>
   </view>
 
   <view class="empty" wx:if="{{!searched}}">

@@ -9,15 +9,15 @@
 >
 
   <view class="head">
-    <text class="head-t">随便翻一条</text>
-    <text class="head-s" wx:if="{{total}}">{{total > 1 ? '左右滑能翻 · 共 ' + total + ' 条' : '就这一条'}}</text>
+    <text class="head-t">{{t.head}}</text>
+    <text class="head-s" wx:if="{{total}}">{{headSub}}</text>
   </view>
 
   <block wx:if="{{item}}">
     <!-- 跟手位移只作用在纸上：标题与按钮不动，像把一张卡抽走 -->
     <view class="paper" style="transform:translateX({{swipeDx}}px);transition:{{swipeTransition}};">
       <view class="meta">
-        <text class="ago">{{agoText}}<text wx:if="{{photoCount > 1}}"> · {{photoCount}} 张照片</text></text>
+        <text class="ago">{{agoText}}<text wx:if="{{photoCount > 1}}">{{photoAlso}}</text></text>
         <text class="star" wx:if="{{starred}}">★</text>
       </view>
 
@@ -49,7 +49,7 @@
                 <view class="fill" style="width:{{playingId === v.id ? progress : 0}}%" />
               </view>
               <view class="audio-meta">
-                <text class="audio-state">{{playingId === v.id ? (paused ? '已暂停，点一下接着听' : '正在播放') : '点一下听'}}</text>
+                <text class="audio-state">{{playingId === v.id ? (paused ? t.audio_paused : t.audio_playing) : t.audio_tap}}</text>
                 <text class="audio-time">{{playingId === v.id ? curText : v.durText}}</text>
               </view>
             </view>
@@ -58,7 +58,7 @@
 
         <!-- 正文：有图有音时退成副文，不跟缩略图抢视线 -->
         <view class="text {{photos.length || voices.length ? 'sub' : ''}}" wx:if="{{item.content}}">{{item.content}}</view>
-        <view class="text dim" wx:elif="{{!photos.length && !voices.length}}">这条没有留下内容</view>
+        <view class="text dim" wx:elif="{{!photos.length && !voices.length}}">{{t.no_content}}</view>
 
       </scroll-view>
 
@@ -70,18 +70,18 @@
     </view>
 
     <view class="ops">
-      <view class="op main" catchtap="onNext">再来一条</view>
-      <view class="op" catchtap="onStar">{{starred ? '取消星标' : '加星'}}</view>
-      <view class="op" catchtap="onOpen">看详情</view>
+      <view class="op main" catchtap="onNext">{{t.op_next}}</view>
+      <view class="op" catchtap="onStar">{{starred ? t.op_unstar : t.op_star}}</view>
+      <view class="op" catchtap="onOpen">{{t.op_open}}</view>
     </view>
 
-    <button class="share" open-type="share">把这条发给朋友</button>
+    <button class="share" open-type="share">{{t.share}}</button>
   </block>
 
   <view class="empty" wx:if="{{empty}}">
-    <view class="empty-t">还没有可重温的</view>
-    <view class="empty-s">先记几条，过几天再来抽</view>
-    <view class="empty-btn" catchtap="goWrite">去记一条</view>
+    <view class="empty-t">{{t.empty}}</view>
+    <view class="empty-s">{{t.empty_sub}}</view>
+    <view class="empty-btn" catchtap="goWrite">{{t.empty_btn}}</view>
   </view>
 
   <view class="toast" wx:if="{{toastText}}">{{toastText}}</view>

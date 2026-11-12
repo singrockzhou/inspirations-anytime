@@ -1,4 +1,5 @@
 const hub = require('../../utils/dialog')
+const i18n = require('../../utils/i18n')
 
 /**
  * 统一对话框
@@ -12,6 +13,7 @@ Component({
   lifetimes: {
     attached() {
       hub.bind(this)
+      this.setData({ processingText: i18n.t('common:processing') })
     },
     detached() {
       hub.unbind(this)
@@ -34,6 +36,7 @@ Component({
     editable: false,
     inputValue: '',
     placeholder: '',
+    processingText: '',
     maxlength: 200,
     inputFocused: false
   },
@@ -49,8 +52,8 @@ Component({
         closing: false,
         title: o.title || '',
         text: o.text || '',
-        cancelText: o.cancelText || '算了',
-        confirmText: o.confirmText || '好',
+        cancelText: o.cancelText || i18n.t('common:cancel'),
+        confirmText: o.confirmText || i18n.t('common:ok'),
         showCancel: o.showCancel !== false,
         danger: !!o.danger,
         maskClosable: !!o.maskClosable,

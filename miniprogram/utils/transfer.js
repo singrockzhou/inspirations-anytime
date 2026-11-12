@@ -9,6 +9,7 @@
  * 媒体体积大，设了单条 2MB / 总计 15MB 的上限，超出的条目只迁文字，并在结果里如实报告。
  */
 const store = require('./store')
+const i18n = require('./i18n')
 const sniff = require('./sniff')
 
 const APP_TAG = 'linggan-suishi-ji'
@@ -24,16 +25,14 @@ const MAX_TEXT = 1000
  * 导出失败的码表。首页的备份横幅和「我的 → 导出到文件」是两个入口、同一条链路，
  * 文案放在这里只写一次，改的时候不会漏掉另一个。
  */
-const EXPORT_ERR = {
-  empty: '还没有记录可以导出。',
-  serialize: '数据转换失败，再试一次。',
-  write: '写文件失败，可能是本机空间不足。',
-  save: '保存文件失败，换个方式再试一次。',
-  share: '分享失败，请确认微信已登录。',
-  unsupported: '当前环境不支持导出，请用手机微信打开。'
-}
-
-const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+const EXPORT_ERR = i18n.table('transfer', [
+  'empty',
+  'serialize',
+  'write',
+  'save',
+  'share',
+  'unsupported'
+], 'err')
 
 function fs() {
   return wx.getFileSystemManager()
@@ -57,7 +56,11 @@ function stamp() {
 
 function dayStamp(ts) {
   const d = new Date(ts)
-  return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + WEEK[d.getDay()]
+  return (
+    i18n.t('date:year_month_day', { y: d.getFullYear(), m: d.getMonth() + 1, d: d.getDate() }) +
+    ' ' +
+    i18n.t('date:week' + d.getDay())
+  )
 }
 
 function hhmm(ts) {
@@ -273,10 +276,10 @@ function exportText(records) {
     }
 
     const lines = []
-    lines.push('# 灵感随时记 · 摘录')
+    lines.push(i18n.t('transfer:md_title'))
     lines.push('')
-    lines.push('导出时间：' + dayStamp(Date.now()) + ' ' + hhmm(Date.now()))
-    lines.push('共 ' + list.length + ' 条')
+    lines.push(i18n.t('transfer:md_time', { t: dayStamp(Date.now()) + ' ' + hhmm(Date.now()) }))
+    lines.push(i18n.t('transfer:md_count', { n: list.length }))
     lines.push('')
 
     let currentDay = ''
@@ -291,7 +294,12 @@ function exportText(records) {
           lines.push('## ' + day)
           lines.push('')
         }
-        const typeLabel = r.type === 'voice' ? '语音 ' + (r.duration || 0) + '″' : r.type === 'photo' ? '照片' : '文字'
+        const typeLabel =
+          r.type === 'voice'
+            ? i18n.t('common:type_voice') + ' ' + (r.duration || 0) + '″'
+            : r.type === 'photo'
+              ? i18n.t('common:type_photo')
+              : i18n.t('common:type_text')
         lines.push('**' + hhmm(r.createdAt) + ' · ' + typeLabel + '**')
         if (r.tags && r.tags.length) lines.push(r.tags.map(t => '`#' + t + '`').join(' '))
         if (r.content) lines.push('')
@@ -299,12 +307,16 @@ function exportText(records) {
         const paths = mediaPathsOf(r)
         if (paths.length) {
           lines.push('')
-          lines.push(r.type === 'voice' ? '> 附一段录音' : '> 附 ' + paths.length + ' 张图片')
+          lines.push(
+            r.type === 'voice'
+              ? i18n.t('transfer:md_audio')
+              : i18n.t('transfer:md_images', { n: paths.length })
+          )
         }
         lines.push('')
       })
 
-    const fileName = '灵感摘录-' + stamp() + '.md'
+    const fileName = i18n.t('transfer:md_prefix') + stamp() + '.md'
     const filePath = USER_DIR + '/' + fileName
     try {
       fs().writeFileSync(filePath, lines.join('\n'), 'utf8')
@@ -489,7 +501,7 @@ function importFromChat() {
                   records.push({
                     // 名字是哈希就不写字：宁可只有一张图，也不要一串看不懂的编号当正文
                     type: 'photo',
-                    content: label ? '来自「' + label + '」' : '',
+                    content: label ? i18n.t('transfer:from_file', { name: label }) : '',
                     mediaPaths: [r.path],
                     size: r.size || 0
                   })
@@ -518,7 +530,7 @@ function importFromChat() {
               records.push({ type: 'text', content: body })
             } else if (label) {
               // 空文件但名字能读：留一条让用户补一句，总比什么都不留好
-              records.push({ type: 'text', content: '来自「' + label + '」' })
+              records.push({ type: 'text', content: i18n.t('transfer:from_file', { name: label }) })
               shells++
             } else {
               skipped.push({ name: label, reason: 'read', ext: info.ext })
@@ -529,7 +541,7 @@ function importFromChat() {
 
           /* ---------- 二进制：名字能读就留个壳，名字不能读就别往列表里塞垃圾 ---------- */
           if (label) {
-            records.push({ type: 'text', content: '来自「' + label + '」' })
+            records.push({ type: 'text', content: i18n.t('transfer:from_file', { name: label }) })
             shells++
           } else {
             skipped.push({ name: label, reason: 'type', ext: info.ext })

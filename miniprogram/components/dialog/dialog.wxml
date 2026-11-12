@@ -37,7 +37,7 @@
         bindtap="onConfirm"
       >
         <view class="spin" wx:if="{{confirmLoading}}"></view>
-        <text>{{confirmLoading ? '处理中' : confirmText}}</text>
+        <text>{{confirmLoading ? processingText : confirmText}}</text>
       </view>
     </view>
   </view>

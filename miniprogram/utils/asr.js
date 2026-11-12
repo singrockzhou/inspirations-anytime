@@ -15,36 +15,52 @@
  * 且在小程序后台「设置 → 第三方设置 → 插件管理」里添加该插件。
  * 没做这两步就打开开关，requirePlugin 会抛错，这里会捕获并降级为不可用。
  */
+const i18n = require('./i18n')
 
 const USE_PLUGIN = false
 const PLUGIN_NAME = 'WechatSI'
 
 let cached = null
 
+/** 失败原因 → 当前语言的说明。label 不进缓存，否则切换语言后还是旧文案 */
+function labelFor(state) {
+  if (state.ok) return i18n.t('asr:plugin')
+  const map = {
+    'not-enabled': 'asr:not_enabled',
+    'no-manager': 'asr:no_manager',
+    'no-plugin': 'asr:no_plugin'
+  }
+  return i18n.t(map[state.reason] || 'asr:not_enabled')
+}
+
+function withLabel(state) {
+  return { ok: !!state.ok, reason: state.reason, label: labelFor(state) }
+}
+
 /**
  * @returns {{ok:boolean, reason:string, label:string}}
  */
 function availability() {
-  if (cached) return cached
+  if (cached) return withLabel(cached)
 
   if (!USE_PLUGIN) {
-    cached = { ok: false, reason: 'not-enabled', label: '未接入转写服务' }
-    return cached
+    cached = { ok: false, reason: 'not-enabled' }
+    return withLabel(cached)
   }
 
   try {
     // 声明了插件才能拿到；没声明或后台未添加都会抛错
     const plugin = requirePlugin(PLUGIN_NAME)
     if (plugin && typeof plugin.getRecordRecognitionManager === 'function') {
-      cached = { ok: true, reason: '', label: '微信同声传译' }
-      return cached
+      cached = { ok: true, reason: '' }
+      return withLabel(cached)
     }
-    cached = { ok: false, reason: 'no-manager', label: '插件未提供识别能力' }
+    cached = { ok: false, reason: 'no-manager' }
   } catch (e) {
     console.warn('[asr] 插件不可用:', (e && e.message) || e)
-    cached = { ok: false, reason: 'no-plugin', label: '未安装同声传译插件' }
+    cached = { ok: false, reason: 'no-plugin' }
   }
-  return cached
+  return withLabel(cached)
 }
 
 /**
@@ -60,7 +76,7 @@ function transcribe() {
   }
   return Promise.reject({
     code: 'file-unsupported',
-    message: '已录好的音频不能事后转写，请改用「边说边转」重新录一次'
+    message: i18n.t('asr:cannot_retro')
   })
 }
 

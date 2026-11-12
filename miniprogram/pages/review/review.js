@@ -1,5 +1,6 @@
 const store = require('../../utils/store')
 const date = require('../../utils/date')
+const i18n = require('../../utils/i18n')
 const audio = require('../../utils/audio')
 const flip = require('../../utils/flip')
 const share = require('../../utils/share')
@@ -53,7 +54,11 @@ Page({
     swipeDx: 0,
     swipeTransition: 'none',
     /** 还有没有"上一条"——决定右滑的手感，也是边界提示的依据 */
-    canPrev: false
+    canPrev: false,
+    /** 当前语言文案包 */
+    t: {},
+    headSub: '',
+    photoAlso: ''
   },
 
   onLoad() {
@@ -71,8 +76,24 @@ Page({
    * 这里只同步"总数/能不能往回翻"，纸上的内容不动（用户看见的仍是同一条）。
    */
   onShow() {
-    if (!this.data.item) return
-    this.setData({ total: flip.total(), canPrev: flip.canPrev() })
+    i18n.title('nav:review')
+    if (!this.data.item) {
+      this.setData({ t: i18n.pack('review') })
+      return
+    }
+    this.setData({
+      t: i18n.pack('review'),
+      total: flip.total(),
+      canPrev: flip.canPrev(),
+      headSub: this.headSub(flip.total()),
+      photoAlso: i18n.t('index:badge_photo', { n: this.data.photoCount })
+    })
+  },
+
+  /** 标题下那句：一条时说"就这一条"，多条时给总量 */
+  headSub(total) {
+    if (!total) return ''
+    return total > 1 ? i18n.t('review:head_multi', { n: total }) : i18n.t('review:head_one')
   },
 
   /** 离开页面就闭嘴：重温是"看一眼"，不该带着背景音走出这个页面 */
@@ -141,8 +162,15 @@ Page({
       empty: false,
       total: flip.total(),
       canPrev: flip.canPrev(),
+      headSub: this.headSub(flip.total()),
+      photoAlso: i18n.t('index:badge_photo', { n: photos.length }),
       timeText: date.fullTime(item.createdAt),
-      agoText: days <= 0 ? '今天刚记的' : days === 1 ? '昨天记的' : days + ' 天前记的',
+      agoText:
+        days <= 0
+          ? i18n.t('review:ago_today')
+          : days === 1
+          ? i18n.t('review:ago_yesterday')
+          : i18n.t('review:ago_days', { n: days }),
       starred: !!item.starred,
       photos: photos,
       photoCount: photos.length,
@@ -174,7 +202,7 @@ Page({
 
     const item = dir > 0 ? flip.next() : flip.prev()
     if (!item) {
-      this.toast(dir > 0 ? '就这一条，没别的了' : '已经是最早的一条了')
+      this.toast(dir > 0 ? i18n.t('review:toast_only_one') : i18n.t('review:toast_earliest'))
       this.setData({ canPrev: flip.canPrev() })
       this.release()
       return
@@ -301,7 +329,7 @@ Page({
       end: () => this.setData({ playingId: '', paused: false, progress: 0, curText: '0:00' }),
       error: () => {
         this.setData({ playingId: '', paused: false, progress: 0, curText: '0:00' })
-        this.toast('这段录音找不到了')
+        this.toast(i18n.t('common:not_found_voice'))
       }
     })
   },
@@ -336,7 +364,7 @@ Page({
     if (!item) return
     store.setStar(item.id, !item.starred)
     this.setData({ starred: !item.starred, 'item.starred': item.starred ? 0 : 1 })
-    this.toast(item.starred ? '从星标里拿下来了' : '加星了')
+    this.toast(item.starred ? i18n.t('index:toast_unstarred') : i18n.t('index:toast_starred'))
   },
 
   onOpen() {

@@ -6,6 +6,7 @@
  * 中枢把「有没有实例」这件事兜住——没有（比如 App 启动阶段 store.js 报错）就退回系统弹窗，
  * 保证任何调用点都不会因为 UI 没挂载而丢提示。
  */
+const i18n = require('./i18n')
 
 /** 页面栈里可能同时挂着多个实例（返回上一页时），后挂载的在最上面 */
 const stack = []
@@ -38,8 +39,8 @@ function fallback(o, done) {
     title: o.title || '',
     content: o.text || '',
     showCancel: o.showCancel !== false,
-    cancelText: o.cancelText || '算了',
-    confirmText: o.confirmText || '知道了',
+    cancelText: o.cancelText || i18n.t('dialog:cancel'),
+    confirmText: o.confirmText || i18n.t('common:got_it'),
     success: r => done({ confirmed: !!r.confirm, value: '' }),
     fail: () => done({ confirmed: false, value: '' })
   })
@@ -66,13 +67,16 @@ function show(raw) {
 
 /** 只有一个按钮，用于"知道了" */
 function alert(raw) {
-  const o = Object.assign({ showCancel: false, confirmText: '知道了' }, normalize(raw))
+  const o = Object.assign({ showCancel: false, confirmText: i18n.t('common:got_it') }, normalize(raw))
   return show(o)
 }
 
 /** 两个按钮，默认「算了 / 好」，危险操作把 danger 传 true */
 function confirm(raw) {
-  const o = Object.assign({ cancelText: '算了', confirmText: '好' }, normalize(raw))
+  const o = Object.assign(
+    { cancelText: i18n.t('dialog:cancel'), confirmText: i18n.t('dialog:ok') },
+    normalize(raw)
+  )
   return show(o)
 }
 

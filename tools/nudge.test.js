@@ -90,12 +90,13 @@ ok('没有页面再 require 它', !/utils\/remind/.test(homeJs) && !/utils\/remi
 /* ---------- 6. 关于小程序 ---------- */
 console.log('6) 关于：作者与联系方式')
 const meJs = read('pages/me/me.js')
-ok('标题是「关于小程序」', /title: '关于小程序'/.test(meJs))
+const i18nSrc = read('utils/i18n.js')
+ok('标题是「关于小程序」（文案在词典里）', /title: i18n\.t\('me:about_title'\)/.test(meJs) && /'me:about_title': '关于小程序'/.test(i18nSrc))
 ok('写明了作者 zhouguoxiang', /const AUTHOR = 'zhouguoxiang'/.test(meJs))
 ok('写明了微信号', /const WECHAT = '不卷的迭代老爸'/.test(meJs))
 ok('写明了联系邮箱', /const EMAIL = '77111904@qq\.com'/.test(meJs))
-ok('「关于」不再是一句"知道了"的死弹窗：第二个按钮是复制', /confirmText: '复制联系方式'/.test(meJs) && /setClipboardData/.test(meJs))
-ok('复制的内容就是弹窗里那三行（同一份常量，不会改漏）', /const CONTACT = '作者：' \+ AUTHOR/.test(meJs), meJs.match(/const CONTACT[^\n]*/))
+ok('「关于」不再是一句"知道了"的死弹窗：第二个按钮是复制', /confirmText: i18n\.t\('me:about_confirm'\)/.test(meJs) && /'me:about_confirm': '复制联系方式'/.test(i18nSrc) && /setClipboardData/.test(meJs))
+ok('复制的内容就是弹窗里那三行（同一个取值函数，不会改漏）', /function contactText\(\)/.test(meJs) && /'me:about_author': '作者：\{v\}'/.test(i18nSrc) && /data: contactText\(\)/.test(meJs))
 
 console.log('\n结果: ' + pass + ' passed, ' + fail + ' failed')
 process.exit(fail ? 1 : 0)

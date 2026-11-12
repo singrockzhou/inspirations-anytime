@@ -1,5 +1,6 @@
 const store = require('../../utils/store')
 const date = require('../../utils/date')
+const i18n = require('../../utils/i18n')
 
 Page({
   data: {
@@ -8,16 +9,28 @@ Page({
     searched: false,
     tags: [],
     focus: true,
-    emptyText: '搜正文，也搜 #标签',
-    emptySub: '比如「播客」，或者直接点下面一个标签'
+    t: {},
+    emptyText: '',
+    emptySub: ''
   },
 
   onLoad(query) {
+    this.applyLang()
     this.setData({ tags: store.tags().slice(0, 10) })
     if (query && query.tag) {
       this.setData({ keyword: query.tag })
       this.run(query.tag)
     }
+  },
+
+  /** 文案包：wxml 里用 {{t.xxx}}；搜索页每次进入都重建，随 reLaunch 一起换语言 */
+  applyLang() {
+    i18n.title('nav:search')
+    this.setData({
+      t: i18n.pack('search'),
+      emptyText: i18n.t('search:ph'),
+      emptySub: i18n.t('search:empty_sub')
+    })
   },
 
   onInput(e) {
@@ -55,12 +68,22 @@ Page({
       const seg = r._seg || { before: '', mid: '', after: '' }
       return Object.assign(r, {
         _time: date.relative(r.createdAt),
-        _type: r.type === 'voice' ? '语音 ' + (r.duration || 0) + '″' : r.type === 'photo' ? '照片' : '文字',
+        _type:
+          r.type === 'voice'
+            ? i18n.t('index:badge_voice', { n: r.duration || 0 })
+            : r.type === 'photo'
+            ? i18n.t('index:badge_photo_one')
+            : i18n.t('index:badge_text'),
         _hit: !!seg.mid
       })
     })
 
-    this.setData({ results: rows, searched: true })
+    this.setData({
+      results: rows,
+      searched: true,
+      countText: i18n.t('search:count', { n: rows.length }),
+      notFoundText: i18n.t('search:not_found', { kw: kw })
+    })
   },
 
   onOpen(e) {

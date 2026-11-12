@@ -31,17 +31,32 @@
     │   ├── media.js             【媒体层】选图/压缩/落盘到 USER_DATA_PATH、语音落盘、文件删除
     │   ├── audio.js             【播放器】全局单例 InnerAudioContext，保证同时只有一条在响
     │   ├── date.js              【时间】相对时间、自然日分组标题、录音计时、完整时间
-    │   └── id.js                【ID】时间戳 base36 + 随机串
+    │   ├── id.js                【ID】时间戳 base36 + 随机串
+    │   ├── i18n.js              【双语】中英文词典 + 语言判定 + pack()/table() 两种取词方式
+    │   ├── transfer.js          【导出/导入】json 备份、Markdown 摘录、媒体打包与还原
+    │   ├── share.js             【转发】卡片正文截断与拼装
+    │   ├── poster.js            【长图】canvas 排版与绘制（含量高、暗色适配）
+    │   ├── flip.js              【翻页】详情/重温共用的"上一条/下一条"取数
+    │   ├── nudge.js             【提醒】打开即提醒的"该不该提、提什么"（纯函数）
+    │   ├── backup.js            【备份】备份提醒的"该不该提、提什么"（纯函数）
+    │   ├── dialog.js            【对话框】命令式 alert/confirm，统一走 components/dialog
+    │   └── asr.js               【转写】同声传译插件能力的探测与降级说明
     │
     ├── components/
     │   ├── card/                【灵感卡】类型角标 + 相对时间 + 正文折叠 + 语音波形 + 照片缩略
-    │   └── action-sheet/        【底部面板】仅用于卡片长按菜单（改/复制/删）
+    │   ├── photo-grid/          【缩略图】单图裁切/原比例，多图 2/3 列九宫格
+    │   ├── action-sheet/        【底部面板】卡片长按菜单、收集入口共用
+    │   ├── dialog/              【对话框】统一视觉与五态，异步确认自动进 loading
+    │   └── swipe-cell/          【左滑】包一层即可露出删除按钮
     │
     └── pages/
         ├── index/               卡片流首页：吸顶伪输入条、按日分组、分页加载、长按菜单、撤销条
         ├── record/              记录面板：写一句 / 说一段 / 拍一张，新建与编辑共用同一页面
         ├── detail/              单条详情：完整正文、播放、大图、改一改 / 复制 / 删了
-        └── me/                  我的：累计条数、开始记录日期、类型分布、本机占用、清空
+        ├── review/              重温：随机抽一条旧的，左右滑翻
+        ├── search/              搜索：正文与 #标签，命中片段高亮
+        ├── poster/              长图：把一条排成一张图，存相册或发给朋友
+        └── me/                  我的：统计、备份/导入、存储占用、语言切换、关于
 ```
 
 职责边界只有一条硬规则：**页面不直接调 `wx.getStorageSync`**，所有读写都过 `utils/store.js`。以后要换成云数据库，只改这一个文件。
@@ -1481,4 +1496,168 @@ node tools/flip.test.js    → 49 passed
 node tools/dialog.test.js  → 27 passed
 node tools/media.test.js   → 31 passed
 node tools/design-lint.js  → ✓ 通过
+```
+
+---
+
+## 二十二、中英文双语（v1.8.0）
+
+### 22.1 要回答的三个问题
+
+双语本身不难，难的是三件事说清楚，否则做出来会是"有的地方换了、有的地方没换"：
+
+| 问题 | 这一版的答案 |
+| --- | --- |
+| 哪些文案要进词典 | 所有**出现在屏幕上**的字：标题、按钮、占位符、空状态、弹窗、toast、日期与分组标题、导出文件里的正文。不进词典的只有三类：品牌名（灵感随时记、公众号名）、语言自称（中文 / English）、代码里的日志 |
+| 切完怎么生效 | 写盘 + `wx.reLaunch`。不逐页 `setData`：日期、统计、"已录 N″"这类句子是在 js 里拼的，逐页刷必然漏一处 |
+| 系统语言不支持时 | 回退中文。理由见 22.2 |
+
+### 22.2 语言怎么定：三级优先，只认两种结果
+
+```
+用户选过（lg.lang.v1）   →  用用户选的
+没选过 → 系统语言 en*    →  英文
+没选过 → 其它任何语言    →  中文
+```
+
+系统语言的取法与归一：
+
+| `wx.getAppBaseInfo().language` | 结果 | 说明 |
+| --- | --- | --- |
+| `zh_CN` / `zh_TW` / `zh-Hans` | zh | 只要是 `zh` 开头都算中文，不区分简繁 |
+| `en` / `en_US` / `en-GB` | en | 只要是 `en` 开头都算英文 |
+| `ja` / `ko` / `ru_RU` / 空 | zh | **回退中文** |
+
+为什么回退中文而不是英文：这个工具里存的**内容**——用户自己写的那些句子——绝大多数是中文。
+界面回退到内容的语言，用户在"看不懂界面"和"看不懂自己的记录"之间至少少一层隔阂；
+反过来回退英文，会出现"满屏英文按钮 + 满屏中文卡片"的分裂感。
+
+> 判断顺序也有讲究：先 `getAppBaseInfo()`，它在新版基础库上不触发废弃警告；
+> 拿不到再退 `getSystemInfoSync()`；两者都没有（Node 里 require、构建脚本）时返回 `zh`，
+> 保证这个模块可以被测试和工具直接加载。
+
+### 22.3 为什么切换用 reLaunch，以及它带来的三个坑
+
+`wx.reLaunch` 会重建页面栈，所有页面重新 `onLoad`。但它**不会重新执行 js 模块**——
+`utils/*.js` 在 app 生命周期里只执行一次。于是三种写法会在切换语言后"卡在旧语言"：
+
+| 坑 | 症状 | 这一版怎么解 |
+| --- | --- | --- |
+| 模块级常量 | `const TYPE_LABEL = { text: '文字' }` 永远是中文 | 改成函数：`typeLabel(type)`，每次调用现取 |
+| 页面 `data` 里的文案 | 初次渲染前的空档（如空态文案）会漏 | `data` 里留空串，一律由 `applyLang()` 塞 `i18n.pack('页面')` |
+| 错误码表 | `const ERR = { nofile: '没选到文件。' }` 同上 | 改成 getter 表 `i18n.table('me', [...], 'err')`，读 `ERR[code]` 的写法完全不变 |
+
+`table()` 的第三个参数是"短码前面那一节"：`('index', ['nofile'], 'err')` → `index:err_nofile`，
+`('index', ['type','read','save'], 'skip')` → `index:skip_type`。不给就是 `前缀:短码`。
+
+### 22.4 词典长什么样
+
+一个文件、两份字典（`ZH_DICT` / `EN_DICT`），键名统一 `命名空间:键`：
+
+| 命名空间 | 覆盖 | 例子 |
+| --- | --- | --- |
+| `common` | 通用词 | `common:ok` 好 / OK |
+| `date` | 星期、相对时间、分组标题 | `date:month_day` `{m}月{d}日` / `{m}/{d}` |
+| `nudge` / `backup` | 两条横幅的正文与动作 | `nudge:keep` `连续 {n} 天了…` |
+| `me` / `index` / `record` / `detail` / `review` / `search` / `poster` | 各页文案 | `record:voice_recorded` `已录 {n}″ · 点这里听` |
+| `card` | 组件内文案 | `card:listen` 点一下听听 |
+| `media` / `store` / `dialog` / `asr` / `share` / `transfer` | 数据层与传输层 | `store:full_title` `满 {n} 条了` |
+
+三种取词方式，各管一处：
+
+| 方式 | 用在哪 | 写法 |
+| --- | --- | --- |
+| `i18n.t(key, params)` | js 里拼句子 | `i18n.t('date:min_ago', { n: 5 })` |
+| `i18n.pack('页面')` | wxml 里的静态文案 | `data.t = i18n.pack('me')` → `{{t.row_backup}}` |
+| `i18n.table(前缀, 短码, kind)` | 错误码表（要保留 `ERR[code]` 写法） | `IMPORT_ERR[err.code]` |
+
+`pack()` 以中文词典的键为全集，保证两种语言的字段集合一致——英文漏了一个键，wxml 里会显示空白而不是崩溃，
+但这种"看起来正常"的错误最难发现，所以有测试专门盯它（见 22.6）。
+
+### 22.5 改了哪些文件
+
+```
+新增  miniprogram/utils/i18n.js          词典 + lang()/systemLang()/setLang()/t()/pack()/table()
+新增  tools/i18n.test.js                 41 条静态断言（见 22.6）
+
+改    pages/me/me.js + me.wxml           新增「语言」分区与切换面板；全部文案迁走
+改    pages/index/index.js + wxml        首页全部文案，含长按菜单、多选、导出、分享
+改    pages/record/record.js + wxml      记录页，含录音状态句、照片计数
+改    pages/detail/detail.js + wxml      详情页，含「记于 / 改于」时间行
+改    pages/review/review.js + wxml      重温页，含"几天前记的"与翻页提示
+改    pages/search/search.js + wxml      搜索页，含条数与"没找到「x」"
+改    pages/poster/poster.js + wxml      长图页，含按钮与权限弹窗
+改    components/card|photo-grid|action-sheet|swipe-cell|dialog   组件内文案随组件重建
+改    utils/date|nudge|backup|transfer|store|media|dialog|poster|asr|share   模块级常量改成函数/表
+改    tools/design-lint.js               新增第 7 条规则：界面文案不许绕过 i18n
+改    tools/backup.test.js|nudge.test.js 三处断言从"查页面里的中文"改成"查页面引用键 + 词典有这句话"
+```
+
+### 22.6 两条守卫，防止以后悄悄退化
+
+**一、`tools/i18n.test.js`（41 条）** 不看界面，只查静态一致性：
+
+| 组 | 钉住什么 |
+| --- | --- |
+| 1 | 中英键集合完全相同；没有"只有中文"的键 |
+| 2 | 同一个键的 `{n}` / `{m}` 占位符两边数量一致（写丢一个，数字就凭空消失） |
+| 3 | 英文值里不许有汉字（白名单：品牌名、语言自称、导出文件名） |
+| 4–5 | 空值、占位符替换 |
+| 6 | 系统语言 10 种分支（`zh_TW` / `en_US` / `ja` / `ko` / 空 …） |
+| 7 | 用户选择优先且持久化；非法值回退 |
+| 8 | `pack()` 只给自己那一份，且不含别的命名空间 |
+| 9 | 没有 `wx` 时安全降级（构建脚本要 require 它） |
+| 10 | **引用即存在**：代码里 `i18n.t('x')` 和 `i18n.table(ns, [...], kind)` 用到的键必须都在词典里 |
+| 11 | wxml 里的 `{{t.xxx}}` 与 `pack('页面')` 对得上（对不上不报错，只会渲染成空白） |
+
+第 10 组是这一版现抓出来的：`table()` 最初拼的是 `index:unsupported`，而词典里叫 `index:err_unsupported`，
+`t()` 取不到就把键名原样返回——界面上会直接显示 `index:unsupported`。断言加上之后这类错跑一次就露。
+
+**二、`tools/design-lint.js` 第 7 条**：wxml 里出现中文字面量、js 里出现中文文案字面量，构建即失败。
+逐行判断而不是整份解析——中文注释里常有英文引号，整份解析会被一个没配平的引号带到文件末尾。
+白名单只有 5 条，每条都写了理由（品牌名、语言自称、导出文件名、`data` 初值）。
+
+### 22.7 边界情况
+
+| 情况 | 结果 |
+| --- | --- |
+| 写在系统设置里切换语言后再打开小程序 | 用户没在「我的」里选过 → 跟随新的系统语言 |
+| 在「我的」里选过中文，系统是英文 | 用中文（用户选择压过系统） |
+| 选了当前已经在用的语言 | 不写盘、不 reLaunch（省一次白屏） |
+| 写盘失败（存储满） | 本次会话仍是新语言，重启后回到旧语言——宁可丢选择，不让页面切一半 |
+| 英文值缺键 | 回退中文，而不是显示键名（能看懂一半总比看乱码好） |
+| 1234 / 3.2 MB / `#标签` / 时间 12:30 | 不进词典，纯数字与专名不受语言影响 |
+| 语音时长、照片张数这类带数字的句子 | 全部走 `{n}` 占位，不在 js 里手拼字符串 |
+| 组件（卡片、对话框、面板） | 组件随页面重建，`attached()` 里取一次词即可；卡片角标因随 `item` 变化，改成每次渲染现取 |
+| 长按菜单、`wx.showActionSheet` 的选项 | 每次打开时现取，不缓存 |
+| 录音计时器每秒 `setData` | 派生文案只在 `duration` / `photos` 变化时重算，不给每秒一次的刷新加负担 |
+
+### 22.8 验证场景
+
+1. 手机系统是英文 → 首次打开 → 界面全英文（日期变 `{m}/{d}`、相对时间变 `5 min ago`）；
+2. 我的 → 语言 → 选「中文」→ 立刻整站中文，返回首页、进详情、录音页都是中文；
+3. 杀掉小程序重开 → 仍是中文（用户选择落盘在 `lg.lang.v1`）；
+4. 系统是日文 → 首次打开 → 中文（回退生效，不是空白也不是英文）；
+5. 英文界面下：首页长按卡片 → 菜单全英文；多选 → 「2 selected / Copy / Export / Delete」；
+6. 英文界面下：记录页录音 → `Hold to talk` / `Release to save`；录完 → `8″ recorded · tap to listen`；
+7. 英文界面下：导出完成弹窗里的文件名仍是 `灵感随时记-…`（品牌一致），正文是英文；
+8. 英文界面下：搜索无结果 → `Nothing for "xxx"`；
+9. 中文注释、中文日志（`console.warn('[store] …')`）继续保留中文，它们是给维护者看的，不是界面。
+
+### 22.9 验证命令
+
+```
+node tools/i18n.test.js    → 41 passed
+node tools/design-lint.js  → ✓ 通过（含第 7 条 i18n 守卫）
+node tools/flow.test.js    → 54 passed
+node tools/shards.test.js  → 46 passed
+node tools/backup.test.js  → 40 passed
+node tools/nudge.test.js   → 33 passed
+node tools/collect.test.js → 41 passed
+node tools/flip.test.js    → 49 passed
+node tools/dialog.test.js  → 27 passed
+node tools/media.test.js   → 31 passed
+node tools/image.test.js   → 18 passed
+node tools/layout.test.js  → 19 passed
+node tools/sniff.test.js   → 19 passed
 ```
