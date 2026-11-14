@@ -1,6 +1,8 @@
 .page {
   min-height: 100vh;
-  padding-bottom: calc(160rpx + env(safe-area-inset-bottom));
+  /* 底部固定区：16 + 84(tab) + 16 + 96(主按钮) + 16 = 228rpx，另留 44rpx 呼吸。
+     安全区两边都算，留白才不会被 iPhone X 的 68rpx 吃掉 */
+  padding-bottom: calc(272rpx + env(safe-area-inset-bottom));
   background: var(--bg, #fbf8f3);
 }
 
@@ -12,12 +14,14 @@
   background: var(--bg, #fbf8f3);
 }
 
+/* 右侧不再放东西，标题才能真正居中（靠 space-between 假装居中会偏左） */
 .nav-bar {
+  position: relative;
   height: 88rpx;
   padding: 0 24rpx;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
 }
 
 .nav-title {
@@ -25,26 +29,21 @@
   color: var(--ink-2, #8b8178);
 }
 
+/* 绝对定位在左侧：既留出 88rpx 的可点高度，又不参与标题居中 */
 .nav-side {
+  position: absolute;
+  left: 0;
+  top: 0;
   min-width: 120rpx;
-  height: 72rpx;
-  line-height: 72rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  padding: 0 24rpx;
   font-size: 30rpx;
   color: var(--ink-2, #8b8178);
 }
 
 .nav-side:active {
   opacity: 0.6;
-}
-
-.nav-save {
-  text-align: right;
-  color: #c9bdae;
-}
-
-.nav-save.on {
-  color: var(--accent, #c4713f);
-  font-weight: 500;
 }
 
 /* 内容区 */
@@ -206,18 +205,22 @@
   color: var(--warn, #b5673f);
 }
 
-/* 底部类型条 */
+/* 底部固定区：形态切换 + 保存主按钮。
+   这里不再是"一条"，所以改成块级：tab 一行，按钮一行 */
 .tools {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 20;
-  display: flex;
-  align-items: center;
   padding: 16rpx 32rpx calc(16rpx + env(safe-area-inset-bottom));
   background: var(--bg, #fbf8f3);
   border-top: 1rpx solid var(--line, #f0e7da);
+}
+
+.tool-row {
+  display: flex;
+  align-items: center;
 }
 
 .tool {
@@ -238,9 +241,47 @@
   color: #fff;
 }
 
+/* 主按钮：48px 高、近整宽，拇指自然落点；也是全页唯一的保存出口。
+   透明描边占位，两种态的高度与位置完全一致，切换时不跳动 */
+.cta {
+  height: 96rpx;
+  margin: 16rpx 8rpx 0;
+  border: 1rpx solid transparent;
+  border-radius: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
+  font-weight: 500;
+  letter-spacing: 1rpx;
+}
+
+/* 有内容可存：实心主色 */
+.cta.ready {
+  background: var(--accent, #c4713f);
+  color: #fff;
+}
+
+/* 还差一步：不置灰成"死按钮"，米底深橙（5.2:1）+ 一道浅橙描边，
+   形状上仍是按钮而不是第四个 tab，点了会说缺什么 */
+.cta.soft {
+  background: var(--beige, #f7f1e7);
+  color: var(--accent-deep, #8f5730);
+  border-color: var(--accent-light, #e0a472);
+}
+
+.cta:active {
+  opacity: 0.82;
+}
+
 /* 空间满了：语音/拍照两个入口置灰，点了会提示"只能记文字" */
 .tool.off {
   opacity: 0.45;
+}
+
+/* 提示条要抬到底部固定区之上，否则会压住主按钮（底部从 58px 长到 114px） */
+.toast {
+  bottom: calc(260rpx + env(safe-area-inset-bottom));
 }
 
 /* ================= 本机空间提示 ================= */

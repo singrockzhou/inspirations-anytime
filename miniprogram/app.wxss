@@ -7,6 +7,9 @@ page {
   --paper: #FFFFFF;
   --accent: #C4713F;
   --accent-light: #E0A472;
+  /* 浅底上的深橙字：主色压到米色底上对比度只有 3.2:1，
+     这个深一档的橙色能到 5.2:1，用于"还差一步才能按"的软态按钮 */
+  --accent-deep: #8F5730;
   --beige: #F7F1E7;
   --ink: #2C2723;
   --ink-2: #8B8178;

@@ -1,11 +1,11 @@
 <view class="page">
 
-  <!-- 自定义导航：取消 / 标题 / 存下，避开系统导航在深色键盘下的割裂感 -->
+  <!-- 自定义导航：只留「取消 / 标题」。右侧整条让给微信胶囊（那是原生控件，
+       页面里 z-index 压不过它），保存入口因此挪到底部主按钮，见 .tools -->
   <view class="nav" style="padding-top: {{statusBarHeight}}px">
     <view class="nav-bar">
       <view class="nav-side" catchtap="onCancel">{{t.nav_cancel}}</view>
       <view class="nav-title">{{mode === 'edit' ? t.nav_edit : t.nav_new}}</view>
-      <view class="nav-side nav-save {{canSave ? 'on' : ''}}" catchtap="onSave">{{t.nav_save}}</view>
     </view>
   </view>
 
@@ -25,7 +25,7 @@
         auto-height
         focus="{{focus}}"
         show-confirm-bar="{{false}}"
-        cursor-spacing="140"
+        cursor-spacing="160"
         bindinput="onInput"
       />
       <view class="counter">{{content.length}} / {{maxText}}</view>
@@ -69,7 +69,7 @@
         placeholder-class="ta-ph"
         auto-height
         show-confirm-bar="{{false}}"
-        cursor-spacing="140"
+        cursor-spacing="160"
         bindinput="onInput"
       />
     </block>
@@ -109,18 +109,22 @@
         placeholder-class="ta-ph"
         auto-height
         show-confirm-bar="{{false}}"
-        cursor-spacing="140"
+        cursor-spacing="160"
         bindinput="onInput"
       />
     </block>
 
   </view>
 
-  <!-- 底部类型切换：一条记录只存一种形态 -->
+  <!-- 底部：先选形态，再存。主按钮始终可点——空着按下去会说差什么，
+       比一个灰掉的死按钮更少让人卡住（灰字在米色底上只有 1.8:1，几乎看不见） -->
   <view class="tools">
-    <view class="tool {{type === 'text' ? 'on' : ''}}" data-type="text" catchtap="onTab">{{t.tab_text}}</view>
-    <view class="tool {{type === 'voice' ? 'on' : ''}} {{spaceFull ? 'off' : ''}}" data-type="voice" catchtap="onTab">{{t.tab_voice}}</view>
-    <view class="tool {{type === 'photo' ? 'on' : ''}} {{spaceFull ? 'off' : ''}}" data-type="photo" catchtap="onTab">{{t.tab_photo}}</view>
+    <view class="tool-row">
+      <view class="tool {{type === 'text' ? 'on' : ''}}" data-type="text" catchtap="onTab">{{t.tab_text}}</view>
+      <view class="tool {{type === 'voice' ? 'on' : ''}} {{spaceFull ? 'off' : ''}}" data-type="voice" catchtap="onTab">{{t.tab_voice}}</view>
+      <view class="tool {{type === 'photo' ? 'on' : ''}} {{spaceFull ? 'off' : ''}}" data-type="photo" catchtap="onTab">{{t.tab_photo}}</view>
+    </view>
+    <view class="cta {{canSave ? 'ready' : 'soft'}}" catchtap="onSave">{{mode === 'edit' ? t.save_cta_edit : t.save_cta}}</view>
   </view>
 
   <view class="toast" wx:if="{{toastText}}">{{toastText}}</view>

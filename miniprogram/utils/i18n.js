@@ -480,7 +480,11 @@ const ZH_DICT = {
   'record:nav_cancel': '取消',
   'record:nav_new': '记一条',
   'record:nav_edit': '改一改',
-  'record:nav_save': '存下',
+  /* 保存入口在底部主按钮上（顶部右侧已让给胶囊）。两句话分新建与编辑：
+     新建对着标题「记一条」说「存下这条」，编辑对着「改一改」说「存下改动」，
+     不然在编辑态说"存下这条"会让人以为要再存一条新的。 */
+  'record:save_cta': '存下这条',
+  'record:save_cta_edit': '存下改动',
   'record:ph_text': '想到什么，就说一句…',
   'record:tip_tag': '正文里写 #标签，会在这个标签下自动归好',
   'record:rec_hold': '按住说话',
@@ -958,7 +962,9 @@ const EN_DICT = {
   'record:nav_cancel': 'Cancel',
   'record:nav_new': 'New',
   'record:nav_edit': 'Edit',
-  'record:nav_save': 'Save',
+  /* Same split as Chinese: creating vs editing. */
+  'record:save_cta': 'Save this',
+  'record:save_cta_edit': 'Save changes',
   'record:ph_text': "Say what's on your mind…",
   'record:tip_tag': 'Add #tags inline and it files itself',
   'record:rec_hold': 'Hold to talk',
