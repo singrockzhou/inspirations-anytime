@@ -211,7 +211,15 @@ console.log('6) 文档与版本号')
 
   const me = read('pages/me/me.js')
   const v = (me.match(/version:\s*'([\d.]+)'/) || [])[1]
-  ok('版本号已升到 1.8.2', v === '1.8.2', v)
+  ok('版本号是合法 semver', /^\d+\.\d+\.\d+$/.test(v || ''), v)
+  // 写成"≥"而不是写死某个号：否则每发一版都要回来改这条断言
+  const cmp = (a, b) => {
+    const pa = String(a).split('.').map(Number)
+    const pb = String(b).split('.').map(Number)
+    for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) - (pb[i] || 0)
+    return 0
+  }
+  ok('版本号已升到 1.8.2 以上（保存入口改版之后）', cmp(v, '1.8.2') >= 0, v)
   ok('页脚关于里的版本号取的是同一处 data', /about_version/.test(me))
 }
 

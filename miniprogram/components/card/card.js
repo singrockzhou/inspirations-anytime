@@ -1,75 +1,33 @@
 const date = require('../../utils/date')
 const i18n = require('../../utils/i18n')
+const stack = require('../../utils/stack')
 
 /**
  * 多图错落堆叠的版式
- * 单位统一 rpx：卡片内容区宽约 624rpx，照片框 350×270rpx，
- * 容器高度在 wxss 里写死 450rpx —— 图片加载与否都不改变盒子尺寸，所以不会跳动。
- * 所有尺寸走 rpx，屏幕变宽/换设备时整组等比缩放，桌面端和手机端表现一致。
+ * 坐标、抖动、层高都放在 utils/stack.js：首页卡片和「做成图」长图共用一份数字，
+ * 两边分头维护迟早会出现"手机上歪 3 度、图里歪 5 度"这种说不清的偏差。
+ * 这里只负责把版式拼成 CSS，rpx 单位原样输出。
  */
-const FRAME_W = 330
-const FRAME_H = 254
-const MAX_FRAMES = 4
-
-/** 基础错落位（x 偏移 / y 偏移 / 旋转角度 / 层级） */
-const LAYOUTS = {
-  2: [
-    { x: 16, y: 26, r: -6, z: 1 },
-    { x: 250, y: 140, r: 4.5, z: 2 }
-  ],
-  3: [
-    { x: 12, y: 46, r: -7.5, z: 1 },
-    { x: 268, y: 4, r: 4, z: 2 },
-    { x: 112, y: 186, r: -2, z: 3 }
-  ],
-  4: [
-    { x: 2, y: 20, r: -9, z: 1 },
-    { x: 268, y: 0, r: 6, z: 2 },
-    { x: 36, y: 188, r: 5, z: 3 },
-    { x: 250, y: 160, r: -4, z: 4 }
-  ]
-}
-
-/** 字符串散列：同一张卡片每次渲染拿到同一组抖动值，换设备也不变 */
-function hash(str) {
-  let h = 2166136261
-  const s = String(str || '')
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return Math.abs(h)
-}
-
 function buildStack(item, paths) {
-  const list = paths.slice(0, MAX_FRAMES)
-  const base = LAYOUTS[list.length] || LAYOUTS[4]
-  const seed = hash(item.id || item.createdAt || '')
-  let bottom = 0
+  const list = paths.slice(0, stack.MAX_FRAMES)
+  const p = stack.plan(item.id || item.createdAt || '', list.length)
+
   const frames = list.map((src, i) => {
-    const p = base[i]
-    // 每张照片再用 id 散列做 ±5rpx、±1.2° 的轻微抖动：同一卡片稳定，不同卡片不雷同
-    const jx = ((seed >>> (i * 3)) % 11) - 5
-    const jy = ((seed >>> (i * 5 + 2)) % 13) - 6
-    const jr = (((seed >>> (i * 4 + 1)) % 25) - 12) / 10
-    const rot = p.r + jr
-    // 旋转会让包围盒高出一点，按角度补余量，避免压到下面的正文
-    const over = Math.abs(Math.sin((rot * Math.PI) / 180)) * FRAME_W * 0.5
-    bottom = Math.max(bottom, p.y + jy + FRAME_H + over)
+    const f = p.frames[i]
     return {
       src,
       idx: i,
       style:
-        'left:' + (p.x + jx) + 'rpx;' +
-        'top:' + (p.y + jy) + 'rpx;' +
-        'width:' + FRAME_W + 'rpx;' +
-        'height:' + FRAME_H + 'rpx;' +
-        'z-index:' + p.z + ';' +
-        'transform:rotate(' + rot.toFixed(1) + 'deg);'
+        'left:' + f.x + 'rpx;' +
+        'top:' + f.y + 'rpx;' +
+        'width:' + stack.FRAME_W + 'rpx;' +
+        'height:' + stack.FRAME_H + 'rpx;' +
+        'z-index:' + f.z + ';' +
+        'transform:rotate(' + f.r.toFixed(1) + 'deg);'
     }
   })
-  // 容器高度按实际最底边收口：2/3/4 张的下方留白一样多，卡片节奏才整齐
-  return { frames, height: Math.ceil(bottom + 8) }
+
+  return { frames, height: p.height }
 }
 
 /** 类型角标文案，长度和内容都在这里算好，WXML 里只做渲染 */
