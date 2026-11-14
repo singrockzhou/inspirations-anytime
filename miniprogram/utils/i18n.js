@@ -280,7 +280,7 @@ const ZH_DICT = {
   'me:row_media': '图片与录音',
   'me:row_media_sub': '本机文件，单独计配额',
   'me:sec_lang': '语言',
-  'me:row_lang': '语言 / Language',
+  'me:row_lang': '语言',
   'me:row_lang_sub': '切换后立即生效',
   'me:note':
     '记录只存在这台手机上，不上传、不联网。删掉小程序、清理微信存储或换手机，本机记录会一起被清掉，且无法找回。\n所以换手机前先用「导出到文件」带走，到新手机上导入即可。\n导入只做新增，同一条记录不会重复，也不会覆盖新手机上刚记的内容。',
@@ -643,6 +643,8 @@ const ZH_DICT = {
   'transfer:md_audio': '> 附一段录音',
   'transfer:md_images': '> 附 {n} 张图片',
   'transfer:md_prefix': '灵感摘录-',
+  /** 备份文件名前缀。和 md_prefix 分开，是因为一个是"摘录"、一个是"整包备份" */
+  'transfer:json_prefix': '灵感随时记-',
   'transfer:from_file': '来自「{name}」',
   'media:not_supported': '当前环境不支持选图',
   'media:no_image': '没有拿到图片',
@@ -764,7 +766,7 @@ const EN_DICT = {
   'me:row_media': 'Photos and audio',
   'me:row_media_sub': 'Local files, separate quota',
   'me:sec_lang': 'Language',
-  'me:row_lang': '语言 / Language',
+  'me:row_lang': 'Language',
   'me:row_lang_sub': 'Takes effect right away',
   'me:note':
     'Everything stays on this phone. Nothing is uploaded, nothing needs a network.\nDeleting the mini program, clearing WeChat storage or switching phones erases it all, with no way back.\nSo before switching phones, use "Export to file" and import it on the new one. Import only adds — it never overwrites what is already there.',
@@ -1123,6 +1125,7 @@ const EN_DICT = {
   'transfer:md_audio': '> with a recording',
   'transfer:md_images': '> with {n} images',
   'transfer:md_prefix': 'ideas-',
+  'transfer:json_prefix': 'inspirations-',
   'transfer:from_file': 'From "{name}"',
   'media:not_supported': 'Image picking is not supported here',
   'media:no_image': 'No image returned',

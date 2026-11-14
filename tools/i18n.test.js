@@ -139,19 +139,30 @@ console.log('3) 漏译检查：英文值里不能出现汉字')
   mod.setLang('en')
   const en = mod.pack('')
   const leaked = Object.keys(en).filter(k => /[\u4e00-\u9fa5]/.test(en[k]))
-  // 品牌名「灵感随时记」在英文界面里保留中文（小程序名称就是它），
-  // 「语言 / Language」这一行刻意双语并排，让人一眼知道按哪个。
+  // 品牌名「灵感随时记」在英文界面里保留中文（小程序名称就是它）。
   // pack('') 返回的是带命名空间的完整键，所以这里也要写全名
   const allowed = [
-    'me:row_lang',
     'me:about_version',
     'me:err_format',
     'transfer:md_title',
     'share:title'
   ]
   const real = leaked.filter(k => allowed.indexOf(k) < 0)
-  ok('除品牌名与语言行外，没有英文值含汉字', real.length === 0, real.slice(0, 8))
+  ok('除品牌名外，没有英文值含汉字', real.length === 0, real.slice(0, 8))
   ok('诊断用：允许清单里的键确实是那些', leaked.every(k => allowed.indexOf(k) >= 0), leaked)
+
+  // 语言设置这一行曾经写的是「语言 / Language」——两种语言并排放在切换开关上，
+  // 中文用户看到英文、英文用户看到中文，是全站唯一一处"同一行两种语言"。
+  // 现在两侧各自纯语种，当前值交给右侧的 langName 显示。
+  const zhMod = fresh()
+  zhMod.setLang('zh')
+  const zh = zhMod.pack('')
+  ok('语言行·中文侧没有英文字母', !/[A-Za-z]/.test(zh['me:row_lang']), zh['me:row_lang'])
+  ok('语言行·英文侧没有汉字', !/[\u4e00-\u9fa5]/.test(en['me:row_lang']), en['me:row_lang'])
+  ok('语言行两侧不再是同一个值', zh['me:row_lang'] !== en['me:row_lang'], {
+    zh: zh['me:row_lang'],
+    en: en['me:row_lang']
+  })
 }
 
 /* ================= 4. 空值与键名回退 ================= */

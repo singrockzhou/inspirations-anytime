@@ -25,8 +25,14 @@ Component({
     closing: false,
     title: '',
     text: '',
-    cancelText: '算了',
-    confirmText: '好',
+    /**
+     * 留空而不是写死「算了 / 好」。
+     * 这两个值在 open() 里一定会被 i18n.t() 覆盖，写死的中文永远显示不出来，
+     * 但它是一个模块级中文常量——哪天有人不经过 open() 直接改 data，
+     * 或者加一处 showCancel 的旁路，英文界面就会冒出中文按钮。
+     */
+    cancelText: '',
+    confirmText: '',
     showCancel: true,
     danger: false,
     maskClosable: false,

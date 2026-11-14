@@ -243,7 +243,9 @@ function exportBackup() {
       return
     }
 
-    const fileName = '灵感随时记-' + stamp() + '.json'
+    // 文件名也按语言走：英文界面导出的备份叫 灵感随时记-xxx.json，
+    // 用户在文件传输助手里翻半天认不出来，这条通路就白走了
+    const fileName = i18n.t('transfer:json_prefix') + stamp() + '.json'
     const filePath = USER_DIR + '/' + fileName
     try {
       fs().writeFileSync(filePath, text, 'utf8')

@@ -11,9 +11,14 @@
 const date = require('./date')
 const i18n = require('./i18n')
 
-/** 导出给页面兜底用；真正渲染时以 of() 返回的当前语言文案为准 */
-const LABEL = i18n.t('nudge:label')
-const TIP = i18n.t('nudge:tip')
+/**
+ * 这里原来有 LABEL / TIP 两个模块级常量（i18n.t 的结果）。
+ *
+ * 已删除：模块只执行一次，切语言走的是 wx.reLaunch，模块不重跑，
+ * 这两个常量会永远停在启动时那种语言上。它们当时没人引用，所以界面看不出来，
+ * 但导出着就是在等某天有人写 nudge.LABEL ——那会变成一处查不出来的混排。
+ * 文案只从 of() 里现取，那里每次调用都是当下语言。
+ */
 
 /**
  * 今天还没记就说一句话。
@@ -55,7 +60,5 @@ function of(stats, opts) {
 }
 
 module.exports = {
-  of,
-  LABEL,
-  TIP
+  of
 }

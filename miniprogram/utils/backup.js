@@ -25,8 +25,13 @@ const SNOOZE_DAYS = 7
 
 const i18n = require('./i18n')
 
-/** 导出给页面兜底；渲染时以 of() 返回的当前语言文案为准 */
-const LABEL_ONLY = i18n.t('backup:only_local')
+/**
+ * 原来这里有个 LABEL_ONLY = i18n.t('backup:only_local')。
+ *
+ * 已删除：模块只执行一次，切语言不重跑模块，它会一直停在旧语言上。
+ * 当时它没有引用（of() 里是现取的），所以界面上看不出来，
+ * 但留着就是一颗"哪天被人接上就混排"的种子。
+ */
 
 /**
  * @param {{total:number}} stats store.stats() 的返回值（total 含归档）
