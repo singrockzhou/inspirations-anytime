@@ -21,8 +21,20 @@ git log --oneline -5      # 历史、分支、tag 都在
 
 解出来就是一个能直接 `git push` 回 GitHub 的完整仓库，不需要再做什么初始化。
 
+## 一个已知的先后顺序
+
+`tools/release.js` 是**先打包、再打 tag**，所以 zip 里带着完整的提交历史与
+v1.8.0 / v1.8.1 / v1.8.2 三个 tag，但**没有 v1.8.3 自己的 tag**（打包时它还没建）。
+还原后补一句即可：
+
+```bash
+git fetch --tags origin        # 从 GitHub 取回 v1.8.3
+```
+
+或者本地补打：`git tag -a v1.8.3 fa82bdb -m "v1.8.3 做成图按首页错落堆叠显示全部照片"`。
+不影响代码内容——`fa82bdb` 就是 v1.8.3 的提交。
+
 ## 与 tag 的关系
 
-同名版本在 GitHub 上有对应的 annotated tag `v1.8.3`（指向 `fa82bdb`），
-tag 里带着这次改了什么；zip 是"代码 + 历史"的离线副本。两者互为备份：
-GitHub 挂了有 zip，本机挂了有 tag + `git clone`。
+同名版本在 GitHub 上有对应 tag `v1.8.3`（指向 `fa82bdb`），tag 里带着这次改了什么；
+zip 是"代码 + 历史"的离线副本。两者互为备份：GitHub 挂了有 zip，本机挂了有 tag + `git clone`。
