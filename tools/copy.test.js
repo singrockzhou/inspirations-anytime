@@ -234,5 +234,34 @@ console.log('7) 兜底：空态提示仍按形态区分（不是一句笼统的�
   ok('onSave 仍拦住重复提交', /if \(this\.data\.saving\) return/.test(save))
 }
 
+/* ============ 8. 文案纪律：不许把开发者的动机当卖点讲给用户 ============ */
+console.log('8) 不许出现「开发者视角泄漏」（自我表扬、替用户预设他本来会犯的错）')
+{
+  const I18N = fs.readFileSync(path.join(B, 'utils', 'i18n.js'), 'utf8')
+  // 这些词的共同点：它们描述的是"我替你解决了什么"，而用户从没经历过那个问题。
+  // 真实的教训：v1.8.5 的回执写成「6 张图合成了一条，没有刷屏」——
+  // 「刷屏」是合并功能的设计动机，不是用户的处境。用户选 6 张图，
+  // 期望的就是这 6 张被存下；合并成一条对他来说是理所当然，不该被夸。
+  const BANNED = [
+    '刷屏', '不打扰', '不吵', '优雅', '丝滑', '极致',
+    '放心', '安心', '聪明', '智能', '一键搞定', '告别'
+  ]
+  const hits = BANNED.filter(w => I18N.indexOf(w) >= 0)
+  ok('用户可见文案里没有自我表扬/开发者动机词', hits.length === 0, hits.length ? '出现：' + hits.join('、') : '')
+
+  // 回执只说"存成了什么、在哪、怎么用"，不解释为什么这么设计
+  const merged = (I18N.match(/'index:received_merged':\s*'([^']*)'/) || [])[1] || ''
+  ok('合并回执告诉用户"都在这一条里、怎么打开"', /都在这一条里/.test(merged), merged)
+  ok('合并回执不再解释"没有造成什么后果"', !/没有|不会|避免/.test(merged), merged)
+
+  const first = (I18N.match(/'index:received_first':\s*'([^']*)'/) || [])[1] || ''
+  ok('首句只报条数与位置，不掺评价', /已存下/.test(first) && !/没有|不会|避免/.test(first), first)
+
+  // 压缩是副作用不是卖点：不能被写成用户追求的目标
+  const comp = (I18N.match(/'index:received_compressed':\s*'([^']*)'/) || [])[1] || ''
+  ok('压缩那句是"顺手"，不是"为你优化"', /顺手/.test(comp), comp)
+  ok('压缩不再报技术参数（300KB 阈值对用户无意义）', !/300\s*KB/i.test(comp), comp)
+}
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed')
 process.exit(fail ? 1 : 0)

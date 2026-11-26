@@ -1,0 +1,79 @@
+<view class="page">
+
+  <view class="head">
+    <view class="lead">{{t.lead}}</view>
+    <view class="meta">
+      <text>{{countText}}</text>
+      <text class="meta-cn" wx:if="{{showCnNote}}"> · {{t.cn_only}}</text>
+    </view>
+  </view>
+
+  <!-- 按分类分组。每类默认露出前三条，其余收在 .more 里。
+       这里刻意用 hidden 而不是 wx:if：wx:if 会把节点从渲染结果里摘掉，
+       收起的条目连链接都不存在了；hidden 只是 display:none，节点还在。
+       爬虫认不认 display:none 里的链接，官方没有说明——这是推断，
+       所以真出现「收录 0」时，第一个要试的就是把折叠去掉。 -->
+  <view class="group" wx:for="{{groups}}" wx:key="id" wx:for-item="g" wx:for-index="idx">
+    <view class="g-head">
+      <view class="g-top">
+        <text class="g-name">{{g.name}}</text>
+        <text class="g-n">{{g.countText}}</text>
+      </view>
+      <view class="g-desc">{{g.desc}}</view>
+    </view>
+
+    <view class="items">
+      <navigator
+        class="item"
+        wx:for="{{g.head}}"
+        wx:key="id"
+        wx:for-item="it"
+        url="/pages/tpl/detail?k={{it.id}}"
+        hover-class="item-hover"
+        hover-stay-time="60"
+      >
+        <view class="it-main">
+          <text class="it-title">{{it.title}}</text>
+          <view class="it-scene">{{it.scene}}</view>
+        </view>
+        <text class="it-go">›</text>
+      </navigator>
+
+      <view class="more" hidden="{{!g.open}}">
+        <navigator
+          class="item"
+          wx:for="{{g.more}}"
+          wx:key="id"
+          wx:for-item="it"
+          url="/pages/tpl/detail?k={{it.id}}"
+          hover-class="item-hover"
+          hover-stay-time="60"
+        >
+          <view class="it-main">
+            <text class="it-title">{{it.title}}</text>
+            <view class="it-scene">{{it.scene}}</view>
+          </view>
+          <text class="it-go">›</text>
+        </navigator>
+      </view>
+
+      <!-- 展开 / 收起。整行都是可点区，不做成一个小箭头 -->
+      <view
+        class="more-btn"
+        wx:if="{{g.more.length}}"
+        data-idx="{{idx}}"
+        catchtap="onToggle"
+        hover-class="more-hover"
+      >
+        <text class="more-t">{{g.open ? t.collapse : g.moreText}}</text>
+        <text class="more-ico {{g.open ? 'up' : ''}}">›</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="foot">
+    <view class="foot-line">{{t.start_hint}}</view>
+    <navigator class="foot-link" url="/pages/guide/guide" hover-class="tap-dim">{{guideText}} →</navigator>
+  </view>
+
+</view>

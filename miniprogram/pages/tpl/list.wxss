@@ -1,0 +1,157 @@
+.page {
+  min-height: 100vh;
+  padding: 8rpx 32rpx 60rpx;
+  background: var(--bg, #fbf8f3);
+}
+
+.head {
+  padding: 20rpx 0 0;
+}
+
+.lead {
+  font-size: 30rpx;
+  line-height: 1.7;
+  color: var(--ink, #2c2723);
+}
+
+.meta {
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  color: var(--ink-2, #8b8178);
+}
+
+.group {
+  margin-top: 44rpx;
+}
+
+/* 类别名与条数一行，描述另起一行：
+   五个类别名长短不一（「灵感与素材」比「写下来」长三倍），
+   挤在同一行时描述会被压成一个字，看不出这组是干什么的。 */
+.g-head {
+  margin-bottom: 16rpx;
+}
+
+.g-top {
+  display: flex;
+  align-items: baseline;
+}
+
+.g-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--ink, #2c2723);
+}
+
+.g-n {
+  flex: 0 0 auto;
+  margin-left: 12rpx;
+  font-size: 22rpx;
+  color: #c9bfaf;
+}
+
+.g-desc {
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: var(--ink-2, #8b8178);
+}
+
+.items {
+  background: var(--paper, #fff);
+  border-radius: 24rpx;
+  overflow: hidden;
+}
+
+/* 每条都留下边框，最后一条由卡片的圆角裁掉。
+   不写 :last-child —— 展开区是另一个容器，last-child 会在两处各自生效。 */
+.item {
+  display: flex;
+  align-items: center;
+  padding: 26rpx 28rpx;
+  border-bottom: 1rpx solid var(--line, #f0e7da);
+}
+
+.item-hover {
+  background: #f7f1e7;
+}
+
+.it-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.it-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 500;
+  color: var(--ink, #2c2723);
+}
+
+/* 场景描述给两行。一行装不下「买了一堆材料或工具，事后想不明白值不值」，
+   而这半句正是人判断「这条是不是给我写的」的唯一依据。 */
+.it-scene {
+  display: -webkit-box;
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: var(--ink-2, #8b8178);
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.it-go {
+  flex: 0 0 auto;
+  margin-left: 16rpx;
+  font-size: 32rpx;
+  color: #c9bfaf;
+}
+
+/* 展开 / 收起：整行都是一个按钮，高度按手指给够 */
+.more-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 84rpx;
+  padding: 0 28rpx;
+  font-size: 26rpx;
+  color: var(--accent, #c4713f);
+}
+
+.more-hover {
+  background: #f7f1e7;
+}
+
+.more-t {
+  line-height: 1.4;
+}
+
+.more-ico {
+  margin-left: 8rpx;
+  font-size: 28rpx;
+  color: #c9bfaf;
+  transform: rotate(90deg);
+  transition: transform 0.16s ease;
+}
+
+.more-ico.up {
+  transform: rotate(-90deg);
+}
+
+.foot {
+  margin-top: 48rpx;
+}
+
+.foot-line {
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: var(--ink-2, #8b8178);
+}
+
+.foot-link {
+  display: inline-block;
+  margin-top: 18rpx;
+  padding: 12rpx 0;
+  font-size: 26rpx;
+  color: var(--accent, #c4713f);
+}

@@ -1,6 +1,20 @@
 {
-  "desc": "本地工具类小程序，无需被微信索引",
+  "desc": "只开放模板库与使用指南。首页、详情、记录页渲染的是用户自己写的灵感，sitemap 一律不放行",
   "rules": [
+    {
+      "action": "allow",
+      "page": "pages/tpl/detail",
+      "params": ["k"],
+      "matching": "inclusive"
+    },
+    {
+      "action": "allow",
+      "page": "pages/tpl/list"
+    },
+    {
+      "action": "allow",
+      "page": "pages/guide/guide"
+    },
     {
       "action": "disallow",
       "page": "*"

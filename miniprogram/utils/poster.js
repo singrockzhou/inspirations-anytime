@@ -13,9 +13,35 @@
  */
 const i18n = require('./i18n')
 const stack = require('./stack')
+const tagtext = require('./tagtext')
 
 const WIDTH = 750
 const PAD = 60
+
+/** 页脚品牌图标（包内路径，透明底 192×192，图形在画布内居中） */
+const BRAND_SRC = '/images/brand-logo.png'
+const BRAND_SIZE = 40
+/**
+ * 图标中心相对文字基线要抬起的距离。
+ * 实测（微软雅黑 26px 渲染「灵感随时记」，字形 top = 基线-22、bottom = 基线+3），
+ * 中文的视觉中心在基线上方 9.5px —— 直接拿基线当中心画，图标会明显偏下。
+ *
+ * 注意：光有这个值不够。图标 PNG 里的图形必须真的居中；
+ * 早期那版因为裁切失效（getbbox 拿到整幅 512），图形在方框内偏下 14%，
+ * 等于又往下压了 5px，怎么调这个常量都对不齐。见 _poster/make_brand_asset.py。
+ */
+const BRAND_LIFT = 9
+
+/**
+ * 页脚上方的小程序码（包内路径，白底方图 430×430）。
+ * 小程序码必须由服务端 wxacode.getUnlimited 生成，前端拿不到，
+ * 所以这里用一张预先导出的静态图；换码时替换这个文件即可。
+ */
+const CODE_SRC = '/images/mp-code.jpg'
+const CODE_SIZE = 190          // 码在白卡里的边长
+const CODE_RADIUS = 26
+const CODE_GAP = 44            // 扫码区底边到页脚分隔线的距离
+const CODE_TEXT_GAP = 36       // 码与右侧文字的间距
 
 const COLOR = {
   bg: '#FBF8F3',
@@ -81,7 +107,10 @@ function wrapText(ctx, text, maxWidth) {
 }
 
 function bodyText(record) {
-  const text = (record.content || '').trim()
+  const raw = (record.content || '').trim()
+  // 独占一行的 #标签不画进正文：下面 tagRows 已经画了一排 #标签，同一句别出现两次。
+  // 整条只有标签时退回原文，正文区总得有点东西。
+  const text = tagtext.stripTagLines(raw).trim() || raw
   if (text) return text
   if (record.type === 'voice') return i18n.t('poster:voice_note', { n: record.duration || 0 })
   if (record.type === 'photo') return i18n.t('poster:photo_note', { n: pathsOf(record).length })
@@ -105,8 +134,9 @@ function dateText(ts) {
  * 量高：给定画布上下文与记录，算出总高度和绘制所需的中间结果
  * @param {CanvasRenderingContext2D} ctx
  * @param {object} record
- * @param {{images?: Array}} opts images 与 pathsOf(record) 一一对应，加载失败的位置为 null
- * @returns {{height:number, lines:string[], tagRows:Array, photo:object|null}}
+ * @param {{images?: Array, codeImage?: object}} opts images 与 pathsOf(record) 一一对应，加载失败的位置为 null；
+ *        codeImage 是页脚上方的小程序码，为 null 时整块不画、高度也不占
+ * @returns {{height:number, lines:string[], tagRows:Array, photo:object|null, hasCode:boolean}}
  */
 function measure(ctx, record, opts) {
   const o = opts || {}
@@ -149,13 +179,16 @@ function measure(ctx, record, opts) {
   const block = paths.length ? stack.planAll(record.id || record.createdAt || '', paths.length) : null
   const anyLoaded = images.some(Boolean)
   const photo = block && anyLoaded ? block : null
+  // 码没加载出来就整块不画，也不预留高度——否则图底会多出一片空白
+  const hasCode = !!o.codeImage
 
   let height = 72 + 44 + 52 // 顶部留白 + 角标行 + 与正文的间距
   height += lines.length * BODY_LINE
   if (clipped) height += 8
   if (tagRows.length) height += 28 + tagRows.length * 56
   if (photo) height += PHOTO_GAP + photo.height
-  height += 92 // 页脚上方的呼吸空间
+  height += 92 // 正文/配图与扫码区之间的呼吸空间
+  if (hasCode) height += CODE_SIZE + CODE_GAP
   height += 56 // 页脚文字
   height += 56 // 底部留白
 
@@ -163,7 +196,8 @@ function measure(ctx, record, opts) {
     height: Math.max(height, 620),
     lines: lines,
     tagRows: tagRows,
-    photo: photo
+    photo: photo,
+    hasCode: hasCode
   }
 }
 
@@ -266,7 +300,8 @@ function paintPhotos(ctx, block, images, x0, y0, boxW) {
  * @param {CanvasRenderingContext2D} ctx
  * @param {object} record
  * @param {object} layout measure 的返回值
- * @param {{images?:Array, footer?:string}} opts images 与 pathsOf(record) 一一对应
+ * @param {{images?:Array, brandImage?:object}} opts images 与 pathsOf(record) 一一对应；
+ *        brandImage 是页脚小图标，为 null 时只画品牌名
  */
 function paint(ctx, record, layout, opts) {
   const o = opts || {}
@@ -340,8 +375,48 @@ function paint(ctx, record, layout, opts) {
     y += layout.photo.height
   }
 
-  // 页脚
+  // 页脚：左边品牌（图标 + 名称），右边 slogan
+  // 以前左边画的是 slogan、右边也是 slogan，同一句话并排出现两次；现在左边让给品牌。
   const lineY = H - 112
+
+  // 扫码区：左边小程序码，右边三行说明，压在页脚分隔线上方。
+  // 码本身是白底方图，圆角裁切后垫一层淡投影，与参考图里的白卡一致。
+  if (o.codeImage) {
+    const codeTop = lineY - CODE_GAP - CODE_SIZE
+
+    ctx.save()
+    ctx.shadowColor = 'rgba(44,39,35,0.10)'
+    ctx.shadowBlur = 24
+    ctx.shadowOffsetY = 8
+    roundRect(ctx, PAD, codeTop, CODE_SIZE, CODE_SIZE, CODE_RADIUS)
+    ctx.fillStyle = COLOR.paper
+    ctx.fill()
+    ctx.restore()
+
+    ctx.save()
+    roundRect(ctx, PAD, codeTop, CODE_SIZE, CODE_SIZE, CODE_RADIUS)
+    ctx.clip()
+    // 码要能扫出来，插值尽量平滑
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(o.codeImage, PAD, codeTop, CODE_SIZE, CODE_SIZE)
+    ctx.restore()
+
+    const tx = PAD + CODE_SIZE + CODE_TEXT_GAP
+    ctx.textAlign = 'left'
+    ctx.fillStyle = COLOR.ink
+    ctx.font = 'bold 32px sans-serif'
+    ctx.fillText(i18n.t('poster:scan_title'), tx, codeTop + 48)
+
+    ctx.font = '24px sans-serif'
+    ctx.fillStyle = COLOR.ink2
+    ctx.fillText(i18n.t('poster:scan_1'), tx, codeTop + 92)
+    ctx.fillText(i18n.t('poster:scan_2'), tx, codeTop + 128)
+
+    ctx.fillStyle = '#A79B8C'
+    ctx.fillText(i18n.t('poster:scan_3'), tx, codeTop + 164)
+  }
+
   ctx.strokeStyle = COLOR.line
   ctx.lineWidth = 1
   ctx.beginPath()
@@ -349,14 +424,22 @@ function paint(ctx, record, layout, opts) {
   ctx.lineTo(WIDTH - PAD, lineY)
   ctx.stroke()
 
+  const footY = lineY + 48
+  let textX = PAD
+  // 图标加载失败也要有品牌：只是少了那个小方图，名称照画
+  if (o.brandImage) {
+    const iconY = footY - BRAND_LIFT - BRAND_SIZE / 2
+    ctx.drawImage(o.brandImage, PAD, iconY, BRAND_SIZE, BRAND_SIZE)
+    textX = PAD + BRAND_SIZE + 12
+  }
   ctx.font = '26px sans-serif'
-  ctx.fillStyle = COLOR.ink2
   ctx.textAlign = 'left'
-  ctx.fillText(o.footer || '', PAD, lineY + 48)
+  ctx.fillStyle = COLOR.ink2
+  ctx.fillText(i18n.t('poster:brand'), textX, footY)
 
   ctx.textAlign = 'right'
   ctx.fillStyle = '#B8AB99'
-  ctx.fillText(i18n.t('poster:slogan'), WIDTH - PAD, lineY + 48)
+  ctx.fillText(i18n.t('poster:slogan'), WIDTH - PAD, footY)
 }
 
 /**
@@ -420,16 +503,61 @@ function loadImages(canvas, paths) {
   return Promise.all(list.map(src => loadImage(canvas, src)))
 }
 
+/**
+ * 预加载包内图片（品牌图标、小程序码）。
+ * 不走 wx.getImageInfo：包内路径在部分基础库上取不到尺寸，而这两个尺寸都是固定的，
+ * 直接 createImage 等 onload 就够；失败返回 null，调用方各自降级。
+ * @param {object} canvas
+ * @param {string} src
+ * @returns {Promise<object|null>}
+ */
+function loadAsset(canvas, src) {
+  return new Promise(resolve => {
+    if (!src || !canvas || typeof canvas.createImage !== 'function') return resolve(null)
+    let img = null
+    try {
+      img = canvas.createImage()
+    } catch (e) {
+      return resolve(null)
+    }
+    img.onload = () => resolve(img)
+    img.onerror = () => resolve(null)
+    try {
+      img.src = src
+    } catch (e) {
+      resolve(null)
+    }
+  })
+}
+
+function loadBrand(canvas) {
+  return loadAsset(canvas, BRAND_SRC)
+}
+
+function loadCode(canvas) {
+  return loadAsset(canvas, CODE_SRC)
+}
+
 module.exports = {
   WIDTH,
   PAD,
   MAX_PIXELS,
+  BRAND_SRC,
+  BRAND_SIZE,
+  BRAND_LIFT,
+  CODE_SRC,
+  CODE_SIZE,
+  CODE_GAP,
+  CODE_TEXT_GAP,
   pathsOf,
   fitDpr,
   measure,
   paint,
   loadImage,
   loadImages,
+  loadAsset,
+  loadBrand,
+  loadCode,
   drawCover,
   wrapText,
   roundRect

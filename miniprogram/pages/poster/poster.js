@@ -56,14 +56,22 @@ Page({
         // 一次把这条记录的全部照片都取回来：多图要按首页那套错落堆叠排出来，
         // 只取第一张就会出现"写着 3 张、图里只有 1 张"的那种错位感
         const srcs = rec.type === 'photo' ? poster.pathsOf(rec) : []
-        poster.loadImages(canvas, srcs).then(images => {
+        // 品牌图标和小程序码一起取：这两块都要等 onload 才能 drawImage
+        Promise.all([
+          poster.loadImages(canvas, srcs),
+          poster.loadBrand(canvas),
+          poster.loadCode(canvas)
+        ]).then(res => {
+          const images = res[0]
+          const brandImage = res[1]
+          const codeImage = res[2]
           // 先在 1 倍下量高：measureText 不受 transform 影响，量高与倍率无关，
           // 先量出来才知道这张图该用几倍——9 张照片的长图能到 1900px 高
           canvas.width = poster.WIDTH
           canvas.height = 1600
           ctx.setTransform(1, 0, 0, 1, 0, 0)
 
-          const layout = poster.measure(ctx, rec, { images: images })
+          const layout = poster.measure(ctx, rec, { images: images, codeImage: codeImage })
           const H = layout.height
           // 按位图预算挑倍率：3 倍下 750×1900 是 5700px 高的画布，约 50MB，
           // 低端安卓容易在 canvasToTempFilePath 这一步直接失败。宁可降倍率。
@@ -74,7 +82,11 @@ Page({
           ctx.setTransform(1, 0, 0, 1, 0, 0)
           ctx.scale(dpr, dpr)
 
-          poster.paint(ctx, rec, layout, { images: images, footer: i18n.t('poster:slogan') })
+          poster.paint(ctx, rec, layout, {
+            images: images,
+            brandImage: brandImage,
+            codeImage: codeImage
+          })
 
           this.record = rec
           this.layout = layout

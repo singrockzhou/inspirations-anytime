@@ -38,8 +38,15 @@ Component({
     maskClosable: false,
     confirmLoading: false,
     confirmDisabled: false,
-    // 输入型（预留：重命名、填模板 ID 这类一句话输入）
+    // 输入型（重命名、填模板 ID 这类一句话输入）
     editable: false,
+    /**
+     * 多行：粘贴长文时用。
+     * 为什么不用 wx.showModal({editable:true})：那个参数 2.17.1 才有，
+     * 而且「某个机型上到底支持不支持」得靠 wx.canIUse 判断——判断串写错一次，
+     * 整条兜底路径就静默死掉（v1.8.5 就是这么翻车的）。自绘 textarea 没有这个问题。
+     */
+    multiline: false,
     inputValue: '',
     placeholder: '',
     processingText: '',
@@ -66,6 +73,7 @@ Component({
         confirmLoading: false,
         confirmDisabled: !!o.confirmDisabled,
         editable: !!o.editable,
+        multiline: !!o.multiline,
         inputValue: o.inputValue || '',
         placeholder: o.placeholder || '',
         maxlength: o.maxlength || 200,

@@ -19,8 +19,8 @@
       </view>
     </view>
 
-    <!-- 文字 -->
-    <view class="text" wx:if="{{record.type === 'text'}}">{{record.content}}</view>
+    <!-- 文字：bodyText 已去掉独占一行的 #标签，避免和下面的胶囊重复 -->
+    <view class="text" wx:if="{{record.type === 'text' && bodyText}}">{{bodyText}}</view>
 
     <!-- 语音 -->
     <block wx:elif="{{record.type === 'voice'}}">
@@ -29,13 +29,36 @@
         <text class="dur">{{record.duration}}″</text>
         <text class="state">{{playing ? t.playing : t.tap_listen}}</text>
       </view>
-      <view class="text sub" wx:if="{{record.content}}">{{record.content}}</view>
+      <view class="text sub" wx:if="{{bodyText}}">{{bodyText}}</view>
     </block>
 
-    <!-- 照片：统一走缩略图网格（一张按原比例，多张按张数分列，最多 9 格） -->
+    <!-- 照片：单张整幅；多张走错落堆叠，与首页卡片、「做成图」同一套版式 -->
     <block wx:else>
-      <photo-grid paths="{{photos}}" single="auto" />
-      <view class="text sub" wx:if="{{record.content}}">{{record.content}}</view>
+      <photo-grid wx:if="{{!multi}}" paths="{{photos}}" single="auto" />
+
+      <view class="stack" wx:else>
+        <view
+          class="stack-group"
+          wx:for="{{clusterList}}"
+          wx:key="idx"
+          wx:for-item="g"
+          style="height:{{g.height}}rpx;margin-top:{{g.gap}}rpx"
+        >
+          <view
+            class="frame"
+            wx:for="{{g.frames}}"
+            wx:key="idx"
+            wx:for-item="ph"
+            style="{{ph.style}}"
+            catchtap="onPreviewPhoto"
+            data-i="{{ph.idx}}"
+          >
+            <image class="frame-img" src="{{ph.src}}" mode="aspectFill" lazy-load />
+          </view>
+        </view>
+      </view>
+
+      <view class="text sub" wx:if="{{bodyText}}">{{bodyText}}</view>
     </block>
 
     <!-- 没有文字时，补一句就能被搜到 -->
@@ -63,6 +86,7 @@
       <view class="act" catchtap="onCopy">{{t.act_copy}}</view>
       <view class="act" catchtap="onPoster">{{t.act_poster}}</view>
       <view class="act" catchtap="onToggleArchive">{{archived ? t.act_unarchive : t.act_archive}}</view>
+      <view class="act {{starred ? 'on' : ''}}" catchtap="onToggleStar">{{starred ? t.act_unstar : t.act_star}}</view>
       <view class="act danger" catchtap="onDelete">{{t.act_delete}}</view>
     </view>
 

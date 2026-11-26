@@ -77,6 +77,8 @@ Component({
     photoCount: 0,
     photoList: [],
     stackH: 0,
+    /** 照片没有正文：给一行"补一句"的提示，否则这条记录以后搜不到 */
+    needText: false,
     tagList: [],
     moreTags: 0,
     /** 静态文案：组件随页面重建，语言切了自然重新取一次 */
@@ -91,7 +93,8 @@ Component({
           collapse: i18n.t('index:collapse'),
           expand: i18n.t('index:expand'),
           playing: i18n.t('card:playing'),
-          listen: i18n.t('card:listen')
+          listen: i18n.t('card:listen'),
+          addText: i18n.t('card:add_text')
         }
       })
     }
@@ -116,6 +119,8 @@ Component({
         // 多图才走错落堆叠；单图仍用整幅大图
         photoList: stack ? stack.frames : [],
         stackH: stack ? stack.height : 0,
+        // 搜索只查正文和 #标签，照片没字就等于搜不到——所以在卡片上就提醒一次
+        needText: item.type === 'photo' && !content.trim(),
         tagList: tags.slice(0, 3),
         moreTags: tags.length > 3 ? tags.length - 3 : 0
       })
@@ -139,6 +144,16 @@ Component({
     onLongPress() {
       this._longPressed = true
       this.triggerEvent('action', { item: this.data.item })
+    },
+
+    /**
+     * 「补个说明」被点：冒泡给页面去开编辑页。
+     * 为什么不让卡片自己跳页：卡片是纯展示组件，路径与参数属于页面的知识。
+     * 多选模式下这条提示不该把用户带出选择流程，所以直接吞掉。
+     */
+    onAddText() {
+      if (this.data.selectMode) return
+      this.triggerEvent('addtext', { item: this.data.item })
     },
 
     toggleFold() {

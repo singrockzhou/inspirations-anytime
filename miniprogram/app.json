@@ -6,7 +6,10 @@
     "pages/search/search",
     "pages/review/review",
     "pages/poster/poster",
-    "pages/me/me"
+    "pages/me/me",
+    "pages/tpl/list",
+    "pages/tpl/detail",
+    "pages/guide/guide"
   ],
   "window": {
     "backgroundTextStyle": "dark",

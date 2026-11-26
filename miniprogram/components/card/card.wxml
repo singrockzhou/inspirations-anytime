@@ -70,6 +70,9 @@
     <view class="body sub clamp2" wx:if="{{item.content}}">{{item.content}}</view>
   </block>
 
+  <!-- 照片没有正文：一行极轻的提示，点一下直接去补一句（搜索只认正文和标签） -->
+  <view class="need-text" wx:if="{{needText && !selectMode}}" catchtap="onAddText">{{txt.addText}}</view>
+
   <!-- 标签：最多露 3 个，多余的折成 +N -->
   <view class="tags" wx:if="{{tagList.length}}">
     <text class="tag" wx:for="{{tagList}}" wx:key="*this" wx:for-item="tg">#{{tg}}</text>

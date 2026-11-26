@@ -1,0 +1,86 @@
+.page {
+  min-height: 100vh;
+  padding: 8rpx 32rpx 60rpx;
+  background: var(--bg, #fbf8f3);
+}
+
+.lead {
+  padding-top: 20rpx;
+  font-size: 32rpx;
+  line-height: 1.75;
+  color: var(--ink, #2c2723);
+}
+
+.sec {
+  margin-top: 40rpx;
+}
+
+.s-t {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--ink, #2c2723);
+}
+
+.s-b {
+  margin-top: 10rpx;
+  font-size: 28rpx;
+  line-height: 1.85;
+  color: var(--ink-2, #8b8178);
+}
+
+.faq-head {
+  margin-top: 64rpx;
+  padding-bottom: 8rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--ink, #2c2723);
+}
+
+.qa {
+  padding: 28rpx 0;
+  border-bottom: 1rpx solid var(--line, #f0e7da);
+}
+
+.q {
+  font-size: 28rpx;
+  font-weight: 500;
+  line-height: 1.6;
+  color: var(--ink, #2c2723);
+}
+
+.a {
+  margin-top: 10rpx;
+  font-size: 26rpx;
+  line-height: 1.85;
+  color: var(--ink-2, #8b8178);
+}
+
+.note {
+  margin-top: 40rpx;
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: var(--ink-2, #8b8178);
+}
+
+.btn {
+  margin-top: 48rpx;
+  height: 92rpx;
+  line-height: 92rpx;
+  border-radius: 46rpx;
+  background: var(--accent, #c4713f);
+  color: #fff;
+  font-size: 30rpx;
+  text-align: center;
+}
+
+.btn-hover {
+  opacity: 0.88;
+}
+
+.link {
+  margin-top: 24rpx;
+  padding: 12rpx 0;
+  font-size: 26rpx;
+  color: var(--ink-2, #8b8178);
+  text-align: center;
+}

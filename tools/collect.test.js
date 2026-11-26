@@ -22,6 +22,8 @@ const chatCalls = []
 const fakeStore = { MAX_RECORDS: 1000 }
 const fakeMedia = {
   ensurePrivacy: () => Promise.resolve(true),
+  // 真实 media.js 里这是"把授权结果交出来"的那层；剪贴板路径靠它拿诊断信息
+  ensurePrivacyInfo: () => Promise.resolve({ ok: true, errMsg: '' }),
   saveFile: (p, ext) => Promise.resolve({ path: '/user/file_' + ++savedSeq + '.' + ext, size: 2048 }),
   // 图片压缩失败时的兜底：原件搬进沙箱
   persist: (p, prefix, ext) => Promise.resolve(failPersist ? '' : '/user/' + prefix + '_' + ++savedSeq + '.' + ext),
@@ -46,6 +48,10 @@ const files = {}
 
 let clipboard = ''
 let clipboardFail = ''
+/** 假 storage：只给剪贴板"本机不可用"这条记忆用 */
+const kv = {}
+/** 按顺序吐出剪贴板内容：用来模拟"第一次读到空、重试才拿到" */
+let clipboardSeq = null
 let pickup = null
 let pickupFail = ''
 
@@ -67,7 +73,22 @@ global.wx = {
       }
     }
   },
+  getStorageSync(k) {
+    return k in kv ? kv[k] : ''
+  },
+  setStorageSync(k, v) {
+    kv[k] = v
+  },
+  removeStorageSync(k) {
+    delete kv[k]
+  },
   getClipboardData(opts) {
+    if (clipboardSeq && clipboardSeq.length) {
+      const v = clipboardSeq.shift()
+      if (v === null) opts.fail({ errMsg: 'getClipboardData:fail system busy' })
+      else opts.success({ data: v })
+      return
+    }
     if (clipboardFail) {
       opts.fail({ errMsg: clipboardFail })
       return
@@ -135,6 +156,26 @@ function ok(name, cond, extra) {
   code = ''
   await transfer.fromClipboard().catch(e => (code = e.code))
   ok('隐私未声明时归到 denied', code === 'denied', code)
+
+  console.log('2.1) 剪贴板：第一次读空或接口忙，自动重试一次')
+  // 真机上最常见的两种"明明有字却读不到"：隐私弹窗刚关掉时读到空、接口偶发 fail
+  clipboardFail = ''
+  clipboardSeq = ['', '重试之后才读到的这句话']
+  const retried = await transfer.fromClipboard()
+  ok('第一次读空、第二次拿到内容时算成功', retried.text === '重试之后才读到的这句话', retried.text)
+  ok('重试成功时 truncated 照常为 false', retried.truncated === false, retried)
+  clipboardSeq = null
+
+  clipboardFail = 'getClipboardData:fail timeout'
+  let detailErr = null
+  await transfer.fromClipboard().catch(e => (detailErr = e))
+  ok('非权限类失败重试后仍失败，归到 read', detailErr && detailErr.code === 'read', detailErr)
+  ok(
+    '原始 errMsg 带出去，线上能定位原因',
+    detailErr && /timeout/.test(detailErr.detail || ''),
+    detailErr && detailErr.detail
+  )
+  clipboardFail = ''
 
   clipboardFail = ''
   const raw = global.wx.getClipboardData
@@ -238,6 +279,74 @@ function ok(name, cond, extra) {
   )
   ok('failed 是 shells + skipped 的合计', mixed.failed === 1, mixed.failed)
 
+  console.log('3.7) 一次选的几张图要合成一条（同一件事不该拆成六条）')
+  files['/tmp/g1.jpg'] = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x01])
+  files['/tmp/g2.jpg'] = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x02])
+  files['/tmp/g3.jpg'] = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x03])
+  pickup = [
+    { path: '/tmp/g1.jpg', name: '主卧1.jpg', size: 500 * 1024 },
+    { path: '/tmp/g2.jpg', name: '主卧2.jpg', size: 500 * 1024 },
+    { path: '/tmp/g3.jpg', name: '主卧3.jpg', size: 500 * 1024 }
+  ]
+  chatCalls.length = 0
+  const merged = await transfer.importFromChat()
+  ok('三张图只产生一条记录', merged.records.length === 1, merged.records.map(r => r.type))
+  ok(
+    '这条是照片记录且带满三张',
+    merged.records[0].type === 'photo' && merged.records[0].mediaPaths.length === 3,
+    merged.records[0]
+  )
+  ok(
+    '压缩顺序与选择顺序一致（不按名字、不按时间重排）',
+    chatCalls.map(c => c.path).join(',') === '/tmp/g1.jpg,/tmp/g2.jpg,/tmp/g3.jpg',
+    chatCalls.map(c => c.path)
+  )
+  ok('多张时不把其中任何一张的文件名写进正文', merged.records[0].content === '', merged.records[0].content)
+  ok('体积是几张的合计', merged.records[0].size === 3 * 200 * 1024, merged.records[0].size)
+  ok('photoCount / merged 如实回传，页面才能说"6 张合成了一条"', merged.photoCount === 3 && merged.merged === true)
+
+  console.log('3.8) 合并后的照片记录要留在图片第一次出现的位置')
+  files['/tmp/m1.txt'] = '先记一句'
+  files['/tmp/g4.jpg'] = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x04])
+  files['/tmp/g5.jpg'] = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x05])
+  pickup = [
+    { path: '/tmp/m1.txt', name: '想法.txt' },
+    { path: '/tmp/g4.jpg', name: '图1.jpg', size: 300 * 1024 },
+    { path: '/tmp/g5.jpg', name: '图2.jpg', size: 300 * 1024 }
+  ]
+  const ordered = await transfer.importFromChat()
+  ok('顺序是 text,photo，不是 photo,text', ordered.records.map(r => r.type).join(',') === 'text,photo', ordered.records.map(r => r.type))
+  ok('三选二出一，不多不少', ordered.records.length === 2, ordered.records.length)
+
+  console.log('3.9) 图全存不下：不留空照片条，如实报 save')
+  files['/tmp/h1.jpg'] = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x06])
+  files['/tmp/m2.txt'] = '图挂了这条也要留下'
+  pickup = [
+    { path: '/tmp/h1.jpg', name: '坏图.jpg', size: 900 * 1024 },
+    { path: '/tmp/m2.txt', name: '想法.txt' }
+  ]
+  failChatImage = true
+  failPersist = true
+  const partial = await transfer.importFromChat()
+  ok('照片占位被删掉，不出现空记录', partial.records.map(r => r.type).join(',') === 'text', partial.records.map(r => r.type))
+  ok(
+    '失败的图进 skipped 并写清原因',
+    partial.skipped.length === 1 && partial.skipped[0].reason === 'save',
+    partial.skipped
+  )
+  failChatImage = false
+  failPersist = false
+
+  console.log('3.10) 进度回调：9 张图要看到"正在保存 3/9"')
+  const seen = []
+  pickup = [
+    { path: '/tmp/g1.jpg', name: 'a.jpg', size: 100 * 1024 },
+    { path: '/tmp/g2.jpg', name: 'b.jpg', size: 100 * 1024 },
+    { path: '/tmp/g3.jpg', name: 'c.jpg', size: 100 * 1024 }
+  ]
+  await transfer.importFromChat({ onProgress: (i, n) => seen.push(i + '/' + n) })
+  ok('每个文件回调一次，序号与总数都对', seen.join(',') === '1/3,2/3,3/3', seen)
+
   console.log('4) 入口位置：回顾位在首页，不在「我的」')
   const homeWxml = fs.readFileSync(path.join(B, 'pages', 'index', 'index.wxml'), 'utf8')
   ok('首页挂着回顾位并指向 openReview', /catchtap="openReview"/.test(homeWxml) && /reviewTotal/.test(homeWxml))
@@ -248,6 +357,330 @@ function ok(name, cond, extra) {
 
   const homeJs = fs.readFileSync(path.join(B, 'pages', 'index', 'index.js'), 'utf8')
   ok('首页收一条拆成两个来源', /collectFiles/.test(homeJs) && /collectClipboard/.test(homeJs))
+
+  console.log('5) 剪贴板兜底：读不到不能让用户卡死在那一步')
+  // 按函数体切片，不按"两个名字的先后顺序"切：pasteManual 现在定义在
+  // collectClipboard 前面，老写法会切出空串，断言变成空跑——明明失败却看不见。
+  const bodyOf = name => {
+    const m = new RegExp('\\n  ' + name + '\\([^)]*\\) \\{').exec(homeJs)
+    if (!m) return ''
+    const fin = homeJs.indexOf('\n  },', m.index)
+    return fin > m.index ? homeJs.slice(m.index, fin) : ''
+  }
+  const clipBody = bodyOf('collectClipboard')
+  const pasteBody = bodyOf('pasteManual')
+  // 自绘输入框从 pasteManual 拆出来了（它现在只做分流：系统权限 / 隐私授权 / 空）。
+  // 断言跟着函数走，不然切片会切到一段不含这些代码的分流逻辑上，白白空跑。
+  const askBody = bodyOf('askPasteText')
+
+  ok(
+    '三个函数体都切出来了（防止切片失效让后面的断言空跑）',
+    clipBody.length > 100 && pasteBody.length > 100 && askBody.length > 100,
+    { clip: clipBody.length, paste: pasteBody.length, ask: askBody.length }
+  )
+  ok(
+    '读剪贴板之前不挂 loading（遮罩会把隐私授权框挡掉，正是"有字却说没读成"的成因）',
+    !/wx\.showLoading/.test(clipBody),
+    clipBody.slice(0, 120)
+  )
+  ok('读不到时改走手动粘贴，而不是只弹一个错', /this\.pasteManual\(err\)/.test(clipBody))
+  ok('手动粘贴与剪贴板走同一条落库路径', /this\.saveCollected\(/.test(askBody))
+
+  console.log('5.0) 存下之后，那条记录必须真的出现在眼前')
+  // 入口钉在屏幕最底部，新记录插在列表最上方。只 toast 不回顶时，
+  // 用户看到的是「存下了，就在最上面」，然后自己往上翻——那句文案本身
+  // 就是在替设计道歉（截图里两条一样的记录，第一条就是这么被漏看的）。
+  const saveBody = bodyOf('saveCollected')
+  const revealBody = bodyOf('reveal')
+  ok('两个函数体都切出来了（防空白跑）', saveBody.length > 200 && revealBody.length > 60, {
+    save: saveBody.length,
+    reveal: revealBody.length
+  })
+  ok('存完调的是 reveal，不是只闪一下', /this\.reveal\(rec\.id\)/.test(saveBody) && !/this\.flash\(rec\.id\)/.test(saveBody))
+  ok('reveal 把视口带回顶部', /wx\.pageScrollTo/.test(revealBody) && /scrollTop:\s*0/.test(revealBody))
+  ok('reveal 之后才点亮那条', revealBody.indexOf('pageScrollTo') < revealBody.indexOf('this.flash('))
+  ok(
+    '从记录页新建后返回也回顶，编辑返回则不回顶（不把用户正看的位置顶掉）',
+    /flashNew/.test(homeJs) && /if \(flashNew\) this\.reveal\(flashId\)/.test(homeJs)
+  )
+  // 注释里引用旧文案是为了记下这段弯路，不算违规：只看代码行
+  const codeOnly = s =>
+    s
+      .split('\n')
+      .filter(l => !/^\s*(\*|\/\/)/.test(l))
+      .join('\n')
+  ok(
+    '「就在最上面」这句已删掉',
+    !/就在最上面/.test(codeOnly(homeJs)) &&
+      !/就在最上面/.test(fs.readFileSync(path.join(B, 'utils', 'i18n.js'), 'utf8'))
+  )
+
+  console.log('5.0.1) 连点两下不该落下两条一样的')
+  ok('有冷却常量', /const SAVE_COOLDOWN_MS = \d+/.test(homeJs))
+  ok('冷却期内直接并进第一次，不再落库', /now < this\.saveGuardUntil\) return/.test(saveBody))
+  ok('落库失败时清掉冷却，允许立刻重试', /if \(!rec\) \{\s*\n\s*this\.saveGuardUntil = 0/.test(saveBody))
+  ok(
+    '「和上一条一样」在 create 之前取（create 之后最新一条就是自己）',
+    saveBody.indexOf('this.prevText()') < saveBody.indexOf('store.create(')
+  )
+  ok('内容相同会如实说出来，不是静默重复', /index:clip_dup_saved/.test(saveBody))
+  // 正常保存不再弹浮层：卡片自身 1.8 秒整卡暖色渐变就是回执，比三字黑条显眼
+  // 且不遮内容。微信读剪贴板成功时会在屏幕顶部弹自己的合规提示，我们再来一条
+  // 就成一上一下两个黑条（README 第 42 章）。
+  ok(
+    '正常保存不再弹「存下了」浮层',
+    !/i18n\.t\('index:clip_saved'\)/.test(codeOnly(saveBody)),
+    codeOnly(saveBody).match(/.*clip_saved.*/)?.[0] || ''
+  )
+  ok(
+    '「和上一条一样」仍然弹（不解释就像重复落库的 bug）',
+    /this\.toast\(i18n\.t\('index:clip_dup_saved'\)\)/.test(saveBody)
+  )
+  const cardWxss = fs.readFileSync(path.join(B, 'components', 'card', 'card.wxss'), 'utf8')
+  ok(
+    '不弹浮层的前提成立：卡片高亮是整卡 1.8 秒暖色渐变，够显眼',
+    /\.card\.fresh/.test(cardWxss) && /animation:\s*fresh\s+1\.8s/.test(cardWxss) && /#f6e5d5/.test(cardWxss)
+  )
+  ok(
+    '按钮热区：顶部三个文字入口都抬到 72rpx',
+    (fs.readFileSync(path.join(B, 'pages', 'index', 'index.wxss'), 'utf8').match(/min-height: 72rpx/g) || []).length >= 3
+  )
+  // 只数顶栏那三个。空态的两条文字链也带 tap-dim（v1.8.5 加的模板入口），
+  // 全页计数会把它们算进来，看起来像"多了两个入口"，其实是别处的按钮。
+  const topStart = homeWxml.indexOf('class="top-right"')
+  const topEnd = homeWxml.indexOf('</view>', homeWxml.indexOf('goMe', topStart))
+  const topBar = topStart >= 0 && topEnd > topStart ? homeWxml.slice(topStart, topEnd) : ''
+  ok(
+    '按钮热区：三个入口都有按下反馈',
+    (topBar.match(/hover-class="tap-dim"/g) || []).length === 3,
+    topBar.length
+  )
+  ok(
+    'toast 停留时间按字数放宽（长句不再读一半就熄）',
+    /Math\.min\(3200, 1600 \+/.test(homeJs)
+  )
+
+  console.log('5.1) 兜底不许依赖基础库版本判断（v1.8.5 线上翻车点）')
+  ok(
+    '自绘 dialog，不再用 wx.showModal',
+    /dialog/.test(askBody) && /\.show\(/.test(askBody) && !/wx\.showModal/.test(askBody)
+  )
+  ok('粘贴框是多行 textarea（长文才看得见全文）', /multiline: *true/.test(askBody))
+  ok(
+    '全项目不再用 wx.canIUse 判断 showModal.editable（schema 缺 object 层必然 false）',
+    // 只看代码行：注释里提到 canIUse 是解释这条坑，不算违规
+    !/canIUse/.test(homeJs.split('\n').filter(l => !/^\s*(\*|\/\/)/.test(l)).join('\n'))
+  )
+  ok(
+    'dialog 组件真的渲染了 textarea',
+    /<textarea/.test(fs.readFileSync(path.join(B, 'components', 'dialog', 'dialog.wxml'), 'utf8'))
+  )
+  ok(
+    '失败原因只在开发版/体验版显示',
+    /envVersion/.test(homeJs) && /'develop'/.test(homeJs) && /'trial'/.test(homeJs)
+  )
+
+  console.log('5.2) 隐私未确认时那句 system permission denied，要补授权重读，不能判死')
+  // 真机教训：鸿蒙微信在隐私协议没确认时读剪贴板，回的是
+  // `fail:system permission denied`——看着像永久性系统限制，其实只差用户点一次"同意"。
+  // 曾经把它当成"这台机器永远读不到"还记了 30 天，功能从此再没机会跑起来。
+  const realGet = wx.getClipboardData
+  let rawCalls = 0
+  wx.getClipboardData = o => {
+    rawCalls++
+    if (rawCalls === 1) o.fail({ errMsg: 'getClipboardData:fail:system permission denied' })
+    else o.success({ data: '补完授权读到的字' })
+  }
+  let sysOk = null
+  let sysErr = null
+  await transfer.fromClipboard().then(r => (sysOk = r), e => (sysErr = e))
+  ok('补一次授权后能读到，这次就该算成功', !!sysOk && sysOk.text === '补完授权读到的字', sysOk || sysErr)
+  ok('确实重读过，不是一次失败就放弃', rawCalls >= 2, rawCalls)
+
+  rawCalls = 0
+  wx.getClipboardData = o => {
+    rawCalls++
+    o.fail({ errMsg: 'getClipboardData:fail:system permission denied' })
+  }
+  sysOk = null
+  sysErr = null
+  await transfer.fromClipboard().then(r => (sysOk = r), e => (sysErr = e))
+  ok('两次都失败才 reject，并带上原始 errMsg', !sysOk && !!sysErr && /permission denied/.test(sysErr.detail || ''), sysErr && sysErr.detail)
+  ok(
+    '归到 denied（d-e-n-i-e-d 里没有 deny 子串，正则漏写就会误判成 read）',
+    !!sysErr && sysErr.code === 'denied',
+    sysErr && sysErr.code
+  )
+  // 诊断行要能区分"用户还没同意隐私政策"和"接口本身读不到"。
+  // 官方《隐私协议开发指南》列出的隐私错误只有 112 / banned / 103 / 104，
+  // 没有 system permission denied 这一句，所以只报读取 errMsg 定不了因。
+  wx.getPrivacySetting = o => o.success({ needAuthorization: true })
+  fakeMedia.ensurePrivacyInfo = () =>
+    Promise.resolve({ ok: false, errMsg: 'requirePrivacyAuthorize:fail 104 privacy not agreed' })
+  sysOk = null
+  sysErr = null
+  await transfer.fromClipboard().then(r => (sysOk = r), e => (sysErr = e))
+  ok(
+    '诊断行同时带上 need=1 与授权那一步的 errMsg',
+    !!sysErr && /need=1/.test(sysErr.detail || '') && /auth=.*104/.test(sysErr.detail || ''),
+    sysErr && sysErr.detail
+  )
+  delete wx.getPrivacySetting
+  fakeMedia.ensurePrivacyInfo = () => Promise.resolve({ ok: true, errMsg: '' })
+  ok(
+    '没有 getPrivacySetting 时诊断行也不炸，只是少一项',
+    await transfer.fromClipboard().then(
+      () => false,
+      e => /read=/.test(e.detail || '') && !/need=/.test(e.detail || '') && !/auth=/.test(e.detail || '')
+    )
+  )
+
+  wx.getClipboardData = realGet
+  clipboardFail = ''
+
+  console.log('5.3) 时序：先授权再读——v1.8.0~v1.8.4 的真机行为，不许再"优化"掉')
+  const transferJs = fs.readFileSync(path.join(B, 'utils', 'transfer.js'), 'utf8')
+  ok(
+    '先走隐私授权再读（v1.8.5 改成"先读"之后，真机上就再也读不到了）',
+    /ensurePrivacyInfo\(\)\s*\.then\(info => \{[\s\S]{0,160}?read\(\)/.test(transferJs)
+  )
+  ok(
+    '失败后仍会补一次授权重读，而不是一次失败就判死',
+    /!retriedPrivacy/.test(transferJs) &&
+      /retriedPrivacy = true/.test(transferJs) &&
+      (transferJs.match(/ensurePrivacyInfo\(\)/g) || []).length >= 2,
+    '前瞻授权 + 失败补授权，两处都要走同一个能交出结果的口子'
+  )
+  ok(
+    '代码里不存在"这台机器读不到剪贴板"的永久性判断',
+    !/clipboardBlocked|markClipboardBlocked|CLIP_BLOCK|sysperm/.test(transferJs),
+    '这套机制建立在错误结论上，不许回来'
+  )
+  ok('页面上不再有"跳过读取、直接给输入框"的短路', !/clipboardBlocked/.test(homeJs))
+  ok('隐私未过时给的是"还差一步"的解释 + 粘贴框', /clip_denied_title/.test(homeJs) && /clip_denied_text/.test(homeJs))
+  ok('剪贴板失败会重试一次', /const again = \(\) =>/.test(transferJs) && /tries >= 1/.test(transferJs))
+  ok(
+    '重试失败仍把原始 errMsg 带出去',
+    /parts\.push\('read=' \+ msg\)/.test(transferJs) && /join\(' \| '\)/.test(transferJs)
+  )
+  ok(
+    '诊断行带上隐私设置状态与授权 errMsg，不只报读取那一句',
+    /privacySnapshot\(\)/.test(transferJs) && /parts\.push\('need='/.test(transferJs) && /parts\.push\('auth='/.test(transferJs)
+  )
+  ok(
+    'denied 分支不再把诊断行覆盖掉（曾经因此连续几轮看不到任何 errMsg）',
+    /clip_denied_text'\)\s*\+\s*'\\n'\s*\+\s*note/.test(homeJs)
+  )
+  console.log('5.4) 系统层把剪贴板关了：必须指到系统设置，讲小程序隐私授权等于白讲')
+  ok(
+    'transfer 把 system permission denied 单独标出来',
+    /sysDenied: \/system permission denied\/i\.test\(msg\)/.test(transferJs),
+    '真机已确认：鸿蒙的「剪贴板」是微信 App 的一项系统权限，关掉就报这句'
+  )
+  ok(
+    '页面见到 sysDenied 先走系统权限分支，不再讲"隐私授权"',
+    /code === 'denied' && err && err\.sysDenied/.test(pasteBody) && /this\.askSystemPermission\(\)/.test(pasteBody)
+  )
+  const sysBody = bodyOf('askSystemPermission')
+  ok(
+    '弹框给的是「去打开 / 手动粘贴」，不是一句"知道了"',
+    /clip_sysperm_open/.test(sysBody) && /clip_sysperm_manual/.test(sysBody)
+  )
+  const openBody = bodyOf('openSystemPermission')
+  ok('用官方接口跳系统微信授权管理页', /wx\.openAppAuthorizeSetting/.test(openBody))
+  ok(
+    '接口不在时降级成文字路径，不静默失败',
+    /typeof wx\.openAppAuthorizeSetting !== 'function'/.test(openBody) && /clip_sysperm_noway/.test(openBody)
+  )
+  ok(
+    '从系统页返回会自动重读一次',
+    /this\.retryOnShow = true/.test(openBody) &&
+      /if \(this\.retryOnShow\)/.test(homeJs) &&
+      /setTimeout\(\(\) => this\.collectClipboard\(\), 300\)/.test(homeJs)
+  )
+  ok(
+    '引导只做一次，不让人在弹框之间打转',
+    /this\.sysPermTried = true/.test(openBody) && /this\.sysPermTried/.test(pasteBody)
+  )
+
+  const mediaJs = fs.readFileSync(path.join(B, 'utils', 'media.js'), 'utf8')
+  ok(
+    '隐私授权失败时把 errMsg 交出来，而不是 resolve(true) 吞掉',
+    /ok: false, errMsg: msg/.test(mediaJs) && !/fail: err => \{[\s\S]{0,200}?resolve\(true\)/.test(mediaJs)
+  )
+
+  console.log('3.11) 收不了的类型：必须当面说，不能留壳也不能一直转圈')
+  files['/tmp/v.mp4'] = Buffer.from([0x00, 0x00, 0x00, 0x18])
+  pickup = [{ path: '/tmp/v.mp4', name: '会议录像.mp4', size: 8 * 1024 * 1024 }]
+  let unErr = null
+  await transfer.importFromChat().catch(e => (unErr = e))
+  ok('全是不支持的格式时单独报 unsupported_type', !!unErr && unErr.code === 'unsupported_type', unErr && unErr.code)
+  ok('带上清单一并回传，页面才能说清是哪几个', !!unErr && unErr.unsupported.length === 1, unErr && unErr.unsupported)
+  ok(
+    '不把视频做成「来自「xx.mp4」」的壳记录',
+    !!unErr && !(unErr.records || []).length && unErr.skipped.length === 0,
+    unErr && unErr.skipped
+  )
+
+  files['/tmp/v2.zip'] = Buffer.from([0x50, 0x4b, 0x03, 0x04])
+  files['/tmp/y.jpg'] = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x07])
+  files['/tmp/k.txt'] = '这条要留下'
+  pickup = [
+    { path: '/tmp/y.jpg', name: '截图.jpg', size: 100 * 1024 },
+    { path: '/tmp/v2.zip', name: '素材包.zip', size: 1024 },
+    { path: '/tmp/k.txt', name: '想法.txt' }
+  ]
+  const someOk = await transfer.importFromChat()
+  ok('支持的照常入库，不支持的单独列出', someOk.records.length === 2 && someOk.unsupported.length === 1, {
+    records: someOk.records.map(r => r.type),
+    unsupported: someOk.unsupported
+  })
+  ok('收不了的带类型信息，提示里能说"这是 zip"', someOk.unsupported[0].ext === 'zip', someOk.unsupported[0])
+  ok('收不了的不算进 failed（它没坏，只是不支持）', someOk.failed === 0, someOk.failed)
+
+  console.log('3.12) 超大文本文件：不读、不卡界面')
+  files['/tmp/huge.csv'] = 'a,b'
+  pickup = [{ path: '/tmp/huge.csv', name: '导出.csv', size: 3 * 1024 * 1024 }]
+  unErr = null
+  await transfer.importFromChat().catch(e => (unErr = e))
+  ok(
+    '超过 2MB 的文本归到收不了（原因 big）',
+    !!unErr && unErr.code === 'unsupported_type' && unErr.unsupported[0].reason === 'big',
+    unErr && unErr.unsupported
+  )
+
+  console.log('3.13) pdf/word 仍然留壳，不受"不支持"名单影响')
+  files['/tmp/d2.pdf'] = Buffer.from('%PDF-1.7\n')
+  pickup = [{ path: '/tmp/d2.pdf', name: '合同.pdf', size: 200 * 1024 }]
+  const pdfOk = await transfer.importFromChat()
+  ok('pdf 还是留一条可补一句的壳', pdfOk.records.length === 1 && pdfOk.shells === 1, pdfOk.records)
+  ok('pdf 不进收不了清单', pdfOk.unsupported.length === 0, pdfOk.unsupported)
+
+  console.log('6) 多图合并的配套展示：卡片补说明 + 详情堆叠')
+  const cardJs = fs.readFileSync(path.join(B, 'components', 'card', 'card.js'), 'utf8')
+  const cardWxml = fs.readFileSync(path.join(B, 'components', 'card', 'card.wxml'), 'utf8')
+  ok('照片没有正文时卡片才算 needText', /needText: item\.type === 'photo' && !content\.trim\(\)/.test(cardJs))
+  ok('卡片上有「补个说明」这一行', /class="need-text"/.test(cardWxml) && /onAddText/.test(cardWxml))
+  ok('多选模式下不显示这条提示（别干扰勾选流程）', /needText && !selectMode/.test(cardWxml))
+  ok('点提示只冒泡事件，卡片不自己跳页', /triggerEvent\('addtext'/.test(cardJs))
+  const homeWxmlCards = fs.readFileSync(path.join(B, 'pages', 'index', 'index.wxml'), 'utf8')
+  ok(
+    '首页两处卡片都接了这个事件（列表 + 分组视图）',
+    (homeWxmlCards.match(/bind:addtext="onCardAddText"/g) || []).length === 2,
+    (homeWxmlCards.match(/bind:addtext="onCardAddText"/g) || []).length
+  )
+  ok('补说明直达编辑页并聚焦配文框', /record\?mode=edit&id=' \+ item\.id \+ '&focus=1'/.test(homeJs))
+
+  const detailJs = fs.readFileSync(path.join(B, 'pages', 'detail', 'detail.js'), 'utf8')
+  const detailWxml = fs.readFileSync(path.join(B, 'pages', 'detail', 'detail.wxml'), 'utf8')
+  ok('详情页多图走 stack.planAll（与卡片、做成图同一份版式）', /stack\.planAll/.test(detailJs))
+  ok('详情页照片区按 multi 分流，单图仍是整幅', /wx:if="\{\{!multi\}\}"/.test(detailWxml))
+  ok('堆叠里的每张都能点开看大图', /catchtap="onPreviewPhoto"/.test(detailWxml) && /previewImage/.test(detailJs))
+  ok(
+    '详情页不再用九宫格铺多图',
+    !/<photo-grid paths="\{\{photos\}\}" single="auto" \/>\s*\n\s*<view class="text sub"/.test(detailWxml),
+    'photo-grid 仍应只服务单图'
+  )
 
   console.log('\n结果: ' + pass + ' passed, ' + fail + ' failed')
   process.exit(fail ? 1 : 0)

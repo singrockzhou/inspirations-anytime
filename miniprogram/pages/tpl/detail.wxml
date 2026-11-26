@@ -1,0 +1,42 @@
+<view class="page">
+
+  <!-- 查不到：旧链接、被改过的 k、分享链接被截断都会走到这里 -->
+  <block wx:if="{{missing}}">
+    <view class="miss">
+      <view class="miss-t">{{t.gone_title}}</view>
+      <view class="miss-s">{{t.gone_text}}</view>
+      <view class="btn" hover-class="btn-hover" bindtap="onBackList">{{t.back}}</view>
+      <view class="link" hover-class="tap-dim" bindtap="onHome">{{t.back_home}}</view>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="head">
+      <view class="h-title">{{item.title}}</view>
+      <view class="h-scene">{{sceneText}}</view>
+      <view class="h-cn" wx:if="{{showCnNote}}">{{t.cn_only}}</view>
+    </view>
+
+    <view class="sec">
+      <view class="sec-k">{{t.tip}}</view>
+      <view class="sec-b">{{item.tip}}</view>
+    </view>
+
+    <view class="sec">
+      <view class="sec-k">{{t.skeleton}}</view>
+      <view class="sk">{{item.skeleton}}</view>
+    </view>
+
+    <view class="sec">
+      <view class="sec-k">{{t.example}}</view>
+      <view class="ex">{{item.example}}</view>
+    </view>
+
+    <view class="foot">
+      <view class="btn" hover-class="btn-hover" bindtap="onUse">{{t.use}}</view>
+      <view class="hint">{{t.start_hint}}</view>
+      <view class="link" hover-class="tap-dim" bindtap="onBackList">{{t.back}} →</view>
+    </view>
+  </block>
+
+</view>

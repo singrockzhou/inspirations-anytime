@@ -92,6 +92,7 @@ function mockCtx() {
 
 const stack = require(path.join(B, 'utils', 'stack.js'))
 const poster = require(path.join(B, 'utils', 'poster.js'))
+const i18n = require(path.join(B, 'utils', 'i18n.js'))
 
 /** 一张能塞给 drawImage 的假图 */
 const fakeImage = (w, h) => ({ img: { fake: true }, width: w || 1200, height: h || 900 })
@@ -370,6 +371,199 @@ console.log('8) 加载：失败的位置留空，数组长度不变')
     ok('measure 与 paint 拿到的是同一份 images', (page.match(/images: images/g) || []).length === 2)
     ok('导出前按高度挑倍率（fitDpr）', /poster\.fitDpr\(/.test(page))
     ok('不再有"只取 mediaPaths[0]"的写法', !/mediaPaths \|\| \[\]\)\[0\]/.test(page))
+  }
+
+  /* ============ 10. 页脚品牌 ============ */
+  console.log('10) 页脚品牌：图标 + 名称，左边不再重复 slogan')
+  {
+    const rec = { id: 'b1', type: 'text', content: '一句话', createdAt: 1750000000000 }
+    const paintWith = brandImage => {
+      const ctx = mockCtx()
+      const layout = poster.measure(ctx, rec, {})
+      const c2 = mockCtx()
+      poster.paint(c2, rec, layout, { images: [], brandImage: brandImage })
+      return { log: c2.log, layout: layout }
+    }
+
+    const withIcon = paintWith({ fake: 'brand' })
+    const noIcon = paintWith(null)
+
+    ok('有图标时比没图标多画一次 drawImage',
+      withIcon.log.drawImage.length === noIcon.log.drawImage.length + 1,
+      { withIcon: withIcon.log.drawImage.length, noIcon: noIcon.log.drawImage.length })
+
+    ok('两页都画了品牌名', [withIcon, noIcon].every(r =>
+      r.log.fillText.some(f => String(f.t).indexOf('灵感') >= 0 || /Inspiration/.test(f.t))))
+
+    const texts = withIcon.log.fillText.map(f => f.t)
+    ok('slogan 只出现一次（左边不再重复）', texts.filter(t => t === texts[texts.length - 1]).length === 1, texts)
+
+    const icon = withIcon.log.drawImage[0]
+    ok('图标画在页脚左侧、尺寸取常量', icon && icon.x === poster.PAD && icon.w === poster.BRAND_SIZE && icon.h === poster.BRAND_SIZE, icon)
+    ok('图标视觉中心与「灵感随时记」对齐（比基线高 BRAND_LIFT）',
+      icon && Math.abs((icon.y + poster.BRAND_SIZE / 2) - (withIcon.layout.height - 112 + 48 - poster.BRAND_LIFT)) < 0.6,
+      icon && icon.y)
+    ok('图标不顶到页脚分隔线', icon && icon.y > withIcon.layout.height - 112, icon && icon.y)
+
+    // 加载：没有 canvas / onerror 都要安全降级
+    const none = await poster.loadBrand(null)
+    ok('没有 canvas 时返回 null', none === null)
+
+    const badCanvas = {
+      createImage() {
+        const o = { onload: null, onerror: null, _src: '' }
+        Object.defineProperty(o, 'src', {
+          set(v) { this._src = v; setTimeout(() => this.onerror && this.onerror(), 0) },
+          get() { return this._src }
+        })
+        return o
+      }
+    }
+    ok('图标加载失败返回 null（不抛错）', (await poster.loadBrand(badCanvas)) === null)
+
+    const goodCanvas = {
+      createImage() {
+        const o = { onload: null, onerror: null, _src: '', width: 192, height: 192 }
+        Object.defineProperty(o, 'src', {
+          set(v) { this._src = v; setTimeout(() => this.onload && this.onload(), 0) },
+          get() { return this._src }
+        })
+        return o
+      }
+    }
+    const img = await poster.loadBrand(goodCanvas)
+    ok('图标加载成功返回 Image 对象', !!img && img.width === 192)
+
+    const asset = path.join(B, 'images', 'brand-logo.png')
+    ok('包内资源存在', fs.existsSync(asset))
+    const buf = fs.readFileSync(asset)
+    ok('是 PNG（不是改名后的 jpg）', buf.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])))
+    // 192×192 写在 PNG 头 IHDR 里；页脚显示 40px，3 倍屏 120，192 有余量
+    ok('尺寸 192×192', buf.readUInt32BE(16) === 192 && buf.readUInt32BE(20) === 192,
+      { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) })
+    ok('体积 < 60KB（包体预算）', buf.length < 60 * 1024, Math.round(buf.length / 1024) + 'KB')
+    ok('路径是包内绝对路径', poster.BRAND_SRC === '/images/brand-logo.png', poster.BRAND_SRC)
+
+    const page = read('pages/poster/poster.js')
+    ok('页面加载图标并交给 paint', /poster\.loadBrand\(canvas\)/.test(page) && /brandImage: brandImage/.test(page))
+    ok('页面不再把 slogan 当左边页脚传进去', !/footer:\s*i18n\.t\('poster:slogan'\)/.test(page))
+  }
+
+  /* ============ 11. 页脚上方的小程序码 ============ */
+  console.log('11) 小程序码：压在页脚上方，码在左、说明在右')
+  {
+    // 正文写够 12 行：低于 620 的最小高度会把差值吃掉，看不出加减
+    const rec = {
+      id: 'c1',
+      type: 'text',
+      content: new Array(12).fill('这是一行用来撑高的正文').join('\n'),
+      createdAt: 1750000000000
+    }
+
+    const paintWith = codeImage => {
+      const ctx = mockCtx()
+      const layout = poster.measure(ctx, rec, { codeImage: codeImage })
+      const c2 = mockCtx()
+      poster.paint(c2, rec, layout, { images: [], codeImage: codeImage })
+      return { log: c2.log, layout: layout }
+    }
+
+    const withCode = paintWith({ fake: 'code' })
+    const noCode = paintWith(null)
+
+    ok('有码时高度多出「码 + 与分隔线的间距」',
+      withCode.layout.height - noCode.layout.height === poster.CODE_SIZE + poster.CODE_GAP,
+      { delta: withCode.layout.height - noCode.layout.height })
+
+    ok('有码时多画一次 drawImage',
+      withCode.log.drawImage.length === noCode.log.drawImage.length + 1,
+      { withCode: withCode.log.drawImage.length, noCode: noCode.log.drawImage.length })
+
+    const code = withCode.log.drawImage[0]
+    ok('码画在左边距处、正方形不变形',
+      code && code.x === poster.PAD && code.w === poster.CODE_SIZE && code.h === poster.CODE_SIZE, code)
+
+    const lineY = withCode.layout.height - 112
+    ok('码的底边距页脚分隔线正好是 CODE_GAP',
+      code && Math.abs((code.y + poster.CODE_SIZE) - (lineY - poster.CODE_GAP)) < 0.6,
+      code && (code.y + poster.CODE_SIZE))
+
+    // 正文 baseline 每行 64，最后一行的基线位置
+    const bodyBottom = 168 + withCode.layout.lines.length * 64
+    ok('码不压到正文', code && code.y > bodyBottom, { codeTop: code && code.y, bodyBottom: bodyBottom })
+
+    const texts = withCode.log.fillText.map(f => f.t)
+    const scanKeys = ['poster:scan_title', 'poster:scan_1', 'poster:scan_2', 'poster:scan_3'].map(k => i18n.t(k))
+    ok('四行扫码文案全画了', scanKeys.every(s => texts.indexOf(s) >= 0), { texts: texts, scanKeys: scanKeys })
+
+    const rightEdge = poster.PAD + poster.CODE_SIZE
+    const scanTexts = withCode.log.fillText.filter(f => scanKeys.indexOf(f.t) >= 0)
+    ok('说明文字都在码右边',
+      scanTexts.length === 4 && scanTexts.every(f => f.x >= rightEdge + poster.CODE_TEXT_GAP - 0.5),
+      scanTexts)
+
+    ok('标题 32 加粗、说明 24（层级分明）',
+      /bold 32px sans-serif/.test(read('utils/poster.js')) && /'24px sans-serif'/.test(read('utils/poster.js')))
+
+    ok('没有码时整块不画、不留空白', noCode.log.fillText.length === withCode.log.fillText.length - 4)
+
+    const none = await poster.loadCode(null)
+    ok('没有 canvas 时 loadCode 返回 null', none === null)
+
+    const badCanvas = {
+      createImage() {
+        const o = { onload: null, onerror: null, _src: '' }
+        Object.defineProperty(o, 'src', {
+          set(v) { this._src = v; setTimeout(() => this.onerror && this.onerror(), 0) },
+          get() { return this._src }
+        })
+        return o
+      }
+    }
+    ok('码加载失败返回 null（不抛错）', (await poster.loadCode(badCanvas)) === null)
+
+    const goodCanvas = {
+      createImage() {
+        const o = { onload: null, onerror: null, _src: '', width: 430, height: 430 }
+        Object.defineProperty(o, 'src', {
+          set(v) { this._src = v; setTimeout(() => this.onload && this.onload(), 0) },
+          get() { return this._src }
+        })
+        return o
+      }
+    }
+    const img = await poster.loadCode(goodCanvas)
+    ok('码加载成功返回 Image 对象', !!img && img.width === 430)
+
+    ok('路径是包内绝对路径', poster.CODE_SRC === '/images/mp-code.jpg', poster.CODE_SRC)
+
+    const asset = path.join(B, 'images', 'mp-code.jpg')
+    ok('码图在包内', fs.existsSync(asset))
+    const buf = fs.readFileSync(asset)
+    ok('是 JPEG（FFD8 开头）', buf[0] === 0xff && buf[1] === 0xd8)
+
+    // 从 SOF 段读宽高，确认是正方形且够清晰
+    let jw = 0
+    let jh = 0
+    for (let i = 2; i < buf.length - 9;) {
+      if (buf[i] !== 0xff) { i++; continue }
+      const m = buf[i + 1]
+      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) {
+        jh = buf.readUInt16BE(i + 5)
+        jw = buf.readUInt16BE(i + 7)
+        break
+      }
+      i += 2 + buf.readUInt16BE(i + 2)
+    }
+    ok('码图是正方形', jw > 0 && jw === jh, { w: jw, h: jh })
+    ok('边长 ≥ 400（3 倍导出也不糊）', jw >= 400, jw)
+    ok('体积 < 120KB（包体预算）', buf.length < 120 * 1024, Math.round(buf.length / 1024) + 'KB')
+
+    const page = read('pages/poster/poster.js')
+    ok('页面加载码', /poster\.loadCode\(canvas\)/.test(page))
+    ok('码同时交给 measure 与 paint',
+      /codeImage: codeImage/.test(page) && (page.match(/codeImage: codeImage/g) || []).length === 2,
+      (page.match(/codeImage: codeImage/g) || []).length)
   }
 
   console.log('\n' + pass + ' passed, ' + fail + ' failed')

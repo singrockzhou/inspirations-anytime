@@ -1,0 +1,128 @@
+.page {
+  min-height: 100vh;
+  padding: 8rpx 32rpx 60rpx;
+  background: var(--bg, #fbf8f3);
+}
+
+.head {
+  padding: 20rpx 0 0;
+}
+
+.h-title {
+  font-size: 44rpx;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink, #2c2723);
+}
+
+.h-scene {
+  margin-top: 12rpx;
+  font-size: 26rpx;
+  line-height: 1.6;
+  color: var(--ink-2, #8b8178);
+}
+
+.h-cn {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: var(--ink-2, #8b8178);
+}
+
+.sec {
+  margin-top: 44rpx;
+}
+
+.sec-k {
+  margin-bottom: 14rpx;
+  font-size: 24rpx;
+  letter-spacing: 2rpx;
+  color: var(--ink-2, #8b8178);
+}
+
+.sec-b {
+  font-size: 28rpx;
+  line-height: 1.8;
+  color: var(--ink, #2c2723);
+}
+
+/* 骨架：米色底、留白多，看起来"可以往里写"，不像一段结论 */
+.sk {
+  padding: 28rpx;
+  border-radius: 20rpx;
+  background: #f7f1e7;
+  font-size: 28rpx;
+  line-height: 1.9;
+  color: var(--ink, #2c2723);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 示例：白底 + 左侧一竖线，和骨架区分开——一个是格式，一个是内容 */
+.ex {
+  padding: 28rpx;
+  border: 1rpx solid var(--line, #f0e7da);
+  border-left: 6rpx solid var(--accent-light, #e0a472);
+  border-radius: 20rpx;
+  background: var(--paper, #fff);
+  font-size: 28rpx;
+  line-height: 1.9;
+  color: var(--ink, #2c2723);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.foot {
+  margin-top: 56rpx;
+}
+
+.btn {
+  height: 92rpx;
+  line-height: 92rpx;
+  border-radius: 46rpx;
+  background: var(--accent, #c4713f);
+  color: #fff;
+  font-size: 30rpx;
+  text-align: center;
+}
+
+.btn-hover {
+  opacity: 0.88;
+}
+
+.hint {
+  margin-top: 20rpx;
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: var(--ink-2, #8b8178);
+  text-align: center;
+}
+
+.link {
+  margin-top: 24rpx;
+  padding: 12rpx 0;
+  font-size: 26rpx;
+  color: var(--ink-2, #8b8178);
+  text-align: center;
+}
+
+.miss {
+  padding-top: 200rpx;
+  text-align: center;
+}
+
+.miss-t {
+  font-size: 34rpx;
+  color: var(--ink, #2c2723);
+}
+
+.miss-s {
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  line-height: 1.7;
+  color: var(--ink-2, #8b8178);
+}
+
+.miss .btn {
+  width: 400rpx;
+  margin: 48rpx auto 0;
+}

@@ -28,8 +28,24 @@
         cursor-spacing="160"
         bindinput="onInput"
       />
-      <view class="counter">{{content.length}} / {{maxText}}</view>
-      <view class="tip">{{t.tip_tag}}</view>
+      <!-- 说明与字数同一行：左边说这功能怎么用，右边说还能写多少。
+           原来是各占一整行，一个贴左端一个贴右端，中间隔着一整屏空白，
+           读起来像两件不相干的事（v1.8.5 交互修） -->
+      <view class="meta-row">
+        <view class="tip">{{t.tip_tag}}</view>
+        <view class="counter">{{content.length}} / {{maxText}}</view>
+      </view>
+      <!-- 提纲出口：卡在「不知道写什么」的人正站在这一页——光标在跳、脑子里空着。
+           位置必须在输入框下方的内容流里，不能放底部固定区：那一条是 position: fixed，
+           键盘一弹就被整个盖住，而这行恰恰只在键盘弹起时才被需要（v1.8.5 真机修）。
+           有内容后自动收起——那时候已经不需要看出路，也不再占地方 -->
+      <view
+        class="tpl-link"
+        wx:if="{{mode === 'create' && !content}}"
+        hover-class="tap-dim"
+        hover-stay-time="60"
+        catchtap="goTemplates"
+      >{{t.tpl_link}}</view>
     </block>
 
     <!-- 语音 -->
@@ -108,6 +124,7 @@
         placeholder="{{t.ph_photo_note}}"
         placeholder-class="ta-ph"
         auto-height
+        focus="{{focus}}"
         show-confirm-bar="{{false}}"
         cursor-spacing="160"
         bindinput="onInput"

@@ -7,8 +7,22 @@
       <view class="text" wx:if="{{text}}">{{text}}</view>
 
       <!-- 输入型：聚焦态用 4rpx 陶土橙光圈，和卡片的 1rpx 细线区分开 -->
+      <!-- 多行版（粘贴长文）：固定高度而不是 auto-height，否则粘 1000 字会把面板顶出屏幕 -->
+      <textarea
+        wx:if="{{editable && multiline}}"
+        class="ta {{inputFocused ? 'focus' : ''}}"
+        value="{{inputValue}}"
+        placeholder="{{placeholder}}"
+        maxlength="{{maxlength}}"
+        focus="{{visible && editable && multiline}}"
+        auto-height="{{false}}"
+        show-confirm-bar="{{false}}"
+        bindinput="onInput"
+        bindfocus="onInputFocus"
+        bindblur="onInputBlur"
+      />
       <input
-        wx:if="{{editable}}"
+        wx:elif="{{editable}}"
         class="input {{inputFocused ? 'focus' : ''}}"
         value="{{inputValue}}"
         placeholder="{{placeholder}}"

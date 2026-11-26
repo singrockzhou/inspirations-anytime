@@ -1,0 +1,38 @@
+<view class="page">
+
+  <!-- 首屏第一句就是正文：这一页是"被搜到的人"看到的第一屏 -->
+  <view class="lead">{{t.lead}}</view>
+
+  <view class="sec">
+    <view class="s-t">{{t.s1}}</view>
+    <view class="s-b">{{t.s1_b}}</view>
+  </view>
+
+  <view class="sec">
+    <view class="s-t">{{t.s2}}</view>
+    <view class="s-b">{{t.s2_b}}</view>
+  </view>
+
+  <view class="sec">
+    <view class="s-t">{{t.s3}}</view>
+    <view class="s-b">{{t.s3_b}}</view>
+  </view>
+
+  <view class="sec">
+    <view class="s-t">{{t.s4}}</view>
+    <view class="s-b">{{t.s4_b}}</view>
+  </view>
+
+  <view class="faq-head">{{t.faq}}</view>
+
+  <view class="qa" wx:for="{{faq}}" wx:key="q">
+    <view class="q">{{item.q}}</view>
+    <view class="a">{{item.a}}</view>
+  </view>
+
+  <view class="note">{{t.note}}</view>
+
+  <view class="btn" hover-class="btn-hover" bindtap="onStart">{{t.start}}</view>
+  <navigator class="link" url="/pages/tpl/list" hover-class="tap-dim">{{tplLink}}</navigator>
+
+</view>

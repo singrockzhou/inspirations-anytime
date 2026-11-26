@@ -3,7 +3,9 @@ const date = require('../../utils/date')
 const audio = require('../../utils/audio')
 const dialog = require('../../utils/dialog')
 const flip = require('../../utils/flip')
+const stack = require('../../utils/stack')
 const share = require('../../utils/share')
+const tagtext = require('../../utils/tagtext')
 const i18n = require('../../utils/i18n')
 
 /** 类型标签随语言变，不能做成模块级常量（模块只执行一次） */
@@ -11,6 +13,41 @@ function typeLabel(type) {
   if (type === 'voice') return i18n.t('common:type_voice')
   if (type === 'photo') return i18n.t('common:type_photo')
   return i18n.t('common:type_text')
+}
+
+/**
+ * 多图错落堆叠：版式与首页卡片、「做成图」共用 utils/stack.js 的一份数字，
+ * 避免"手机上歪 3 度、图里歪 5 度"这种说不清的偏差。
+ *
+ * 与卡片唯一的差别：这里把所有组都铺开（卡片只摆一组 + 角标 "+N"），
+ * 因为进详情页就是来看图的，不该藏起来。
+ */
+function buildClusters(rec, paths) {
+  const plan = stack.planAll(rec.id || rec.createdAt || '', paths.length)
+  if (!plan || plan.single) return []
+  let offset = 0
+  return plan.clusters.map((c, ci) => {
+    const frames = c.frames.map((f, i) => ({
+      src: paths[offset + i],
+      idx: offset + i,
+      style:
+        'left:' +
+        f.x +
+        'rpx;top:' +
+        f.y +
+        'rpx;width:' +
+        stack.FRAME_W +
+        'rpx;height:' +
+        stack.FRAME_H +
+        'rpx;z-index:' +
+        f.z +
+        ';transform:rotate(' +
+        f.r.toFixed(1) +
+        'deg);'
+    }))
+    offset += c.size
+    return { frames: frames, height: c.height, gap: ci ? stack.CLUSTER_GAP : 0 }
+  })
 }
 
 /** 横向拖动超过这个距离才算"翻页"，太小容易和普通点击、长按冲突 */
@@ -23,12 +60,17 @@ Page({
   data: {
     id: '',
     record: null,
+    /** 剥掉独占一行的 #标签 之后用来显示的正文档子 */
+    bodyText: '',
     missing: false,
     typeLabel: '',
     timeText: '',
     updatedText: '',
     playing: false,
     photos: [],
+    /** 多图走错落堆叠（与首页卡片同款版式），单图仍是一整幅 */
+    multi: false,
+    clusterList: [],
     starred: false,
     archived: false,
     needText: false,
@@ -75,9 +117,15 @@ Page({
       this.setData({ record: null, missing: true })
       return
     }
+    const paths = (rec.mediaPaths && rec.mediaPaths.length)
+      ? rec.mediaPaths
+      : (rec.mediaPath ? [rec.mediaPath] : [])
     this.setData({
       record: rec,
       missing: false,
+      // 正文展示用：去掉「独占一行」的 #标签（下面那排胶囊已经画了）。
+      // 数据里的 content 一个字没动，编辑页看到的还是原文。
+      bodyText: tagtext.stripTagLines(rec.content || ''),
       typeLabel: typeLabel(rec.type),
       timeText: date.fullTime(rec.createdAt),
       // 只有真的改过（超过 1 分钟再保存）才显示修改时间
@@ -87,7 +135,9 @@ Page({
         rec.updatedAt - rec.createdAt > 60000
           ? i18n.t('detail:meta_updated', { t: date.fullTime(rec.updatedAt) })
           : '',
-      photos: rec.mediaPaths || [],
+      photos: paths,
+      multi: paths.length > 1,
+      clusterList: buildClusters(rec, paths),
       starred: !!rec.starred,
       archived: !!rec.archivedAt,
       // 语音/照片没有文字时，给一个"补一句"的口子，补上就能被搜到
@@ -149,6 +199,14 @@ Page({
 
   onPoster() {
     wx.navigateTo({ url: '/pages/poster/poster?id=' + this.id })
+  },
+
+  /** 点堆叠里的某一张：从那张开始看大图 */
+  onPreviewPhoto(e) {
+    const list = (this.data.photos || []).filter(Boolean)
+    if (!list.length) return
+    const i = Number((e.currentTarget && e.currentTarget.dataset.i) || 0)
+    wx.previewImage({ current: list[i] || list[0], urls: list })
   },
 
   /* ------------------------- 补文字 ------------------------- */

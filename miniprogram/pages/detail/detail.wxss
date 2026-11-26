@@ -56,6 +56,44 @@
   color: #4a423a;
 }
 
+/**
+ * 多图错落堆叠：坐标与层高由 utils/stack.js 算好（和首页卡片、做成图同一份数字），
+ * 这里只负责相纸的质感和定位基准。每张的 left/top/宽高/角度都是行内 style。
+ */
+.stack {
+  position: relative;
+  margin-top: 12rpx;
+}
+
+.stack-group {
+  position: relative;
+}
+
+.frame {
+  position: absolute;
+  padding: 10rpx;
+  box-sizing: border-box;
+  background: #fff;
+  border-radius: 18rpx;
+  /* 白边 + 投影，让每张照片有"实体相纸"的厚度感 */
+  box-shadow: 0 10rpx 26rpx rgba(44, 39, 35, 0.14), 0 2rpx 6rpx rgba(44, 39, 35, 0.08);
+  transform-origin: 50% 50%;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.frame:active {
+  box-shadow: 0 14rpx 32rpx rgba(44, 39, 35, 0.18), 0 2rpx 6rpx rgba(44, 39, 35, 0.08);
+}
+
+/* 占位底色：未加载时是一块米色，不出现白洞 */
+.frame-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 12rpx;
+  background: var(--beige, #f7f1e7);
+}
+
 .player {
   display: flex;
   align-items: center;
@@ -111,7 +149,7 @@
   flex-wrap: wrap;
 }
 
-/* 五个动作按三列排，最后一个自然落到第二行左起 */
+/* 六个动作按三列排满两行：改一改 / 复制 / 做成图，归档 / 标星 / 删了 */
 .act {
   width: 31.4%;
   margin: 0 2.9% 16rpx 0;
@@ -124,6 +162,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* 已标星：与顶部那颗星同一个强调色，扫一眼就知道状态 */
+.act.on {
+  color: var(--accent, #c4713f);
+  border-color: rgba(196, 113, 63, 0.34);
 }
 
 .act:active {

@@ -85,7 +85,11 @@ const onDisk = fs.readdirSync(path.join(B, 'pages')).filter(d =>
   fs.statSync(path.join(B, 'pages', d)).isDirectory()
 )
 onDisk.forEach(d => {
-  if (pages.indexOf('pages/' + d + '/' + d) < 0) warn('page.unregistered', 'pages/' + d + ' 没有在 app.json 注册')
+  // 一个目录可以装多个页面（pages/tpl 下就有 list 与 detail），
+  // 所以判断"有没有被用到"要看前缀，而不是"目录名是否等于页面名"。
+  const prefix = 'pages/' + d + '/'
+  const used = pages.some(p => p.indexOf(prefix) === 0)
+  if (!used) warn('page.unregistered', 'pages/' + d + ' 没有在 app.json 注册')
 })
 
 /* ---------------- 2. 组件引用 ---------------- */

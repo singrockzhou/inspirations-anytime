@@ -108,17 +108,32 @@ function clearFail() {
  * 表现就是"点了没反应"。这里先争取一次授权机会；
  * 若后台还没配「用户隐私保护指引」，把失败交给具体接口抛出，便于提示到具体原因。
  */
-function ensurePrivacy() {
+function ensurePrivacyInfo() {
   return new Promise(resolve => {
-    if (typeof wx.requirePrivacyAuthorize !== 'function') return resolve(true)
+    if (typeof wx.requirePrivacyAuthorize !== 'function') {
+      return resolve({ ok: true, errMsg: '' })
+    }
     wx.requirePrivacyAuthorize({
-      success: () => resolve(true),
+      success: () => resolve({ ok: true, errMsg: '' }),
+      // 失败原因必须交出去。早先这里只打一行 console.warn 就 resolve(true)，
+      // 于是「用户拒绝了官方隐私弹窗」「后台没声明这一项」这些真正的原因
+      // 全被吞掉，剪贴板失败时手上只剩 getClipboardData 那一句，
+      // 诊断行永远指向错误的方向（见 README 第 31 章）。
       fail: err => {
-        console.warn('[media] 隐私授权未通过:', (err && err.errMsg) || err)
-        resolve(true)
+        const msg = String((err && err.errMsg) || 'privacy authorize fail')
+        console.warn('[media] 隐私授权未通过:', msg)
+        resolve({ ok: false, errMsg: msg })
       }
     })
   })
+}
+
+/**
+ * 走一遍隐私授权，永不 reject、永不阻断调用方。
+ * 想知道成没成，用 ensurePrivacyInfo()。
+ */
+function ensurePrivacy() {
+  return ensurePrivacyInfo().then(() => true)
 }
 
 /**
@@ -346,6 +361,7 @@ module.exports = {
   lastFailReason,
   clearFail,
   ensurePrivacy,
+  ensurePrivacyInfo,
   chooseImage,
   chooseImages,
   saveImage,

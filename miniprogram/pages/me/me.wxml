@@ -66,6 +66,25 @@
     </view>
   </view>
 
+  <!-- 模板与指南：两个公开页，平时也能从「我的」进 -->
+  <view class="sec">{{t.sec_learn}}</view>
+  <view class="block">
+    <view class="row tap" bindtap="onTemplates">
+      <view class="row-main">
+        <text class="row-k">{{t.row_tpl}}</text>
+        <text class="row-sub">{{tplSub}}</text>
+      </view>
+      <text class="row-go">›</text>
+    </view>
+    <view class="row tap" bindtap="onGuide">
+      <view class="row-main">
+        <text class="row-k">{{t.row_guide}}</text>
+        <text class="row-sub">{{t.row_guide_sub}}</text>
+      </view>
+      <text class="row-go">›</text>
+    </view>
+  </view>
+
   <!-- 换手机：一个文件带走，一个文件带回 -->
   <view class="sec">{{t.sec_move}}</view>
   <view class="block">

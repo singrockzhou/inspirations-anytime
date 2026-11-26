@@ -7,9 +7,9 @@
     </view>
     <view class="top-right">
       <!-- 从聊天存一条：原在「我的」页，挪到首页后一眼能看到 -->
-      <text class="collect" catchtap="onCollect">{{t.collect}}</text>
-      <text class="top-act" catchtap="toggleSelect">{{selectMode ? t.cancel : t.select}}</text>
-      <view class="mine" catchtap="goMe">{{t.mine}}</view>
+      <view class="collect" hover-class="tap-dim" hover-stay-time="60" catchtap="onCollect">{{t.collect}}</view>
+      <view class="top-act" hover-class="tap-dim" hover-stay-time="60" catchtap="toggleSelect">{{selectMode ? t.cancel : t.select}}</view>
+      <view class="mine" hover-class="tap-dim" hover-stay-time="60" catchtap="goMe">{{t.mine}}</view>
     </view>
   </view>
 
@@ -27,17 +27,19 @@
 
   <!-- 筛选：全部 / 星标 / 归档 / 标签 -->
   <scroll-view class="chips" scroll-x="true" enable-flex="true" show-scrollbar="{{false}}">
-    <view class="chip {{filter === 'all' && !filterTag ? 'on' : ''}}" data-mode="all" catchtap="onFilter">
+    <view class="chip {{filter === 'all' && !filterTag ? 'on' : ''}}" hover-class="chip-hover" hover-stay-time="60" data-mode="all" catchtap="onFilter">
       {{t.chip_all}}<text class="chip-n">{{counts.all}}</text>
     </view>
-    <view class="chip {{filter === 'star' ? 'on' : ''}}" data-mode="star" catchtap="onFilter">
+    <view class="chip {{filter === 'star' ? 'on' : ''}}" hover-class="chip-hover" hover-stay-time="60" data-mode="star" catchtap="onFilter">
       <text class="chip-star">★</text>{{t.chip_star}}<text class="chip-n">{{counts.star}}</text>
     </view>
-    <view class="chip {{filter === 'archive' ? 'on' : ''}}" data-mode="archive" catchtap="onFilter">
+    <view class="chip {{filter === 'archive' ? 'on' : ''}}" hover-class="chip-hover" hover-stay-time="60" data-mode="archive" catchtap="onFilter">
       {{t.chip_archive}}<text class="chip-n">{{counts.archive}}</text>
     </view>
     <view
       class="chip chip-tag {{filterTag === item.tag ? 'on' : ''}}"
+      hover-class="chip-hover"
+      hover-stay-time="60"
       wx:for="{{tags}}"
       wx:key="tag"
       wx:for-item="item"
@@ -118,6 +120,7 @@
               bind:toggle="onCardToggle"
               bind:play="onPlay"
               bind:preview="onPreview"
+              bind:addtext="onCardAddText"
             />
           </swipe-cell>
         </view>
@@ -132,6 +135,8 @@
           </view>
           <view class="gright">
             <text class="gtoggle" catchtap="onToggle" data-key="{{g.key}}">{{g.open ? t.collapse : t.expand}}</text>
+            <!-- 归档视图里整组按钮反转成「取消归档」，与卡片菜单的 inArchive 判断同源 -->
+            <text class="garch" catchtap="onArchiveGroup" data-key="{{g.key}}">{{filter === 'archive' ? t.group_unarchive : t.group_archive}}</text>
             <text class="gdel" catchtap="onDeleteGroup" data-key="{{g.key}}">{{t.group_delete}}</text>
           </view>
         </view>
@@ -172,6 +177,7 @@
                 bind:toggle="onCardToggle"
                 bind:play="onPlay"
                 bind:preview="onPreview"
+                bind:addtext="onCardAddText"
               />
             </swipe-cell>
           </view>
@@ -183,13 +189,30 @@
     <view class="end-hint" wx:else>{{t.end_hint}}</view>
   </view>
 
+  <!-- 有记录时的模板出口：跟着列表滚到底才出现，不占首屏。
+       模板入口原来只长在空态里，有了第一条记录就消失——但第二十条同样会卡在
+       「这个念头该写成什么」上，方法型入口的用处是随记录变多而上升的 -->
+  <view
+    class="tpl-exit"
+    wx:if="{{!empty && !loading && !selectMode}}"
+    hover-class="tap-dim"
+    hover-stay-time="60"
+    catchtap="goTemplates"
+  >{{t.tpl_exit}}</view>
+
   <!-- 空态：一句话 + 直接可点的入口，不放插画 -->
   <view class="empty" wx:if="{{empty && !loading}}">
     <view class="empty-line">{{emptyText}}</view>
     <view class="empty-sub">{{emptySub}}</view>
     <view class="empty-btn" wx:if="{{filter === 'all' && !filterTag}}" catchtap="goText">{{t.empty_btn_first}}</view>
     <view class="empty-btn" wx:else catchtap="onFilter" data-mode="all">{{t.empty_btn_all}}</view>
-    <view class="empty-link" wx:if="{{filter === 'all' && !filterTag}}" catchtap="onCollect">{{t.empty_link}}</view>
+    <!-- 两条并列的路：一条已经有内容（从聊天存），一条不知道写什么（模板）。
+         并排是为了不再往下堆第三行文字链 -->
+    <view class="empty-links" wx:if="{{filter === 'all' && !filterTag}}">
+      <view class="empty-link" hover-class="tap-dim" hover-stay-time="60" catchtap="onCollect">{{t.empty_link}}</view>
+      <text class="empty-dot">·</text>
+      <view class="empty-link" hover-class="tap-dim" hover-stay-time="60" catchtap="goTemplates">{{t.empty_tpl}}</view>
+    </view>
   </view>
 
   <!-- 多选操作条 -->

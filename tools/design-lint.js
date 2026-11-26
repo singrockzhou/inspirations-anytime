@@ -197,6 +197,10 @@ const HAN = /[\u4e00-\u9fa5]/
  */
 const HAN_ALLOW = [
   { file: 'utils/i18n.js', any: true, why: '词典本体' },
+  // 模板正文是内容，不是界面文案：25 条提纲的标题、场景、提示、提纲、示例全写中文，
+  // 英文界面下如实说明「模板内容是中文的」，不给半截翻译（README 第 2628 行）。
+  // 整份跳过而不是逐句豁免——这份文件除了这些语料没有别的内容。
+  { file: 'utils/templates.js', any: true, why: '模板语料是内容，不进 i18n 字典' },
   { file: 'pages/me/me.js', re: /不卷的迭代老爸/, why: '公众号名，是品牌不是文案' },
   { file: 'pages/me/me.js', re: /'中文'/, why: '语言名用本语言写，英文界面上也得是「中文」' },
   { file: 'utils/transfer.js', re: /灵感随时记-/, why: '导出文件名带品牌，跨语言一致' },

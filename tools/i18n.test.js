@@ -145,7 +145,9 @@ console.log('3) 漏译检查：英文值里不能出现汉字')
     'me:about_version',
     'me:err_format',
     'transfer:md_title',
-    'share:title'
+    'share:title',
+    // 模板详情页的分享标题：{模板名} · 品牌名，与 share:title 同理
+    'tpl:share_title'
   ]
   const real = leaked.filter(k => allowed.indexOf(k) < 0)
   ok('除品牌名外，没有英文值含汉字', real.length === 0, real.slice(0, 8))
@@ -311,21 +313,30 @@ console.log('11) wxml 引用的字段与 pack(页面) 对得上（对不上会�
 {
   const fs = require('fs')
   const mod = fresh()
-  const PAGES = ['index', 'record', 'detail', 'review', 'search', 'poster', 'me']
+  const PAGES = (function () {
+    // 从 app.json 读，不写死清单：新增页面必须自动被这套检查覆盖，
+    // 否则「加了页面、文案没准备」会一路漏到真机才变成一屏空白。
+    // 命名空间取目录名——pages/tpl/list 与 pages/tpl/detail 共用 pack('tpl')。
+    const app = JSON.parse(fs.readFileSync(path.join(B, 'app.json'), 'utf8'))
+    return app.pages.map(function (route) {
+      const seg = route.split('/')
+      return { ns: seg[seg.length - 2], route: route }
+    })
+  })()
   const bad = []
   PAGES.forEach(p => {
-    const file = path.join(B, 'pages', p, p + '.wxml')
+    const file = path.join(B, p.route + '.wxml')
     const s = fs.readFileSync(file, 'utf8')
     const names = new Set()
     const re = /\bt\.([a-z][a-z0-9_]*)/g
     let m
     while ((m = re.exec(s))) names.add(m[1])
-    const pack = mod.pack(p)
+    const pack = mod.pack(p.ns)
     names.forEach(n => {
-      if (pack[n] === undefined) bad.push(p + ': t.' + n)
+      if (pack[n] === undefined) bad.push(p.route + ': t.' + n)
     })
   })
-  ok('七个页面的 t.xxx 全部有对应文案', bad.length === 0, bad.slice(0, 6))
+  ok('全部 ' + PAGES.length + ' 个页面的 t.xxx 都有对应文案', bad.length === 0, bad.slice(0, 6))
 }
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed')

@@ -3,6 +3,7 @@ const date = require('../../utils/date')
 const transfer = require('../../utils/transfer')
 const dialog = require('../../utils/dialog')
 const i18n = require('../../utils/i18n')
+const templates = require('../../utils/templates')
 
 /**
  * 作者与联系方式。
@@ -55,11 +56,13 @@ Page({
     /** 带数字的句子在 js 里拼好，wxml 只负责显示 */
     heatSub: '',
     indexSub: '',
+    /** 模板库那一行的副标题（带条数），首帧给空串，onShow 里填 */
+    tplSub: '',
     busy: false,
     /** 备份账本的两个事实：什么时候备过、该不该标成提醒色 */
     backupText: '',
     backupWarn: false,
-    version: '1.8.4',
+    version: '1.8.5',
     /** 当前语言与文案包；切换语言后由 applyLang 重新填 */
     t: {},
     lang: 'zh',
@@ -79,7 +82,9 @@ Page({
     this.setData({
       t: i18n.pack('me'),
       lang: lang,
-      langName: lang === 'en' ? 'English' : '中文'
+      langName: lang === 'en' ? 'English' : '中文',
+      // 副标题带真实条数：模板加一条，这里跟着变，不用手动改文案
+      tplSub: i18n.t('me:row_tpl_sub', { n: templates.count })
     })
   },
 
@@ -153,6 +158,17 @@ Page({
   /* ------------------------- 整理 ------------------------- */
 
   /** 归档列表复用首页的筛选，不另做一页 */
+  /* ------------------------- 模板与指南 ------------------------- */
+
+  /** 两页都是公开页（可被搜索到），这里只是本机入口 */
+  onTemplates() {
+    wx.navigateTo({ url: '/pages/tpl/list' })
+  },
+
+  onGuide() {
+    wx.navigateTo({ url: '/pages/guide/guide' })
+  },
+
   onArchive() {
     if (!this.data.archived) {
       wx.showToast({ title: i18n.t('me:no_archive'), icon: 'none' })

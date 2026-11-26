@@ -1,5 +1,5 @@
 /**
- * 竖向布局（19 条断言）
+ * 竖向布局（22 条断言）
  * 用法：node tools/layout.test.js
  *
  * 这两页的问题是"内容少 → 底部一大片空"，靠肉眼看截图只能确认"空了"，
@@ -48,7 +48,14 @@ const dWxss = read('pages/detail/detail.wxss')
 
 ok('模板把内容包进 .main、操作区包进 .bottom', /class="main"/.test(dWxml) && /class="bottom"/.test(dWxml))
 ok('.main 在 .bottom 之前，不改变原有阅读顺序', dWxml.indexOf('class="main"') < dWxml.indexOf('class="bottom"'))
-ok('五个动作都在 .bottom 里', dWxml.indexOf('class="actions"') > dWxml.indexOf('class="bottom"'))
+ok('六个动作都在 .bottom 里', dWxml.indexOf('class="actions"') > dWxml.indexOf('class="bottom"'))
+// 两行各三个才排得满；五个时第二行右边空一大块，看着像漏了东西
+ok('动作按两行三列排满（六个 .act）', (dWxml.match(/class="act[\s"]/g) || []).length === 6,
+  (dWxml.match(/class="act[\s"]/g) || []).length)
+// 顶部那颗星也在 onToggleStar 上，所以只能在操作区内比较先后
+const acts = dWxml.slice(dWxml.indexOf('class="actions"'))
+ok('标星夹在归档与删了之间', acts.indexOf('onToggleArchive') < acts.indexOf('onToggleStar') &&
+  acts.indexOf('onToggleStar') < acts.indexOf('onDelete'), acts.slice(0, 260))
 
 const page = block(dWxss, '.page')
 ok('.page 是 flex 列（剩余空间才有归处）', /display:\s*flex/.test(page) && /flex-direction:\s*column/.test(page), page)
@@ -82,6 +89,19 @@ ok('「每日提醒」不再出现在我的页', !/每日提醒/.test(mWxml))
 ok('也没有留下一个设了也不生效的时间选择器', !/mode="time"/.test(mWxml))
 ok('不再有"看得到但用不了"的占位判断', !/remindShow/.test(mWxml))
 ok('「关于」行点得动，且有按下反馈', /class="row tap" bindtap="onAbout"/.test(mWxml))
+
+/* ---------- 记录页：一句功能说明和字数 ---------- */
+console.log('4) 记录页：说明与字数同一行')
+const rcWxml = read('pages/record/record.wxml')
+const rcWxss = read('pages/record/record.wxss')
+const metaTag = (rcWxml.match(/<view class="meta-row">[\s\S]{0,400}?<\/view>\s*<\/view>/) || [''])[0]
+ok(
+  '.meta-row 同时装着说明与字数（不许再各占一行）',
+  /class="tip"/.test(metaTag) && /class="counter"/.test(metaTag),
+  metaTag.length
+)
+ok('.meta-row 用 flex 横排（否则又退回上下两行）', /display:\s*flex/.test(block(rcWxss, '.meta-row')))
+ok('说明的字色不再是 2.1:1 的浅灰（那是装饰色，这句是功能说明）', !/#b8ab99/.test(block(rcWxss, '.tip')))
 
 console.log('\n结果: ' + pass + ' passed, ' + fail + ' failed')
 process.exit(fail ? 1 : 0)

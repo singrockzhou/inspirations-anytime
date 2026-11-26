@@ -34,24 +34,38 @@
   align-items: center;
 }
 
+/*
+ * 顶部三个文字入口：字号 26rpx，原来的 padding 只撑出 52rpx 高（约 26px），
+ * 手指落在字缝里会点空。统一给到 72rpx 的热区，文字仍居中原位，
+ * 视觉不变，能点的地方大了一圈。
+ */
 .top-act {
+  display: flex;
+  align-items: center;
+  min-height: 72rpx;
   font-size: 26rpx;
   color: var(--ink-2, #8b8178);
-  padding: 8rpx 4rpx 8rpx 24rpx;
+  padding: 0 4rpx 0 24rpx;
 }
 
 /* 从聊天存一条：同级的文字入口，只是用主色 + 稍重字重把动作点出来 */
 .collect {
+  display: flex;
+  align-items: center;
+  min-height: 72rpx;
   font-size: 26rpx;
   font-weight: 500;
   color: var(--accent, #c4713f);
-  padding: 8rpx 4rpx 8rpx 24rpx;
+  padding: 0 4rpx 0 24rpx;
 }
 
 .mine {
+  display: flex;
+  align-items: center;
+  min-height: 72rpx;
   font-size: 26rpx;
   color: var(--ink-2, #8b8178);
-  padding: 8rpx 4rpx 8rpx 24rpx;
+  padding: 0 4rpx 0 24rpx;
 }
 
 /* 吸顶：伪输入条 + 搜索按钮 */
@@ -147,6 +161,16 @@
   color: #b3a795;
 }
 
+/* 列表底部的模板出口：滚到底才看到，不与记录抢首屏。
+   比 end-hint 深一档、字号大一档，因为它是可点的，那一行不是 */
+.tpl-exit {
+  margin-top: 4rpx;
+  padding: 24rpx 32rpx 28rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--ink-2, #8b8178);
+}
+
 /* 空态 */
 .empty {
   padding-top: 180rpx;
@@ -182,12 +206,26 @@
   opacity: 0.88;
 }
 
-/* 空态的第二条路：不是主按钮，用文字链，不跟"记下第一条"抢 */
+/* 空态的第二条路：不是主按钮，用文字链，不跟"记下第一条"抢。
+   两条并排而不是各占一行——上下堆两行文字链，空态会变得像目录 */
+.empty-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 20rpx;
+  padding: 0 32rpx;
+}
+
 .empty-link {
-  margin-top: 28rpx;
-  padding: 16rpx 24rpx;
+  padding: 14rpx 16rpx;
   font-size: 26rpx;
   color: var(--ink-2, #8b8178);
+}
+
+.empty-dot {
+  font-size: 24rpx;
+  color: #c9bfaf;
 }
 
 /* 底部三入口：等宽并排，点一下直接进 */
@@ -440,20 +478,35 @@
   align-items: center;
 }
 
+/*
+ * 分组头的三个文字操作：原来 24rpx 字 + 20rpx 上下内边距，热区约 58rpx。
+ * 「展开」「归档整组」「删整组」两两只隔十几 rpx，热区一窄就容易点错。一起抬到 70rpx。
+ * 归档用中性色、删除用橙红：两者都是「把这组移走」，靠颜色分开，不靠位置记忆。
+ */
 .gtoggle {
   font-size: 24rpx;
   color: var(--ink-2, #8b8178);
-  padding: 10rpx 14rpx;
+  padding: 16rpx 14rpx;
 }
 
 .gtoggle:active {
   opacity: 0.55;
 }
 
+.garch {
+  font-size: 24rpx;
+  color: var(--ink-2, #8b8178);
+  padding: 16rpx 12rpx;
+}
+
+.garch:active {
+  opacity: 0.55;
+}
+
 .gdel {
   font-size: 24rpx;
   color: #b5673f;
-  padding: 10rpx 4rpx 10rpx 12rpx;
+  padding: 16rpx 4rpx 16rpx 12rpx;
 }
 
 .gdel:active {
@@ -561,11 +614,15 @@
   padding: 0 0 18rpx;
 }
 
+/*
+ * 筛选 chip：原来 56rpx 高（28px），比手指的落点小；横滑时又没有任何按压反馈，
+ * 滑到一半松手经常不知道自己有没有选中。抬到 64rpx，并给 hover-class 一点底色。
+ */
 .chip {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  height: 56rpx;
+  min-height: 64rpx;
   margin-right: 14rpx;
   padding: 0 22rpx;
   border-radius: 28rpx;
@@ -573,6 +630,11 @@
   border: 1rpx solid #efe6d8;
   font-size: 24rpx;
   color: var(--ink-2, #8b8178);
+}
+
+/* 用透明度而不是底色：选中态的底色由 .chip.on 决定，换底色会互相覆盖 */
+.chip-hover {
+  opacity: 0.72;
 }
 
 .chip.on {
@@ -646,7 +708,7 @@
 .bk-x {
   flex: 0 0 auto;
   margin-left: 6rpx;
-  padding: 6rpx 2rpx 6rpx 18rpx;
+  padding: 12rpx 4rpx 12rpx 20rpx;
 }
 
 .bk-xc {

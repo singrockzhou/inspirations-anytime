@@ -20,6 +20,30 @@ const MAX_MEDIA_ONE = 2 * 1024 * 1024
 const MAX_MEDIA_TOTAL = 15 * 1024 * 1024
 /** 单条正文上限，与记录页的 maxlength 对齐；从剪贴板/文件进来的文字都按它截 */
 const MAX_TEXT = 1000
+/** 一次从聊天取图的上限，与选择器的 count、store.MAX_PHOTOS 保持同一个数 */
+const MAX_CHAT_IMAGES = 9
+
+/**
+ * 明确收不了的类型：视频、音频、压缩包、安装包。
+ *
+ * 为什么要单独列一份、而不是统一走"留个文件名占位"：
+ * 给 PDF/Word 留壳是有用的（用户知道这份文档在这儿，可以自己补一句），
+ * 但给一个 .mp4 留一条「来自「会议录像.mp4」」的记录纯属垃圾——点不开、听不了、
+ * 还占着列表。收不了就当面说清楚，别让人以为存下了。
+ */
+const UNSUPPORTED_EXT = [
+  'mp4', 'mov', 'avi', 'mkv', 'flv', 'wmv', 'm4v', '3gp',
+  'mp3', 'm4a', 'wav', 'aac', 'amr', 'silk', 'flac', 'ogg',
+  'zip', 'rar', '7z', 'gz', 'tar', 'bz2',
+  'apk', 'ipa', 'exe', 'dmg', 'iso'
+]
+
+/**
+ * 文本类文件最多读多大。
+ * readFileSync 是同步的，读一个 50MB 的 json 会把界面卡住，进度条一直在转——
+ * 而正文最多只要 1000 字，读进来也是白读。
+ */
+const MAX_TEXT_BYTES = 2 * 1024 * 1024
 
 /**
  * 导出失败的码表。首页的备份横幅和「我的 → 导出到文件」是两个入口、同一条链路，
@@ -421,13 +445,21 @@ function importBackup() {
 /**
  * 从聊天里挑文件，存成灵感。
  *
- * 两条原则，都是被真实反馈逼出来的：
+ * 三条原则，都是被真实反馈逼出来的：
  *
  *   1. **先认出它是什么**（走 utils/sniff）。聊天来的临时路径经常没有扩展名
  *      （iOS 是 wxfile://tmp_xxxx），只按路径猜后缀会把一张截图判成"未知二进制"，
  *      于是列表里多出一条正文为「来自「78a4bca0…」」的空壳记录——看不懂也搜不到。
  *   2. **一个文件失败不连累其它**。成功的照常入库，失败的收进 skipped 里如实报告；
  *      只有全部失败才 reject，并且带上明细——不再用一句"文件可能已经损坏"打包所有原因。
+ *   3. **一次选的几张图属于同一件事，合成一条**。用户一次勾 6 张图，这个动作本身
+ *      就说明了"这是同一批"；拆成 6 条会把共享的那个语境（同一段对话、同一个需求）
+ *      丢掉，还会把当天的卡片流刷满。所以图片按首次出现的位置占一个坑，后选的图
+ *      往同一个坑里填，顺序不变；文本、文档仍然各成一条（它们本来就是独立内容）。
+ *
+ * @param {{onProgress?: function}} [options]
+ *   onProgress(done, total) 每开始处理一个文件回调一次，用来显示「正在保存 3/6」。
+ *   注意：调用方要等选择器返回之后再挂 loading——遮罩会把隐私授权弹窗挡住。
  *
  * @returns {Promise<{
  *   records: object[],  待入库的记录
@@ -435,10 +467,15 @@ function importBackup() {
  *   shells: number,     只留下文件名的条数（PDF/Word 打不开正文，仍留着让用户补一句）
  *   failed: number,     skipped.length + shells，兼容旧调用
  *   compressed: number, 压过的张数
- *   savedBytes: number  省下的字节
+ *   savedBytes: number, 省下的字节
+ *   photoCount: number, 存下的图片张数
+ *   merged: boolean     是否把多张图合成了一条
  * }>}
  */
-function importFromChat() {
+function importFromChat(options) {
+  const opts = options || {}
+  const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : null
+
   return new Promise((resolve, reject) => {
     if (typeof wx.chooseMessageFile !== 'function') {
       reject({ code: 'unsupported' })
@@ -457,30 +494,80 @@ function importFromChat() {
 
         const records = []
         const skipped = []
+        /** 明确收不了的文件（视频/音频/压缩包/超大文本），要当面告诉用户 */
+        const unsupported = []
         let shells = 0
         let compressed = 0
         let savedBytes = 0
 
+        /**
+         * 图片坑：-1 表示还没遇到图片，>=0 是这条合并记录在 records 里的下标。
+         * 用"占位 + 回填"而不是"攒到最后再 push"，是为了让合并后的这条留在
+         * 它第一次出现的位置上——顺序还是用户在聊天里看到的那个顺序。
+         */
+        let photoAt = -1
+        const photoPaths = []
+        let photoSize = 0
+        let photoName = ''
+
+        /** 收尾：把图片坑填成真正的记录；一张都没成时把坑删掉，不留空条 */
+        const settlePhotos = () => {
+          if (photoAt < 0) return
+          const kept = photoPaths.slice(0, MAX_CHAT_IMAGES)
+          if (photoPaths.length > kept.length) {
+            // 选择器最多给 9 个，正常到不了这里；真超了就删掉多余的，别留孤儿文件
+            require('./media').removeAll(photoPaths.slice(kept.length))
+          }
+          if (!kept.length) {
+            records.splice(photoAt, 1)
+            return
+          }
+          records[photoAt] = {
+            type: 'photo',
+            // 单张时文件名还有意义；多家图是"同一批"，写任何一张的名字都会误导
+            content: kept.length === 1 && photoName ? i18n.t('transfer:from_file', { name: photoName }) : '',
+            mediaPaths: kept,
+            size: photoSize
+          }
+        }
+
         const step = i => {
           if (i >= files.length) {
+            settlePhotos()
             // 一条都没成：把明细带出去，让页面能说清"是哪几个、为什么"
             if (!records.length) {
-              reject({ code: 'read', skipped: skipped })
+              // 全是"压根收不了"的类型时单独报一个码：这是最容易被看成"卡住了"的情形
+              if (unsupported.length) reject({ code: 'unsupported_type', unsupported: unsupported, skipped: skipped })
+              else reject({ code: 'read', skipped: skipped })
               return
             }
             resolve({
               records: records,
               skipped: skipped,
+              unsupported: unsupported,
               shells: shells,
               failed: skipped.length + shells,
               compressed: compressed,
-              savedBytes: savedBytes
+              savedBytes: savedBytes,
+              photoCount: photoPaths.length,
+              merged: photoPaths.length > 1
             })
             return
           }
 
+          if (onProgress) onProgress(i + 1, files.length)
+
           const f = files[i]
-          const info = sniff.classify(f)
+          // classify 会自己去读文件头，极端情况下（文件被系统清掉）会抛错。
+          // 抛错就等于这条链断了：loading 不会关，用户看到的就是"一直转圈"。
+          let info
+          try {
+            info = sniff.classify(f)
+          } catch (e) {
+            skipped.push({ name: '', reason: 'read', ext: '' })
+            step(i + 1)
+            return
+          }
           const label = info.label // 机器名（哈希）在这里是空串
 
           /* ---------- 图片：压缩后落盘，失败也要退到"存原件"再退"报告" ---------- */
@@ -500,13 +587,14 @@ function importFromChat() {
                 if (!r || !r.path) {
                   skipped.push({ name: label, reason: 'save', ext: info.ext })
                 } else {
-                  records.push({
-                    // 名字是哈希就不写字：宁可只有一张图，也不要一串看不懂的编号当正文
-                    type: 'photo',
-                    content: label ? i18n.t('transfer:from_file', { name: label }) : '',
-                    mediaPaths: [r.path],
-                    size: r.size || 0
-                  })
+                  // 第一次遇到图片才占坑；之后的图都填进同一个坑
+                  if (photoAt < 0) {
+                    photoAt = records.length
+                    records.push(null)
+                  }
+                  if (!photoPaths.length && label) photoName = label
+                  photoPaths.push(r.path)
+                  photoSize += r.size || 0
                   if (r.compressed) {
                     compressed++
                     savedBytes += Math.max(0, (r.originSize || 0) - (r.size || 0))
@@ -519,6 +607,11 @@ function importFromChat() {
 
           /* ---------- 文本：能读出正文才算文本 ---------- */
           if (info.kind === 'text') {
+            if ((f.size || 0) > MAX_TEXT_BYTES) {
+              unsupported.push({ name: label, ext: info.ext, reason: 'big' })
+              step(i + 1)
+              return
+            }
             let body = ''
             try {
               body = String(fs().readFileSync(f.path, 'utf8') || '')
@@ -541,7 +634,12 @@ function importFromChat() {
             return
           }
 
-          /* ---------- 二进制：名字能读就留个壳，名字不能读就别往列表里塞垃圾 ---------- */
+          /* ---------- 二进制：先判"明确收不了"，再决定留壳还是丢弃 ---------- */
+          if (UNSUPPORTED_EXT.indexOf(String(info.ext || '').toLowerCase()) >= 0) {
+            unsupported.push({ name: label, ext: info.ext, reason: 'type' })
+            step(i + 1)
+            return
+          }
           if (label) {
             records.push({ type: 'text', content: i18n.t('transfer:from_file', { name: label }) })
             shells++
@@ -562,48 +660,131 @@ function importFromChat() {
 }
 
 /**
- * 从剪贴板收一条文字。
+ * 取一次隐私授权状态，**只给诊断用，不参与任何流程判断**。
  *
- * 为什么只能这么做：微信不开放"读取聊天消息"的接口，
- * wx.chooseMessageFile 拿到的是文件，聊天里直接打的字不会出现在选择器里。
- * 唯一的合法通路是用户自己在聊天里长按复制，再由这里读剪贴板。
- *
- * 因此有两个必须守住的边界：
- *   1. 只能由用户点击触发，绝不自动读（iOS 读剪贴板会弹系统提示，偷偷读会吓到人）；
- *   2. 超长要如实告知截断位置，不静默丢字。
- *
- * @returns {Promise<{text:string, total:number, truncated:boolean}>}
+ * `wx.getPrivacySetting` 从基础库 2.32.3 起才有；官方 API 页没有列出
+ * 「微信 鸿蒙 OS 版」的支持情况，所以接口不在就返回 null，不猜它该返回什么。
+ * 拿到的 `needAuthorization` 含义见官方《小程序隐私协议开发指南》二.2：
+ * 为 true 表示微信侧还记着"这个用户有待同意的隐私政策"。
  */
-function fromClipboard() {
+function privacySnapshot() {
+  return new Promise(resolve => {
+    if (typeof wx.getPrivacySetting !== 'function') return resolve(null)
+    wx.getPrivacySetting({
+      success: res => resolve({ need: !!(res && res.needAuthorization) }),
+      fail: () => resolve(null)
+    })
+  })
+}
+
+/**
+ * 从剪贴板读一条文字。
+ *
+ * 时序上有一条来自真机验证的规矩：**先走一遍隐私授权，再读**。
+ *
+ * v1.8.0 ~ v1.8.4 一直是这个顺序，你在手机上读到过。v1.8.5 我把它改成
+ * "先直接读、失败再补授权"，理由是"异步会脱离用户点击的时机"——这个理由是我
+ * 臆想的：官方文档对 getClipboardData 只字未提手势要求，还明确标注
+ * "微信鸿蒙 OS 版：支持"。改完之后鸿蒙上回 `fail:system permission denied`。
+ *
+ * 那句 errMsg 的成因**至今没有出处**：官方《隐私协议开发指南》列出的隐私错误
+ * 只有 `api scope is not declared in the privacy agreement`(errno 112)、
+ * `appid privacy api banned`、用户拒绝弹窗(103/104)，没有这一句。
+ * 所以它到底来自微信还是鸿蒙系统，属于未知，不做结论，只如实上报。
+ *
+ * 顺序固定回：先 ensurePrivacy（首次会弹系统隐私框），再读。
+ * 万一第一次授权被弹框/遮罩吞掉，失败后再补一次授权重读，最后才如实报错。
+ * **任何一步都不下"这台机器读不到剪贴板"的结论。**
+ */
+function fromClipboard(attempt) {
+  const tries = typeof attempt === 'number' ? attempt : 0
+
   return new Promise((resolve, reject) => {
     if (typeof wx.getClipboardData !== 'function') {
       reject({ code: 'unsupported' })
       return
     }
 
-    const read = () => {
-      wx.getClipboardData({
-        success: res => {
-          const raw = String((res && res.data) || '')
-          // 首尾空白清掉；中间换行保留，那是用户原本的排版
-          const text = raw.replace(/^\s+|\s+$/g, '')
-          if (!text) {
-            reject({ code: 'empty' })
-            return
-          }
-          const kept = text.slice(0, MAX_TEXT)
-          resolve({ text: kept, total: text.length, truncated: text.length > kept.length })
-        },
-        fail: err => {
-          const msg = String((err && err.errMsg) || '')
-          // 用户拒绝：「auth deny」；后台没声明隐私用途：「api scope is not declared」
-          reject({ code: /deny|auth|privacy|scope/i.test(msg) ? 'denied' : 'read' })
-        }
+    let retriedPrivacy = false
+    // 隐私授权那一步的原始 errMsg。只用于失败时的诊断行——
+    // 不参与任何判断，避免把"猜的原因"当成流程分支（README 第 30 章的教训）。
+    let privacyErr = ''
+
+    const again = () => {
+      if (tries >= 1) return false
+      setTimeout(() => {
+        fromClipboard(tries + 1).then(resolve, reject)
+      }, 200)
+      return true
+    }
+
+    const settle = res => {
+      const raw = String((res && res.data) || '')
+      // 首尾空白清掉；中间换行保留，那是用户原本的排版
+      const text = raw.replace(/^\s+|\s+$/g, '')
+      if (!text) {
+        // 空有两种：真的没复制，或者内容还没交出来
+        if (again()) return
+        reject({ code: 'empty' })
+        return
+      }
+      const kept = text.slice(0, MAX_TEXT)
+      resolve({ text: kept, total: text.length, truncated: text.length > kept.length })
+    }
+
+    const read = () => wx.getClipboardData({ success: settle, fail: onFail })
+
+    const onFail = err => {
+      const msg = String((err && err.errMsg) || '')
+      // 用户拒绝：「auth deny」/「...denied」；后台没声明用途：「api scope is not declared」
+      // 正则必须显式写 denied：d-e-n-i-e-d 里没有 deny 这个连续子串，漏掉它就会
+      // 把真实的 "permission denied" 误判成普通读失败。
+      const denied = /denied|deny|auth|privacy|scope|112/i.test(msg)
+
+      // 补一次授权再读。只补一次：授权框本身要用户点，反复补只会连环弹框。
+      // 注意这里**不再解释** `system permission denied` 的成因——官方文档的
+      // 隐私错误码只有 103/104/112 和 `appid privacy api banned` 这几种，
+      // 没有这一句，所以它到底来自微信还是鸿蒙系统，目前无出处，属于未知。
+      if (!retriedPrivacy && (denied || /system permission denied/i.test(msg))) {
+        retriedPrivacy = true
+        const retry = () => setTimeout(read, 50)
+        require('./media')
+          .ensurePrivacyInfo()
+          .then(info => {
+            privacyErr = (info && info.errMsg) || ''
+            retry()
+          })
+        return
+      }
+
+      // 非权限类失败（弹窗刚关、系统还在交接）值得再来一次
+      if (!denied && again()) return
+      console.warn('[transfer] 读剪贴板失败:', msg)
+      // 三条线索一起交出去：隐私设置状态 / 授权那一步的 errMsg / 读取的 errMsg。
+      // 少了前两条，「读不到」就只能靠猜，而这一轮已经猜错过一次了。
+      privacySnapshot().then(snap => {
+        const parts = []
+        if (snap) parts.push('need=' + (snap.need ? '1' : '0'))
+        if (privacyErr) parts.push('auth=' + privacyErr)
+        parts.push('read=' + msg)
+        reject({
+          code: denied ? 'denied' : 'read',
+          // 系统权限被关掉时 errMsg 是 `getClipboardData:fail:system permission denied`。
+          // 这种情况只有"去系统设置里打开剪贴板"有用，讲小程序隐私授权是白讲，
+          // 所以单独标出来，让页面能换成另一套提示（真机已确认，见 README 第 32 章）。
+          sysDenied: /system permission denied/i.test(msg),
+          detail: parts.join(' | ')
+        })
       })
     }
 
-    // 剪贴板是隐私接口：先争取一次授权，失败也继续读，让具体错误浮现出来
-    require('./media').ensurePrivacy().then(read, read)
+    // 先授权，再读。这一行是 v1.8.4 的真机行为，不要再"优化"掉。
+    require('./media')
+      .ensurePrivacyInfo()
+      .then(info => {
+        privacyErr = (info && info.errMsg) || ''
+        read()
+      })
   })
 }
 

@@ -606,8 +606,20 @@ function setStar(id, on) {
   return update(id, { starred: on ? 1 : 0 })
 }
 
+/**
+ * 归档开关。**刻意不走 update()**：update 会刷新 updatedAt，而卡片和详情页
+ * 用「updatedAt - createdAt > 60 秒」判断这条改过没有（card.js:117、detail.js:132）。
+ * 归档是状态不是编辑，不该让一条记录凭空多出「改过」标记。
+ */
 function setArchive(id, on) {
-  return update(id, { archivedAt: on ? Date.now() : 0 })
+  const all = readAll()
+  const index = all.findIndex(r => r.id === id)
+  if (index < 0) return null
+  const next = normalizeRecord(Object.assign({}, all[index], { archivedAt: on ? Date.now() : 0 }))
+  const copy = all.slice()
+  copy[index] = next
+  if (!writeAll(copy)) return null
+  return clone(next)
 }
 
 /** 删除 = 打软删标记，列表立刻消失，5 秒内还能 restore */
@@ -672,6 +684,41 @@ function clearAll() {
     console.error('[store] meta clear failed', e)
   }
   return true
+}
+
+/* ---------------------------- 批量归档 ---------------------------- */
+
+/**
+ * 批量归档 / 取消归档：与 removeMany 同一套写法，只写一次盘。
+ *
+ * 已经处于目标状态的记录不重复计入返回值——这样调用方拿 `done.length`
+ * 当「真正改了几条」用，撤销条上的数字也不会虚报。
+ * 与单条 setArchive 一样不动 updatedAt。
+ *
+ * @param {string[]} ids
+ * @param {boolean} on true 归档，false 取消归档
+ * @returns {string[]} 真正被改掉的 id（写盘失败返回空数组）
+ */
+function setArchiveMany(ids, on) {
+  const set = {}
+  ;(ids || []).forEach(id => {
+    set[id] = 1
+  })
+  if (!Object.keys(set).length) return []
+
+  const want = on ? 1 : 0
+  const now = on ? Date.now() : 0
+  const done = []
+  const copy = readAll().map(r => {
+    if (set[r.id] && !r.deletedAt && (r.archivedAt ? 1 : 0) !== want) {
+      done.push(r.id)
+      return Object.assign({}, r, { archivedAt: now })
+    }
+    return r
+  })
+  if (!done.length) return []
+  if (!writeAll(copy)) return []
+  return done
 }
 
 /* ---------------------------- 批量删除 ---------------------------- */
@@ -986,6 +1033,7 @@ module.exports = {
   update,
   setStar,
   setArchive,
+  setArchiveMany,
   remove,
   restore,
   destroy,

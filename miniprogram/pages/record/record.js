@@ -5,6 +5,7 @@ const audio = require('../../utils/audio')
 const asr = require('../../utils/asr')
 const dialog = require('../../utils/dialog')
 const i18n = require('../../utils/i18n')
+const templates = require('../../utils/templates')
 
 const MAX_TEXT = 1000
 const MAX_CAPTION = 200
@@ -88,6 +89,8 @@ Page({
 
     const mode = options.mode === 'edit' ? 'edit' : 'create'
     this.recordId = options.id || ''
+    // 从卡片「补个说明」进来：进页面就聚焦配文框，少一次点击
+    this.autoFocus = options.focus === '1'
     this.saved = false
     this.cancelFlag = false
 
@@ -118,7 +121,11 @@ Page({
       // 文字草稿：上次没存下的那句话，回来还在
       if (type === 'text') {
         const draft = store.getDraft()
-        if (draft) {
+        // 从模板进来（模板详情页的「用这个模板记一条」）：骨架直接填进去
+        const tpl = options.tpl ? templates.byId(options.tpl) : null
+        if (tpl) {
+          this.fillTemplate(tpl, draft)
+        } else if (draft) {
           this.setData({ content: draft.content })
           this.syncCanSave()
         }
@@ -133,8 +140,9 @@ Page({
     // 几百张图时可能要一百多毫秒。等首帧画完再算，别让"点加号"顿一下。
     this.checkSpace()
 
-    if (this.data.type === 'text') {
+    if (this.data.type === 'text' || this.autoFocus) {
       // 让键盘跟着页面一起起来，少一次点击
+      // autoFocus：从卡片「补个说明」进来时直接落笔，不用再点一次配文框
       setTimeout(() => this.setData({ focus: true }), 120)
     }
 
@@ -201,6 +209,46 @@ Page({
       if (raw && raw.trim()) store.saveDraft({ type: 'text', content: raw })
       else store.clearDraft()
     }, 300)
+  },
+
+  /**
+   * 把模板骨架填进正文。
+   *
+   * 有旧草稿时不直接覆盖：那是用户上一次没存下的话，替他扔掉是最不该
+   * 顺手做的事（见 README 第 30 章）。所以问一句，主按钮给「就用模板」——
+   * 他是主动点了「用这个模板记一条」进来的，意图明确。
+   *
+   * 这里**不调 markDirty**：骨架不是他写的，填进去就弹「离开前确认」，
+   * 会让人以为自己改了什么。骨架也不写草稿——返回就没了，下次再点还有。
+   */
+  fillTemplate(tpl, draft) {
+    const apply = () => {
+      this.setData({ content: tpl.skeleton })
+      // 骨架已经取代旧草稿，必须清掉；留着的话，下次开新记录会冒出上一句
+      store.clearDraft()
+      this.syncCanSave()
+    }
+
+    if (!draft) {
+      apply()
+      return
+    }
+
+    dialog
+      .confirm({
+        title: i18n.t('record:tpl_draft_title'),
+        text: i18n.t('record:tpl_draft_text'),
+        cancelText: i18n.t('record:tpl_draft_keep'),
+        confirmText: i18n.t('record:tpl_draft_use')
+      })
+      .then(r => {
+        if (r && r.confirmed) {
+          apply()
+          return
+        }
+        this.setData({ content: draft.content })
+        this.syncCanSave()
+      })
   },
 
   syncCanSave() {
@@ -404,7 +452,19 @@ Page({
     this.saved = true
     store.clearDraft()
     getApp().globalData.flashId = rec.id
+    // 新建的记录一定插在列表最前面，首页据此把视口带回顶部；
+    // 编辑已有记录则不动视口，免得把人正在看的位置顶掉
+    getApp().globalData.flashNew = this.data.mode !== 'edit'
     this.leave()
+  },
+
+  /**
+   * 去提纲列表。不拦 dirty：navigateTo 只是压栈，本页正文还在内存里，
+   * 返回就回到原处；真要换提纲，是在详情页点「用这个提纲记一条」，
+   * 那一步会新开一页并处理旧草稿，不在这里判。
+   */
+  goTemplates() {
+    wx.navigateTo({ url: '/pages/tpl/list' })
   },
 
   onCancel() {
