@@ -98,5 +98,25 @@ ok('写明了联系邮箱', /const EMAIL = '77111904@qq\.com'/.test(meJs))
 ok('「关于」不再是一句"知道了"的死弹窗：第二个按钮是复制', /confirmText: i18n\.t\('me:about_confirm'\)/.test(meJs) && /'me:about_confirm': '复制联系方式'/.test(i18nSrc) && /setClipboardData/.test(meJs))
 ok('复制的内容就是弹窗里那三行（同一个取值函数，不会改漏）', /function contactText\(\)/.test(meJs) && /'me:about_author': '作者：\{v\}'/.test(i18nSrc) && /data: contactText\(\)/.test(meJs))
 
+/* ---------- 7. 「我的」里的入口，点进去看到的标题要一样 ---------- */
+console.log('7) 入口文案 = 落地页标题（点了什么就看到什么）')
+
+/** 同一个键在词典里出现两次：先中文，后英文 */
+function kv(key) {
+  const re = new RegExp("'" + key.replace(':', '\\:') + "':\\s*(['\"])((?:[^'\"\\\\]|\\\\.)*)\\1", 'g')
+  const out = []
+  let m
+  while ((m = re.exec(i18nSrc))) out.push(m[2])
+  return out
+}
+
+const zhNav = kv('guide:nav')[0]
+const enNav = kv('guide:nav')[1]
+ok('「我的 → 使用指南」与指南页标题一致（中）', kv('me:row_guide')[0] === zhNav, [kv('me:row_guide')[0], zhNav])
+ok('「我的 → Guide」与指南页标题一致（英）', kv('me:row_guide')[1] === enNav, [kv('me:row_guide')[1], enNav])
+ok('「我的 → 灵感模板库」与模板页标题一致（中）', kv('me:row_tpl')[0] === kv('tpl:nav')[0], [kv('me:row_tpl')[0], kv('tpl:nav')[0]])
+ok('「我的 → Templates」与模板页标题一致（英）', kv('me:row_tpl')[1] === kv('tpl:nav')[1], [kv('me:row_tpl')[1], kv('tpl:nav')[1]])
+ok('「我的」两行用的就是这两个键', /\{\{t\.row_guide\}\}/.test(read('pages/me/me.wxml')) && /\{\{t\.row_tpl\}\}/.test(read('pages/me/me.wxml')))
+
 console.log('\n结果: ' + pass + ' passed, ' + fail + ' failed')
 process.exit(fail ? 1 : 0)

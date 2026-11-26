@@ -338,9 +338,9 @@ const ZH_DICT = {
   'me:err_parse': '这个文件不是有效的 JSON。',
   'me:err_format': '这不是「灵感随时记」导出的备份文件。',
   'me:err_unsupported': '当前环境不支持导入，请用手机微信打开。',
-  'me:row_tpl': '模板库',
+  'me:row_tpl': '灵感模板库',
   'me:row_tpl_sub': '{n} 个能照着写的模板',
-  'me:row_guide': '怎么用',
+  'me:row_guide': '使用指南',
   'me:row_guide_sub': '三种记法、数据在哪、常见问题',
   'me:sec_learn': '模板与指南',
 
@@ -930,7 +930,7 @@ const EN_DICT = {
   'me:err_unsupported': "Import isn't supported here. Open it in WeChat on your phone.",
   'me:row_tpl': 'Templates',
   'me:row_tpl_sub': '{n} templates you can fill in',
-  'me:row_guide': 'How to use it',
+  'me:row_guide': 'Guide',
   'me:row_guide_sub': 'Three ways to save, where data lives, FAQ',
   'me:sec_learn': 'Templates & guide',
 
