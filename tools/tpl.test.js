@@ -329,8 +329,10 @@ console.log('11) 术语：用户看到的是「提纲」，不是开发词「骨
   ok("tpl:skeleton 英文是 Outline", /'tpl:skeleton': 'Outline'/.test(raw))
   ok("tpl:start_hint 中文用「提纲」", /'tpl:start_hint': '[^']*提纲/.test(raw))
   ok("tpl:start_hint 英文用 outline", /'tpl:start_hint': '[^']*outline/.test(raw))
-  ok("me:row_tpl_sub 中文用「提纲」", /'me:row_tpl_sub': '\{n\} 个能照着写的提纲'/.test(raw))
-  ok("me:row_tpl_sub 英文用 outlines", /'me:row_tpl_sub': '\{n\} outlines you can fill in'/.test(raw))
+  // 「我的 → 模板与指南」这行的标签叫模板，副标题就该说模板；
+  // 说「提纲」会让同一个单元格里出现两个层级的词（库=模板，页内区块=提纲）
+  ok("me:row_tpl_sub 中文用「模板」", /'me:row_tpl_sub': '\{n\} 个能照着写的模板'/.test(raw))
+  ok("me:row_tpl_sub 英文用 templates", /'me:row_tpl_sub': '\{n\} templates you can fill in'/.test(raw))
 
   // 导语里原来硬编码「25 个」，加模板时没人会记得回来改；数字交给 {n}
   const lead = i18n.pack('tpl').lead || ''
@@ -418,7 +420,12 @@ console.log('13) 同类内链 / 品牌 / 导航栏')
   ok('详情页底部有品牌行', /class="brand"/.test(dWxml))
   ok('列表页品牌行在正文之后', lWxml.lastIndexOf('class="brand"') > lWxml.lastIndexOf('class="foot"'))
   ok('品牌行是灰字小字，不做成第二个按钮', /\.brand\s*\{[\s\S]*?font-size:\s*2[0-4]rpx/.test(lWxss) && !/\.brand\s*\{[^}]*background/.test(lWxss))
-  ok('品牌行说清是什么产品（不只是一串名字）', /灵感本|notebook/i.test(i18n.pack('tpl').brand || ''), i18n.pack('tpl').brand)
+  ok('品牌行带品牌名（不只是一串口号）', /灵感随时记|Inspiration Notes/.test(i18n.pack('tpl').brand || ''), i18n.pack('tpl').brand)
+  // 原来写「不联网的灵感本」/「An offline notebook」——语音转写走微信同声传译插件
+  // （utils/asr.js:5），要联网。模板库是最常被分享出去的公开页，这句会被最多人看到，
+  // 口径必须跟首屏身份行一致：说「不上传」，不说「不联网」。
+  ok('品牌行不许说不联网/离线', !/不联网|离线|offline/i.test(i18n.pack('tpl').brand || ''), i18n.pack('tpl').brand)
+  ok('品牌行与首屏身份行同口径（落在本机）', /手机/.test(i18n.t('tpl:brand')), i18n.t('tpl:brand'))
   ok('分享标题带品牌', /灵感随时记/.test(i18n.t('tpl:share_list', { n: 25 })), i18n.t('tpl:share_list', { n: 25 }))
   ok('分享标题的条数同样来自 {n}', /^25 个/.test(i18n.t('tpl:share_list', { n: 25 })))
   ok('列表页分享时把 n 填进去', /tpl:share_list',\s*\{\s*n:\s*templates\.count/.test(lJs))
@@ -471,7 +478,10 @@ console.log('14) 英文界面：分类名、模板标题、场景句都要有英
     /templates\.pick\(item,\s*'title',\s*lang\)/.test(lJs) && /templates\.pick\(item,\s*'scene',\s*lang\)/.test(lJs))
   ok('详情页标题与场景走 pick',
     /templates\.pick\(item,\s*'title',\s*lang\)/.test(dJs) && /templates\.pick\(item,\s*'scene',\s*lang\)/.test(dJs))
-  ok('详情页导航标题用取好的 title，不用原字段', /setNavigationBarTitle\(\{\s*title:\s*title\s*\}\)/.test(dJs))
+  // 导航栏不用模板名：英文标题 10/25 条超过 14 字符，会被截成 "A Tuesday fiv…"；
+  // 模板名由页面大标题承担，导航栏只回答"我在哪一层"
+  ok('详情页导航标题用短标签，不用模板名', /setNavigationBarTitle\(\{\s*title:\s*i18n\.t\('tpl:nav_one'\)\s*\}\)/.test(dJs))
+  ok('详情页导航标题是中英成对的短词', i18n.t('tpl:nav_one') === '模板')
   ok('详情页「同类还有」也按语言取', /id:\s*x\.id,\s*title:\s*templates\.pick\(x,\s*'title',\s*lang\)/.test(dJs))
   ok('详情页把选好的 title/scene 覆盖进 item',
     /Object\.assign\(\{\},\s*item,\s*\{\s*title:\s*title,\s*scene:\s*scene\s*\}\)/.test(dJs))
@@ -482,6 +492,8 @@ console.log('14) 英文界面：分类名、模板标题、场景句都要有英
   ok('英文提示语点明只有提纲与示例是中文', /outline and example are in Chinese/.test(en.cn_only), en.cn_only)
   // 上一轮就是这里翻的车：Inspiration templates（21 字符）被截成 "Inspiration ..."
   ok('英文导航标题不超过 14 字符（否则又被截断）', en.nav.length <= 14, en.nav)
+  ok('详情页英文导航标签同样是短词', en.nav_one === 'Template', en.nav_one)
+  ok('英文品牌行也说落在手机，不说 offline', /phone/i.test(en.brand) && !/offline/i.test(en.brand), en.brand)
   i18n.setLang('zh')
   ok('中文提示语同样只说正文是中文', /提纲与示例/.test(i18n.t('tpl:cn_only')), i18n.t('tpl:cn_only'))
 }

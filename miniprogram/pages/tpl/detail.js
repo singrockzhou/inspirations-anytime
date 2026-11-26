@@ -47,9 +47,11 @@ Page({
     const lang = i18n.isEn() ? 'en' : 'zh'
     const title = templates.pick(item, 'title', lang)
     const scene = templates.pick(item, 'scene', lang)
-    // 标题直接用模板名：从搜索结果点进来时，标题栏要对得上他点的那句话
+    // 导航栏只标识"在哪一层"：模板名交给页面大标题。
+    // 用模板名会把英文标题截成 "A Tuesday fiv…"（10/25 条超过导航栏容量），
+    // 而且大标题就在下面 60px，同一句话写两遍本来也多余。
     if (typeof wx !== 'undefined' && wx.setNavigationBarTitle) {
-      wx.setNavigationBarTitle({ title: title })
+      wx.setNavigationBarTitle({ title: i18n.t('tpl:nav_one') })
     }
     // 只搬 id 和标题：底部这栏是「去哪儿」，不是「读什么」，正文留在各自的详情页
     const related = templates.related(item.id, 3).map(function (x) {

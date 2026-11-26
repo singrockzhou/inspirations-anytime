@@ -339,13 +339,17 @@ const ZH_DICT = {
   'me:err_format': '这不是「灵感随时记」导出的备份文件。',
   'me:err_unsupported': '当前环境不支持导入，请用手机微信打开。',
   'me:row_tpl': '模板库',
-  'me:row_tpl_sub': '{n} 个能照着写的提纲',
+  'me:row_tpl_sub': '{n} 个能照着写的模板',
   'me:row_guide': '怎么用',
   'me:row_guide_sub': '三种记法、数据在哪、常见问题',
   'me:sec_learn': '模板与指南',
 
   /* —— 模板库（公开页，给搜索收录用：只放常量，不放任何依赖本机数据的状态） —— */
   'tpl:nav': '灵感模板库',
+  /* 详情页用短标签，不用模板名：英文标题最长 24 字符（"A Tuesday five years out"），
+     导航栏只放得下约 13 个拉丁字母，直接用会被截成 "A Tuesday fiv…"。模板名交给
+     页面里的大标题，导航栏只回答"我在哪层"。 */
+  'tpl:nav_one': '模板',
   /* 条数交给 {n}，别再写死——上一版写死 25，加第 26 条时没人会记得回来改 */
   'tpl:lead': '{n} 个写作与记录模板，覆盖灵感捕捉、故事写作、周报复盘、会议纪要、读书笔记。',
   'tpl:cat_count': '{n} 个',
@@ -366,7 +370,7 @@ const ZH_DICT = {
   'tpl:share_list': '{n} 个可以照着写的模板｜灵感随时记',
   'tpl:rel': '同类还有',
   'tpl:all': '看全部 {n} 个',
-  'tpl:brand': '灵感随时记 · 不联网的灵感本',
+  'tpl:brand': '灵感随时记 · 只存在这台手机',
 
   /* —— 使用指南（公开页，给搜索收录用） —— */
   'guide:nav': '使用指南',
@@ -932,13 +936,14 @@ const EN_DICT = {
   'me:err_format': 'This is not a backup exported by 灵感随时记.',
   'me:err_unsupported': "Import isn't supported here. Open it in WeChat on your phone.",
   'me:row_tpl': 'Templates',
-  'me:row_tpl_sub': '{n} outlines you can fill in',
+  'me:row_tpl_sub': '{n} templates you can fill in',
   'me:row_guide': 'How to use it',
   'me:row_guide_sub': 'Three ways to save, where data lives, FAQ',
   'me:sec_learn': 'Templates & guide',
 
   /* —— templates (public, indexed by search: constants only) —— */
   'tpl:nav': 'Templates',
+  'tpl:nav_one': 'Template',
   'tpl:lead': '{n} templates for writing and recording — capturing sparks, story writing, weekly reviews, meeting notes, reading notes.',
   'tpl:cat_count': '{n}',
   'tpl:expand_n': 'Show {n} more',
@@ -958,7 +963,7 @@ const EN_DICT = {
   'tpl:share_list': '{n} templates you can write from｜灵感随时记',
   'tpl:rel': 'More in this group',
   'tpl:all': 'See all {n}',
-  'tpl:brand': '灵感随时记 · An offline notebook for sparks',
+  'tpl:brand': 'Inspiration Notes · Stays on your phone',
 
   /* —— guide (public, indexed by search) —— */
   'guide:nav': 'Guide',
