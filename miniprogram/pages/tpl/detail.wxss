@@ -105,6 +105,55 @@
   text-align: center;
 }
 
+/* 同类还有。与上面的正文用一道细线分开：上面是「这条是什么」，
+   下面是「还能看什么」，两件事不该糊在一起 */
+.rel {
+  margin-top: 56rpx;
+  padding-top: 30rpx;
+  border-top: 1rpx solid var(--line, #f0e7da);
+}
+
+/* 这行是标签，得读得清：比正文低一级，但不降到最浅那档（最浅留给箭头和落款） */
+.rel-k {
+  margin-bottom: 2rpx;
+  font-size: 22rpx;
+  letter-spacing: 2rpx;
+  color: var(--ink-2, #8b8178);
+}
+
+/* 整行可点，高度按手指给够；不做成一个小箭头 */
+.rel-item {
+  display: flex;
+  align-items: center;
+  min-height: 84rpx;
+  border-bottom: 1rpx solid var(--line, #f0e7da);
+}
+
+.rel-t {
+  flex: 1;
+  min-width: 0;
+  font-size: 28rpx;
+  color: var(--ink, #2c2723);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rel-go {
+  flex: 0 0 auto;
+  margin-left: 16rpx;
+  font-size: 32rpx;
+  color: #c9bfaf;
+}
+
+/* 落款 */
+.brand {
+  margin-top: 40rpx;
+  font-size: 22rpx;
+  color: #c9bfaf;
+  text-align: center;
+}
+
 .miss {
   padding-top: 200rpx;
   text-align: center;

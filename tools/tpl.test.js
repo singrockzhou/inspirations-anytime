@@ -296,7 +296,7 @@ console.log('9) 编辑页接模板参数')
 console.log('10) 文案：两个命名空间的键齐全')
 {
   const t = i18n.pack('tpl')
-  ;['nav', 'lead', 'count', 'cat_count', 'expand_n', 'collapse', 'scene', 'tip', 'skeleton', 'example', 'use', 'start_hint', 'gone_title', 'gone_text', 'back', 'back_home', 'cn_only'].forEach(k => {
+  ;['nav', 'lead', 'cat_count', 'expand_n', 'collapse', 'scene', 'tip', 'skeleton', 'example', 'use', 'start_hint', 'gone_title', 'gone_text', 'back', 'back_home', 'cn_only', 'share_title', 'share_list', 'rel', 'all', 'brand'].forEach(k => {
     ok('tpl:' + k + ' 存在', !!t[k])
   })
 
@@ -308,7 +308,15 @@ console.log('10) 文案：两个命名空间的键齐全')
     ok('guide q' + n + '/a' + n + ' 成对', !!g['q' + n] && !!g['a' + n])
   })
 
-  ok('占位符 {n} 在模板条数里保留', i18n.t('tpl:count', { n: 20 }) === '20 个模板', i18n.t('tpl:count', { n: 20 }))
+  ok('占位符 {n} 在分类条数里保留', i18n.t('tpl:cat_count', { n: 20 }) === '20 个', i18n.t('tpl:cat_count', { n: 20 }))
+
+  // 导语里的条数必须等于真实条数：数字只有一个来源（templates.count）
+  const listJs = read('pages/tpl/list.js')
+  const listWxml = read('pages/tpl/list.wxml')
+  ok('导语的条数由 templates.count 填', /leadText:\s*i18n\.t\('tpl:lead',\s*\{\s*n:\s*templates\.count/.test(listJs))
+  ok('导语真的上屏了', /\{\{leadText\}\}/.test(listWxml))
+  ok('页面上不再有第二处「{n} 个模板」', !/'tpl:count'/.test(read('utils/i18n.js')) && !/\{\{countText\}\}/.test(listWxml))
+  ok('填进去的就是真实条数', i18n.t('tpl:lead', { n: TPL.count }).indexOf(String(TPL.count)) === 0, i18n.t('tpl:lead', { n: TPL.count }))
 }
 
 /* ================= 11. 术语与入口 ================= */
@@ -324,13 +332,22 @@ console.log('11) 术语：用户看到的是「提纲」，不是开发词「骨
   ok("me:row_tpl_sub 中文用「提纲」", /'me:row_tpl_sub': '\{n\} 个能照着写的提纲'/.test(raw))
   ok("me:row_tpl_sub 英文用 outlines", /'me:row_tpl_sub': '\{n\} outlines you can fill in'/.test(raw))
 
-  // 导语里原来硬编码「25 个」，加模板时没人会记得回来改；数字交给同页的 countText
+  // 导语里原来硬编码「25 个」，加模板时没人会记得回来改；数字交给 {n}
   const lead = i18n.pack('tpl').lead || ''
-  ok('导语不再写死条数', !/\d/.test(lead), lead)
-  ok('导语仍在说分类与展开', /五类|five groups/i.test(lead), lead)
+  ok('导语用 {n} 占位，不写死条数', /\{n\}/.test(lead) && !/\d/.test(lead), lead)
+  ok('导语点出「模板」二字（从搜索落地的人要知道这是一页模板）', /模板/.test(lead), lead)
+  ok('导语覆盖五类关键词（灵感 / 故事 / 周报 / 会议 / 读书）', ['灵感', '故事', '周报', '会议', '读书'].every(k => lead.indexOf(k) >= 0), lead)
 
-  // 页面上「25 个模板」只出现一次（在 countText 里），不重复
-  ok('条数只由 countText 提供', !/25/.test(lead))
+  // 填完数要是一句通顺的话，不能是「{n} 个」后面跟了半个句子
+  const leadZh = i18n.t('tpl:lead', { n: 25 })
+  ok('导语填数后是完整句子', /^25 个写作与记录模板/.test(leadZh) && /。$/.test(leadZh), leadZh)
+
+  // 英文同样只认 {n}，且不能整段照搬中文（切完记得切回来，后面的断言还看中文）
+  i18n.setLang('en')
+  const leadEn = i18n.pack('tpl').lead || ''
+  i18n.setLang('zh')
+  ok('英文导语也用 {n}，不写死条数', /\{n\}/.test(leadEn) && !/\d/.test(leadEn), leadEn)
+  ok('英文导语是英文', !/[\u4e00-\u9fff]/.test(leadEn), leadEn)
 }
 
 console.log('12) 「记一条」页有提纲出口，且只在新建空稿时出现')
@@ -354,6 +371,119 @@ console.log('12) 「记一条」页有提纲出口，且只在新建空稿时出
   ok('没有残留的 .with-tpl 留白补偿', !/with-tpl/.test(rWxml) && !/\.page\.with-tpl/.test(rWxss))
   ok('入口用强调色，不是说明灰', /\.tpl-link\s*\{[^}]*var\(--accent/.test(rWxss))
   ok('文案键存在且说「提纲」', /'record:tpl_link': '[^']*提纲/.test(read('utils/i18n.js')))
+}
+
+/* ================= 13. 同类内链、品牌落款、导航栏跟着语言走 ================= */
+console.log('13) 同类内链 / 品牌 / 导航栏')
+{
+  const dJs = read('pages/tpl/detail.js')
+  const dWxml = read('pages/tpl/detail.wxml')
+  const dWxss = read('pages/tpl/detail.wxss')
+  const lWxml = read('pages/tpl/list.wxml')
+  const lJs = read('pages/tpl/list.js')
+  const lWxss = read('pages/tpl/list.wxss')
+
+  console.log('  13.1) related() 取同类，不跨类补齐')
+  const base = TPL.byId('travel')
+  const rel = TPL.related('travel', 3)
+  ok('related 给 3 条', rel.length === 3, rel.length)
+  ok('related 不含自己', rel.every(x => x.id !== 'travel'))
+  ok('related 都同类', rel.every(x => x.cat === base.cat), rel.map(x => x.cat).join(','))
+  ok('related 保持 LIST 原顺序', rel.every((x, i) => i === 0 || TPL.LIST.indexOf(x) > TPL.LIST.indexOf(rel[i - 1])))
+  ok('不传 n 时默认 3 条', TPL.related('travel').length === 3)
+  ok('认不出 id 时给空数组，不抛错', Array.isArray(TPL.related('no-such')) && TPL.related('no-such').length === 0)
+  ok('不改原数组（每类仍是 5 条）', TPL.byCat(base.cat).length === 5)
+  ok('每条模板都能取到 3 条同类', TPL.LIST.every(x => TPL.related(x.id, 3).length === 3))
+  ok('同类里没有跨分类的', TPL.LIST.every(x => TPL.related(x.id, 3).every(y => y.cat === x.cat)))
+
+  console.log('  13.2) 详情页底部内链')
+  ok('详情页用 templates.related 取同类', /templates\.related\(/.test(dJs))
+  // 只认「搬了 id 和 title」，不认具体写法——标题要走 pick 之后这里已经变过一版
+  const relMap = (dJs.match(/templates\.related\(item\.id, 3\)\.map\(function \(x\) \{[\s\S]{0,200}?\}\)/) || [''])[0]
+  ok('内链只搬 id 与标题，正文留在各自详情页',
+    /id:\s*x\.id/.test(relMap) && /title:/.test(relMap) && !/skeleton|example|scene|tip/.test(relMap), relMap)
+  ok('内链是真 navigator，不是 bindtap（爬虫跟得到）', /<navigator/.test(dWxml) && /\/pages\/tpl\/detail\?k=\{\{r\.id\}\}/.test(dWxml))
+  ok('内链用 redirect，不加深页面栈（上限 10 层）', /open-type="redirect"/.test(dWxml))
+  ok('内链排在主按钮之后（先让人写，再让人看）', dWxml.indexOf('class="rel"') > dWxml.indexOf('bindtap="onUse"'))
+  ok('内链整行可点，高度按手指给够', /\.rel-item\s*\{[\s\S]*?min-height:\s*(8[4-9]|9\d|\d{3,})rpx/.test(dWxss))
+  ok('查不到模板时清空同类，不留上一条的残留', /related:\s*\[\]/.test(dJs))
+
+  console.log('  13.3) 「看全部」带条数')
+  ok('看全部用 {n}，不写死', /\{n\}/.test(i18n.pack('tpl').all || ''), i18n.pack('tpl').all)
+  ok('页面把 allText 算好再上屏', /allText:\s*i18n\.t\('tpl:all'/.test(dJs) && /\{\{allText\}\}/.test(dWxml))
+  ok('看全部仍走 onBackList（栈里有上一页就返回）', /bindtap="onBackList"/.test(dWxml))
+
+  console.log('  13.4) 品牌落款')
+  ok('列表页底部有品牌行', /class="brand"/.test(lWxml))
+  ok('详情页底部有品牌行', /class="brand"/.test(dWxml))
+  ok('列表页品牌行在正文之后', lWxml.lastIndexOf('class="brand"') > lWxml.lastIndexOf('class="foot"'))
+  ok('品牌行是灰字小字，不做成第二个按钮', /\.brand\s*\{[\s\S]*?font-size:\s*2[0-4]rpx/.test(lWxss) && !/\.brand\s*\{[^}]*background/.test(lWxss))
+  ok('品牌行说清是什么产品（不只是一串名字）', /灵感本|notebook/i.test(i18n.pack('tpl').brand || ''), i18n.pack('tpl').brand)
+  ok('分享标题带品牌', /灵感随时记/.test(i18n.t('tpl:share_list', { n: 25 })), i18n.t('tpl:share_list', { n: 25 }))
+  ok('分享标题的条数同样来自 {n}', /^25 个/.test(i18n.t('tpl:share_list', { n: 25 })))
+  ok('列表页分享时把 n 填进去', /tpl:share_list',\s*\{\s*n:\s*templates\.count/.test(lJs))
+  ok('详情页查不到时分享也不留生占位符', /tpl:share_list',\s*\{\s*n:\s*templates\.count/.test(dJs))
+
+  console.log('  13.5) 导航栏跟着语言走')
+  ok('列表页 onLoad 设标题', /i18n\.title\('tpl:nav'\)/.test(lJs))
+  ok('指南页标题也走 i18n', /i18n\.title\('guide:nav'\)/.test(read('pages/guide/guide.js')))
+  ok('列表页静态标题只是兜底，值与 tpl:nav 一致', JSON.parse(read('pages/tpl/list.json')).navigationBarTitleText === i18n.t('tpl:nav'), JSON.parse(read('pages/tpl/list.json')).navigationBarTitleText)
+  ok('详情页静态标题与 tpl:nav 一致', JSON.parse(read('pages/tpl/detail.json')).navigationBarTitleText === i18n.t('tpl:nav'))
+  ok('指南页静态标题与 guide:nav 一致', JSON.parse(read('pages/guide/guide.json')).navigationBarTitleText === i18n.t('guide:nav'))
+}
+
+/* ================= 14. 展示层的英文 ================= */
+console.log('14) 英文界面：分类名、模板标题、场景句都要有英文')
+{
+  const HAN = /[\u4e00-\u9fa5]/
+
+  ok('5 个分类都有 name_en', TPL.CATS.every(c => !!c.name_en))
+  ok('5 个分类都有 desc_en', TPL.CATS.every(c => !!c.desc_en))
+  ok('25 条模板都有 title_en', TPL.LIST.every(i => !!i.title_en))
+  ok('25 条模板都有 scene_en', TPL.LIST.every(i => !!i.scene_en))
+  ok('英文分类名与说明里没有汉字',
+    !TPL.CATS.some(c => HAN.test(c.name_en) || HAN.test(c.desc_en)),
+    TPL.CATS.filter(c => HAN.test(c.name_en + c.desc_en)).map(c => c.id))
+  ok('英文标题与场景里没有汉字',
+    !TPL.LIST.some(i => HAN.test(i.title_en) || HAN.test(i.scene_en)),
+    TPL.LIST.filter(i => HAN.test(i.title_en + i.scene_en)).map(i => i.id))
+  ok('英文不是中文的复制品', TPL.LIST.every(i => i.title_en !== i.title && i.scene_en !== i.scene))
+  // 正文刻意保留中文：只有"怎么用/提纲/示例"三样没有英文副本
+  ok('正文没有英文副本（档位只到展示层）', !TPL.LIST.some(i => i.tip_en || i.skeleton_en || i.example_en))
+  // 卡片里的场景只有两行（.it-scene 的 -webkit-line-clamp: 2），按 375px 实测每行约 49 字符
+  ok('英文场景都装得进两行（≤80 字符）',
+    TPL.LIST.every(i => i.scene_en.length <= 80),
+    TPL.LIST.filter(i => i.scene_en.length > 80).map(i => i.id + ':' + i.scene_en.length))
+
+  console.log('  14.1) pick 按语言取，缺字段回中文')
+  ok('lang=en 取到英文', TPL.pick(TPL.LIST[0], 'title', 'en') === TPL.LIST[0].title_en)
+  ok('lang=zh 取到中文', TPL.pick(TPL.LIST[0], 'title', 'zh') === TPL.LIST[0].title)
+  ok('不传语言一律中文（不给半截翻译）', TPL.pick(TPL.LIST[0], 'title') === TPL.LIST[0].title)
+  ok('缺 *_en 时退回中文而不是空白', TPL.pick({ title: '只有中文' }, 'title', 'en') === '只有中文')
+
+  console.log('  14.2) 两页都按语言取')
+  const lJs = read('pages/tpl/list.js')
+  const dJs = read('pages/tpl/detail.js')
+  ok('列表页语言只判一次', /const lang = i18n\.isEn\(\) \? 'en' : 'zh'/.test(lJs))
+  ok('列表页分类名走 pick', /templates\.pick\(g,\s*'name',\s*lang\)/.test(lJs))
+  ok('列表页分类说明走 pick', /templates\.pick\(g,\s*'desc',\s*lang\)/.test(lJs))
+  ok('列表页标题与场景走 pick',
+    /templates\.pick\(item,\s*'title',\s*lang\)/.test(lJs) && /templates\.pick\(item,\s*'scene',\s*lang\)/.test(lJs))
+  ok('详情页标题与场景走 pick',
+    /templates\.pick\(item,\s*'title',\s*lang\)/.test(dJs) && /templates\.pick\(item,\s*'scene',\s*lang\)/.test(dJs))
+  ok('详情页导航标题用取好的 title，不用原字段', /setNavigationBarTitle\(\{\s*title:\s*title\s*\}\)/.test(dJs))
+  ok('详情页「同类还有」也按语言取', /id:\s*x\.id,\s*title:\s*templates\.pick\(x,\s*'title',\s*lang\)/.test(dJs))
+  ok('详情页把选好的 title/scene 覆盖进 item',
+    /Object\.assign\(\{\},\s*item,\s*\{\s*title:\s*title,\s*scene:\s*scene\s*\}\)/.test(dJs))
+
+  console.log('  14.3) 提示语与导航标题')
+  i18n.setLang('en')
+  const en = i18n.pack('tpl')
+  ok('英文提示语点明只有提纲与示例是中文', /outline and example are in Chinese/.test(en.cn_only), en.cn_only)
+  // 上一轮就是这里翻的车：Inspiration templates（21 字符）被截成 "Inspiration ..."
+  ok('英文导航标题不超过 14 字符（否则又被截断）', en.nav.length <= 14, en.nav)
+  i18n.setLang('zh')
+  ok('中文提示语同样只说正文是中文', /提纲与示例/.test(i18n.t('tpl:cn_only')), i18n.t('tpl:cn_only'))
 }
 
 /* ================= 汇总 ================= */

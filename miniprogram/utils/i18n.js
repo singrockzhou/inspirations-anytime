@@ -345,9 +345,9 @@ const ZH_DICT = {
   'me:sec_learn': '模板与指南',
 
   /* —— 模板库（公开页，给搜索收录用：只放常量，不放任何依赖本机数据的状态） —— */
-  'tpl:nav': '模板',
-  'tpl:lead': '分五类，每类先看三个，不够再展开；点开一条，照着改成自己的话。',
-  'tpl:count': '{n} 个模板',
+  'tpl:nav': '灵感模板库',
+  /* 条数交给 {n}，别再写死——上一版写死 25，加第 26 条时没人会记得回来改 */
+  'tpl:lead': '{n} 个写作与记录模板，覆盖灵感捕捉、故事写作、周报复盘、会议纪要、读书笔记。',
   'tpl:cat_count': '{n} 个',
   'tpl:expand_n': '展开剩下 {n} 个',
   'tpl:collapse': '收起',
@@ -361,12 +361,15 @@ const ZH_DICT = {
   'tpl:gone_text': '链接可能来自旧版本，或者这条模板已经改名。',
   'tpl:back': '看全部模板',
   'tpl:back_home': '回首页',
-  'tpl:cn_only': '模板内容是中文的。',
+  'tpl:cn_only': '提纲与示例是中文的。',
   'tpl:share_title': '{t} · 灵感随时记',
-  'tpl:share_list': '25 个可以照着写的模板',
+  'tpl:share_list': '{n} 个可以照着写的模板｜灵感随时记',
+  'tpl:rel': '同类还有',
+  'tpl:all': '看全部 {n} 个',
+  'tpl:brand': '灵感随时记 · 不联网的灵感本',
 
   /* —— 使用指南（公开页，给搜索收录用） —— */
-  'guide:nav': '怎么用',
+  'guide:nav': '使用指南',
   'guide:lead': '想到什么就记一条。文字、语音、照片都行，不用起标题，也不用选分类。',
   'guide:s1': '三种记法',
   'guide:s1_b': '点底部的输入条写文字；按住麦克风说一句，松手就存；点加号拍一张，一次选好几张也只算一条。',
@@ -455,6 +458,10 @@ const ZH_DICT = {
   'index:badge_photo': '照片 {n} 张',
   'index:badge_photo_one': '照片',
   'index:empty_default': '想到什么，就说一句',
+  // 首屏的身份说明：只在这台机器上第一次进来（默认空态）时出现。
+  // 写「不上传」而不是「不联网」——语音转文字要联网（见 guide:a3），
+  // 在首屏喊「不联网」是在替自己挖一个当场能被戳破的洞。
+  'index:empty_identity': '只存在这台手机，不上传，也不用登录',
   'index:empty_sub': '不用起标题，也不用选分类',
   'index:empty_star': '还没有加星的',
   'index:empty_star_sub': '长按一条，选「加星」就钉在这里',
@@ -932,8 +939,7 @@ const EN_DICT = {
 
   /* —— templates (public, indexed by search: constants only) —— */
   'tpl:nav': 'Templates',
-  'tpl:lead': 'Five groups. Three to start with in each — expand for the rest.',
-  'tpl:count': '{n} templates',
+  'tpl:lead': '{n} templates for writing and recording — capturing sparks, story writing, weekly reviews, meeting notes, reading notes.',
   'tpl:cat_count': '{n}',
   'tpl:expand_n': 'Show {n} more',
   'tpl:collapse': 'Show less',
@@ -947,12 +953,15 @@ const EN_DICT = {
   'tpl:gone_text': 'The link may be from an older version, or the template was renamed.',
   'tpl:back': 'See all templates',
   'tpl:back_home': 'Back to home',
-  'tpl:cn_only': 'Template text is in Chinese.',
+  'tpl:cn_only': 'The outline and example are in Chinese.',
   'tpl:share_title': '{t} · 灵感随时记',
-  'tpl:share_list': '25 templates you can write from',
+  'tpl:share_list': '{n} templates you can write from｜灵感随时记',
+  'tpl:rel': 'More in this group',
+  'tpl:all': 'See all {n}',
+  'tpl:brand': '灵感随时记 · An offline notebook for sparks',
 
   /* —— guide (public, indexed by search) —— */
-  'guide:nav': 'How to use it',
+  'guide:nav': 'Guide',
   'guide:lead': 'Write down whatever comes to mind. Text, voice, photos — no title, no category.',
   'guide:s1': 'Three ways to save',
   'guide:s1_b': 'Tap the bar at the bottom to write; hold the mic and speak, release to save; tap plus to take a photo. Several photos in one go still count as one entry.',
@@ -1039,6 +1048,7 @@ const EN_DICT = {
   'index:badge_photo': 'Photo × {n}',
   'index:badge_photo_one': 'Photo',
   'index:empty_default': "Say what's on your mind",
+  'index:empty_identity': 'Stays on this phone. No upload, no account.',
   'index:empty_sub': 'No title, no category to pick',
   'index:empty_star': 'Nothing starred yet',
   'index:empty_star_sub': 'Long-press an entry and choose Star to pin it here',

@@ -1,12 +1,13 @@
 /**
- * 竖向布局（22 条断言）
+ * 竖向布局（36 条断言）
  * 用法：node tools/layout.test.js
  *
- * 这两页的问题是"内容少 → 底部一大片空"，靠肉眼看截图只能确认"空了"，
+ * 这几页的问题是"内容少 → 底部一大片空"，靠肉眼看截图只能确认"空了"，
  * 无法确认改完之后"空白归谁"。所以这里对样式文件做静态断言：
  *   - 页面是不是 flex 列，剩余空间由谁吸收
  *   - 卡片高度是"跟内容走"还是"被拉满"
  *   - 底部安全距离有没有被误当成留白（120rpx 那笔）
+ *   - 首页空态三行的顺序、字号递减与用词（第 5 节）
  */
 const path = require('path')
 const fs = require('fs')
@@ -102,6 +103,42 @@ ok(
 )
 ok('.meta-row 用 flex 横排（否则又退回上下两行）', /display:\s*flex/.test(block(rcWxss, '.meta-row')))
 ok('说明的字色不再是 2.1:1 的浅灰（那是装饰色，这句是功能说明）', !/#b8ab99/.test(block(rcWxss, '.tip')))
+
+/* ---------- 首页空态：三行递减 ---------- */
+console.log('5) 首页空态：情绪 → 身份 → 门槛，三层递减')
+const iWxml = read('pages/index/index.wxml')
+const iWxss = read('pages/index/index.wxss')
+const iJs = read('pages/index/index.js')
+const i18n = require(path.join(B, 'utils', 'i18n.js'))
+
+const emptyBlock = iWxml.slice(iWxml.indexOf('class="empty"'), iWxml.indexOf('class="empty-btn"'))
+ok('空态里有身份行，且绑的是 emptyIdentity', /class="empty-id"[^>]*\{\{emptyIdentity\}\}/.test(emptyBlock), emptyBlock.slice(0, 200))
+ok(
+  '身份行夹在主句与门槛之间（顺序不能倒）',
+  emptyBlock.indexOf('empty-line') < emptyBlock.indexOf('empty-id') &&
+    emptyBlock.indexOf('empty-id') < emptyBlock.indexOf('empty-sub')
+)
+ok('身份行有条件渲染（归档空了、标签空了时不许出现）', /wx:if="\{\{emptyIdentity\}\}"/.test(emptyBlock))
+ok('JS 里身份行受 filtering 控制', /const emptyIdentity = filtering \? '' : i18n\.t\('index:empty_identity'\)/.test(iJs))
+ok('身份行已进 setData', /emptyIdentity: emptyIdentity/.test(iJs))
+
+const idSize = Number((block(iWxss, '.empty-id').match(/font-size:\s*(\d+)rpx/) || [])[1])
+const subSize = Number((block(iWxss, '.empty-sub').match(/font-size:\s*(\d+)rpx/) || [])[1])
+const lineSize = Number((block(iWxss, '.empty-line').match(/font-size:\s*(\d+)rpx/) || [])[1])
+ok('字号 主句 > 身份 > 门槛（' + lineSize + ' / ' + idSize + ' / ' + subSize + '）',
+  lineSize > idSize && idSize > subSize, [lineSize, idSize, subSize])
+ok('身份行用 --ink-2，不跟门槛一起泡在最浅的灰里', /var\(--ink-2/.test(block(iWxss, '.empty-id')))
+ok('门槛行降了字号，但 color 没降到 2.3:1 的装饰灰', !/color:\s*#b3a795/.test(block(iWxss, '.empty-sub')), block(iWxss, '.empty-sub'))
+
+const zhId = i18n.t('index:empty_identity')
+i18n.setLang('en')
+const enId = i18n.t('index:empty_identity')
+i18n.setLang('zh')
+ok('身份行中英都在', !!zhId && !!enId && enId !== zhId, [zhId, enId])
+ok('英文那行没夹中文', !/[\u4e00-\u9fa5]/.test(enId), enId)
+// 「不联网」是当场能被 guide:a3（转文字要联网）戳破的话，首屏不能这么写
+ok('身份行不说「不联网」（与 guide:a3 冲突）', !/不联网/.test(zhId), zhId)
+ok('身份行说的是「不上传」', /不上传/.test(zhId), zhId)
 
 console.log('\n结果: ' + pass + ' passed, ' + fail + ' failed')
 process.exit(fail ? 1 : 0)

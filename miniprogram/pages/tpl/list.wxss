@@ -155,3 +155,10 @@
   font-size: 26rpx;
   color: var(--accent, #c4713f);
 }
+
+/* 品牌行。比正文再低一级：它是落款，不是内容 */
+.brand {
+  margin-top: 44rpx;
+  font-size: 22rpx;
+  color: #c9bfaf;
+}

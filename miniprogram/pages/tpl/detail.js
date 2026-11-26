@@ -20,12 +20,17 @@ Page({
     missing: false,
     /** 已经拼好「适合：xxx」的整句 */
     sceneText: '',
+    /** 同分类的其它三条，底部「同类还有」用 */
+    related: [],
+    /** 「看全部 25 个」——条数同样取自 templates.count，不写死 */
+    allText: '',
     showCnNote: false
   },
 
   onLoad(options) {
     this.setData({
       t: i18n.pack('tpl'),
+      allText: i18n.t('tpl:all', { n: templates.count }),
       showCnNote: i18n.isEn()
     })
     this.show(options && options.k)
@@ -35,17 +40,27 @@ Page({
     const item = templates.byId(k)
     if (!item) {
       i18n.title('tpl:nav')
-      this.setData({ missing: true, item: null, sceneText: '' })
+      this.setData({ missing: true, item: null, sceneText: '', related: [] })
       return
     }
+    /** 标题与场景按语言取；正文（提纲/示例/怎么用）只有中文，靠 h-cn 那句说明 */
+    const lang = i18n.isEn() ? 'en' : 'zh'
+    const title = templates.pick(item, 'title', lang)
+    const scene = templates.pick(item, 'scene', lang)
     // 标题直接用模板名：从搜索结果点进来时，标题栏要对得上他点的那句话
     if (typeof wx !== 'undefined' && wx.setNavigationBarTitle) {
-      wx.setNavigationBarTitle({ title: item.title })
+      wx.setNavigationBarTitle({ title: title })
     }
+    // 只搬 id 和标题：底部这栏是「去哪儿」，不是「读什么」，正文留在各自的详情页
+    const related = templates.related(item.id, 3).map(function (x) {
+      return { id: x.id, title: templates.pick(x, 'title', lang) }
+    })
     this.setData({
       missing: false,
-      item: item,
-      sceneText: i18n.t('tpl:scene', { v: item.scene })
+      /* wxml 直接读 item.title：把选好的语言覆盖上去，正文三个字段原样带过 */
+      item: Object.assign({}, item, { title: title, scene: scene }),
+      related: related,
+      sceneText: i18n.t('tpl:scene', { v: scene })
     })
   },
 
@@ -92,7 +107,8 @@ Page({
   onShareAppMessage() {
     const item = this.data.item
     if (!item) {
-      return { title: i18n.t('tpl:share_list'), path: '/pages/tpl/list' }
+      /* 查不到时分享列表页：{n} 必须填，否则卡片上会露出一个生占位符 */
+      return { title: i18n.t('tpl:share_list', { n: templates.count }), path: '/pages/tpl/list' }
     }
     return {
       title: i18n.t('tpl:share_title', { t: item.title }),

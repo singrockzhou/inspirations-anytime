@@ -147,7 +147,11 @@ console.log('3) 漏译检查：英文值里不能出现汉字')
     'transfer:md_title',
     'share:title',
     // 模板详情页的分享标题：{模板名} · 品牌名，与 share:title 同理
-    'tpl:share_title'
+    'tpl:share_title',
+    // 模板列表的分享标题、两页底部的落款：都是「品牌名 · 一句定位」，
+    // 英文界面里品牌仍然写中文——小程序的名字就叫「灵感随时记」
+    'tpl:share_list',
+    'tpl:brand'
   ]
   const real = leaked.filter(k => allowed.indexOf(k) < 0)
   ok('除品牌名外，没有英文值含汉字', real.length === 0, real.slice(0, 8))

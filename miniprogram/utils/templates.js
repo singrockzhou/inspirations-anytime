@@ -21,8 +21,13 @@
  *    灵感 → 作品与过程 → 写下来 → 日常 → 工作。
  *    「工作用」排在最后：它是给公司写的东西，不是给自己写的东西。
  *
- * 内容只写中文。模板本身是内容，不是界面文案，不进 i18n 字典；
- * 英文界面下页面会如实说明"模板是中文的"，而不是给出半截翻译。
+ * 正文只写中文。提纲、示例、"怎么用"是内容，不是界面文案，不进 i18n 字典；
+ * 英文界面下页面会如实说明"正文是中文的"，而不是给出半截翻译。
+ *
+ * 展示层必须有英文：分类名、分类说明、模板标题、场景句都带 *_en 字段。
+ * 这四条是导航信息——英文用户靠它们决定点不点，标题全中文时他根本走不到正文，
+ * 那句"正文是中文"的提示也就成了空话。字段放这里而不是 i18n 字典，是为了
+ * 守住上面第 1 条（零依赖）：语言由页面判好，用 pick(obj, 'title', lang) 取。
  */
 
 /** 五个分类。顺序即展示顺序，越靠前越接近"还没成形的东西"。 */
@@ -30,27 +35,37 @@ const CATS = [
   {
     id: 'spark',
     name: '灵感与素材',
-    desc: '抓住还没成形的东西'
+    name_en: 'Sparks & material',
+    desc: '抓住还没成形的东西',
+    desc_en: 'Catching things before they take shape',
   },
   {
     id: 'craft',
     name: '作品与过程',
-    desc: '做出来的东西，和它是怎么来的'
+    name_en: 'Work & process',
+    desc: '做出来的东西，和它是怎么来的',
+    desc_en: 'What you made, and how it came to be',
   },
   {
     id: 'write',
     name: '写下来',
-    desc: '一个人、一个场景、一段对话'
+    name_en: 'Writing it down',
+    desc: '一个人、一个场景、一段对话',
+    desc_en: 'A person, a scene, a line of talk',
   },
   {
     id: 'daily',
     name: '日常与观察',
-    desc: '一天里值得留下的部分'
+    name_en: 'Days & noticing',
+    desc: '一天里值得留下的部分',
+    desc_en: 'The part of a day worth keeping',
   },
   {
     id: 'work',
     name: '工作用',
-    desc: '周报、会议、复盘、求助'
+    name_en: 'For work',
+    desc: '周报、会议、复盘、求助',
+    desc_en: 'Weekly reports, meetings, retros, asking for help',
   }
 ]
 
@@ -60,7 +75,9 @@ const LIST = [
     id: 'spark',
     cat: 'spark',
     title: '一闪念',
+    title_en: 'A flash of a line',
     scene: '脑子里冒出一句话，转头就忘了',
+    scene_en: 'A line shows up in your head, gone by the time you turn around',
     tip: '只记那一句，别急着解释。解释等它长大再说，先救下火种。',
     skeleton: [
       '想到的那句：',
@@ -79,7 +96,9 @@ const LIST = [
     id: 'material',
     cat: 'spark',
     title: '素材卡',
+    title_en: 'Material card',
     scene: '看到一个想留着的东西，怕以后想不起来',
+    scene_en: 'Something worth keeping, in case you forget it later',
     tip: '写「它能用在哪儿」。只收藏不用，素材会越攒越沉。',
     skeleton: [
       '我看到的 / 听到的：',
@@ -98,7 +117,9 @@ const LIST = [
     id: 'opening',
     cat: 'spark',
     title: '五个开头',
+    title_en: 'Five openings',
     scene: '想写点什么，写了开头就写不下去',
+    scene_en: 'You want to write, then stall after the first line',
     tip: '同一个开头写五遍，最后选最不像「作文」的那个。',
     skeleton: [
       '主题：',
@@ -121,7 +142,9 @@ const LIST = [
     id: 'analogy',
     cat: 'spark',
     title: '打个比方',
+    title_en: 'An analogy',
     scene: '想解释自己的方案，对方听不懂',
+    scene_en: "You try to explain your idea and the other person doesn't get it",
     tip: '比方要选对方熟悉的东西，不选你熟悉的。',
     skeleton: [
       '我要讲清楚的是：',
@@ -140,7 +163,9 @@ const LIST = [
     id: 'quote',
     cat: 'spark',
     title: '一句触动我的话',
+    title_en: 'A line that got me',
     scene: '听到一句话，心里动了一下',
+    scene_en: 'You hear something and it lands',
     tip: '记下「在什么场合听到的」。那句话的分量，一半来自场合。',
     skeleton: [
       '原话：',
@@ -161,7 +186,9 @@ const LIST = [
     id: 'piece',
     cat: 'craft',
     title: '作品档案',
+    title_en: 'Work record',
     scene: '一件东西做完了，想给它留个身份',
+    scene_en: 'Something is finished and you want to give it a record',
     tip: '记「它为什么是这个样子」。尺寸和材料以后能补，当时那个决定补不回来。',
     skeleton: [
       '作品名：',
@@ -184,7 +211,9 @@ const LIST = [
     id: 'process',
     cat: 'craft',
     title: '创作过程',
+    title_en: 'How it was made',
     scene: '做着做着，忘了自己是怎么走到这一步的',
+    scene_en: 'You have been at it so long you forget how you got here',
     tip: '只记「改了哪一下，为什么改」。成品照留下形状，这一步留下判断。',
     skeleton: [
       '起点（最初想要的样子）：',
@@ -205,7 +234,9 @@ const LIST = [
     id: 'why-three',
     cat: 'craft',
     title: '卡在哪',
+    title_en: "Where I'm stuck",
     scene: '做不下去，说不出为什么',
+    scene_en: "You can't go on, and you can't say why",
     tip: '问到第三层，通常不是最初以为的那个原因。',
     skeleton: [
       '卡住的现象：',
@@ -226,7 +257,9 @@ const LIST = [
     id: 'failed',
     cat: 'craft',
     title: '做坏了的一次',
+    title_en: 'The one that failed',
     scene: '一件做废了，扔掉可惜',
+    scene_en: 'It came out wrong, too good to just throw away',
     tip: '只记「哪一步出的错」，不记情绪。情绪明天就淡了，那一步还会再错一次。',
     skeleton: [
       '想做的是什么：',
@@ -247,7 +280,9 @@ const LIST = [
     id: 'pro-con',
     cat: 'craft',
     title: '两个方案怎么选',
+    title_en: 'Two options',
     scene: '两个方向都行，定不下来',
+    scene_en: "Both directions will work and you can't decide",
     tip: '除了「各自的好处」，写下「选错的代价」。代价能接受，就选更想做的那个。',
     skeleton: [
       '要定的事：',
@@ -272,7 +307,9 @@ const LIST = [
     id: 'three-act',
     cat: 'write',
     title: '三幕式故事',
+    title_en: 'A story in three acts',
     scene: '有件事想讲清楚，但不知道从哪说起',
+    scene_en: 'Something worth telling, but where do you start',
     tip: '三段各写一句就够。先写「转折」，再补前后，通常更快。',
     skeleton: [
       '一、起因',
@@ -299,7 +336,9 @@ const LIST = [
     id: 'character',
     cat: 'write',
     title: '人物小传',
+    title_en: 'A portrait',
     scene: '想记住一个人的样子',
+    scene_en: 'You want to remember what someone is like',
     tip: '不写评价，只写他做过的一件小事。评价会过时，小事不会。',
     skeleton: [
       '他是谁：（一句话，年龄 / 关系）',
@@ -318,7 +357,9 @@ const LIST = [
     id: 'scene',
     cat: 'write',
     title: '一个场景',
+    title_en: 'One scene',
     scene: '眼前这一刻想留下来',
+    scene_en: 'This moment, right now, worth keeping',
     tip: '只写看得见、听得见的。不写「很美」「很舒服」这类总结词，那是结论不是场景。',
     skeleton: [
       '在哪里：',
@@ -339,7 +380,9 @@ const LIST = [
     id: 'dialogue',
     cat: 'write',
     title: '一段对话',
+    title_en: 'A conversation',
     scene: '有句话一直在脑子里回响',
+    scene_en: 'One line keeps echoing in your head',
     tip: '只写说出口的，不写心理活动。停顿用「……」。',
     skeleton: [
       'A：',
@@ -361,7 +404,9 @@ const LIST = [
     id: 'five-years',
     cat: 'write',
     title: '五年后的一个周二',
+    title_en: 'A Tuesday five years out',
     scene: '想不清现在该把时间花在哪',
+    scene_en: "You can't tell where your time should go now",
     tip: '写具体的一天，不写「成为更好的自己」。写不出细节，说明那个目标还没想明白。',
     skeleton: [
       '五年后的一个普通周二：',
@@ -384,7 +429,9 @@ const LIST = [
     id: 'travel',
     cat: 'daily',
     title: '旅行一天',
+    title_en: 'A day of travel',
     scene: '走了一天，怕回头只剩照片',
+    scene_en: "You walked all day; later there'll be only photos",
     tip: '写「计划外的那件事」，那通常才是这一天的记忆点。',
     skeleton: [
       '今天在哪：',
@@ -405,7 +452,9 @@ const LIST = [
     id: 'food',
     cat: 'daily',
     title: '一道菜',
+    title_en: 'A dish that worked',
     scene: '做成功了一次，怕下次忘了',
+    scene_en: "It came out right once, and you'll forget how",
     tip: '记「火」和「时间」，不记「适量」。适量是写给自己看的谎话。',
     skeleton: [
       '菜名：',
@@ -428,7 +477,9 @@ const LIST = [
     id: 'book',
     cat: 'daily',
     title: '读书摘记',
+    title_en: 'Reading note',
     scene: '读到一句想留下的话',
+    scene_en: 'A line you want to keep from a book',
     tip: '摘抄后面必须跟一句自己的话。不跟，三个月后完全想不起当初为什么抄。',
     skeleton: [
       '书名 / 页码：',
@@ -447,7 +498,9 @@ const LIST = [
     id: 'dream',
     cat: 'daily',
     title: '一个梦',
+    title_en: 'A dream',
     scene: '醒来还记得一个梦',
+    scene_en: 'You woke up and still remember it',
     tip: '趁还记得，只写画面和感觉，别急着解释。解释会把画面冲掉。',
     skeleton: [
       '我在哪：',
@@ -466,7 +519,9 @@ const LIST = [
     id: 'spend',
     cat: 'daily',
     title: '一笔开销',
+    title_en: 'A purchase',
     scene: '买了一堆材料或工具，事后想不明白值不值',
+    scene_en: "A pile of materials or tools; later you can't tell if it was worth it",
     tip: '写「如果不花这笔钱，我会拿它干什么」，比记金额有用。',
     skeleton: [
       '花了多少，买了什么：',
@@ -487,7 +542,9 @@ const LIST = [
     id: 'weekly',
     cat: 'work',
     title: '周报',
+    title_en: 'Weekly report',
     scene: '周五了，想不起来这周干了什么',
+    scene_en: "It's Friday and you can't recall what you did",
     tip: '先写「卡住的」，剩下的自然就出来了。只写做完的事，周报会变成流水账。',
     skeleton: [
       '本周做完：',
@@ -524,7 +581,9 @@ const LIST = [
     id: 'meeting',
     cat: 'work',
     title: '会议纪要',
+    title_en: 'Meeting notes',
     scene: '会开完了，怕忘掉定了什么',
+    scene_en: "The meeting ended; don't lose what was decided",
     tip: '只记「决定了什么」和「谁什么时候交什么」。讨论过程不复述，复述等于没记。',
     skeleton: [
       '时间 / 在场：',
@@ -549,7 +608,9 @@ const LIST = [
     id: 'retro',
     cat: 'work',
     title: '复盘',
+    title_en: 'Retrospective',
     scene: '一件事做完了，想留下点东西',
+    scene_en: 'Something is done and you want to keep something from it',
     tip: '「如果重来一次」只写一条。写三条等于告诉自己哪条都不重要。',
     skeleton: [
       '做了什么：',
@@ -572,7 +633,9 @@ const LIST = [
     id: 'problem',
     cat: 'work',
     title: '问题描述',
+    title_en: 'Describing a problem',
     scene: '想找人帮忙，但说不清问题',
+    scene_en: "You need help but can't say clearly what's wrong",
     tip: '先写「我以为会怎样、实际怎样」，这一句最省对方时间。',
     skeleton: [
       '我想做什么：',
@@ -595,7 +658,9 @@ const LIST = [
     id: 'decision',
     cat: 'work',
     title: '决策记录',
+    title_en: 'Decision log',
     scene: '要拍一个板，怕以后忘了为什么',
+    scene_en: "You have to decide, and later you'll forget why",
     tip: '「放弃的那个，代价是什么」比「选它的理由」更值得写。理由三个月后就忘了，代价会一直在。',
     skeleton: [
       '要决定的事：',
@@ -638,12 +703,41 @@ function groups() {
     return {
       id: c.id,
       name: c.name,
+      name_en: c.name_en,
       desc: c.desc,
+      desc_en: c.desc_en,
       items: byCat(c.id)
     }
   }).filter(function (g) {
     return g.items.length > 0
   })
+}
+
+/**
+ * 同类的其它几条，按 LIST 里本来的顺序，不跨类补齐。
+ *
+ * 返回的是 LIST 里的原对象（同一引用），页面自己决定搬哪几个字段——
+ * 详情页底部那栏只要 id + 标题，正文留在各自的详情页。
+ */
+function related(id, n) {
+  const base = byId(id)
+  if (!base) return []
+  const size = n === undefined ? 3 : Math.max(0, Number(n) || 0)
+  return byCat(base.cat).filter(function (x) {
+    return x.id !== base.id
+  }).slice(0, size)
+}
+
+/**
+ * 按语言取展示字段。lang 只认 'en'，其余一律中文。
+ *
+ * 为什么不在这里调 i18n：这个文件必须零依赖（见文件头第 1 条），
+ * 语言由调用方判好再传进来。缺 *_en 时退回中文——宁可显示中文，
+ * 也不要让英文界面出现空白或字段名。
+ */
+function pick(obj, base, lang) {
+  const alt = obj[base + '_en']
+  return lang === 'en' && alt ? alt : obj[base]
 }
 
 module.exports = {
@@ -652,5 +746,7 @@ module.exports = {
   count: LIST.length,
   byId,
   byCat,
-  groups
+  related,
+  groups,
+  pick
 }

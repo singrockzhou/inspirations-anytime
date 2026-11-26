@@ -203,6 +203,9 @@
   <!-- 空态：一句话 + 直接可点的入口，不放插画 -->
   <view class="empty" wx:if="{{empty && !loading}}">
     <view class="empty-line">{{emptyText}}</view>
+    <!-- 从公众号/分享进来的第一屏，要说清"这是什么、存在哪"。
+         三行递减：情绪（就说一句）→ 身份（只存在这台手机）→ 门槛（不用起标题） -->
+    <view class="empty-id" wx:if="{{emptyIdentity}}">{{emptyIdentity}}</view>
     <view class="empty-sub">{{emptySub}}</view>
     <view class="empty-btn" wx:if="{{filter === 'all' && !filterTag}}" catchtap="goText">{{t.empty_btn_first}}</view>
     <view class="empty-btn" wx:else catchtap="onFilter" data-mode="all">{{t.empty_btn_all}}</view>

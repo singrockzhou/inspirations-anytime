@@ -25,11 +25,11 @@ const PREVIEW = 3
 
 /** 列表只渲染标题和一句场景，骨架与示例留给详情页。
  *  25 条全量塞进 setData 会把十几 KB 的正文搬到视图层，纯属浪费。 */
-function slim(item) {
+function slim(item, lang) {
   return {
     id: item.id,
-    title: item.title,
-    scene: item.scene
+    title: templates.pick(item, 'title', lang),
+    scene: templates.pick(item, 'scene', lang)
   }
 }
 
@@ -38,24 +38,27 @@ Page({
     /** 当前语言文案包 */
     t: {},
     groups: [],
-    countText: '',
+    /** 导语带条数，由 onLoad 用 templates.count 填进去，文案里不写死 */
+    leadText: '',
     /** 英文界面下如实说明模板内容是中文，不给半截翻译 */
     showCnNote: false,
     guideText: ''
   },
 
   onLoad() {
+    /** 展示层按语言取：英文界面下分类名、分类说明、模板标题、场景句都走 *_en */
+    const lang = i18n.isEn() ? 'en' : 'zh'
     const groups = templates.groups().map(function (g) {
       const rest = Math.max(g.items.length - PREVIEW, 0)
       return {
         id: g.id,
-        name: g.name,
-        desc: g.desc,
+        name: templates.pick(g, 'name', lang),
+        desc: templates.pick(g, 'desc', lang),
         countText: i18n.t('tpl:cat_count', { n: g.items.length }),
         /** 收起时露出的三条 */
-        head: g.items.slice(0, PREVIEW).map(slim),
+        head: g.items.slice(0, PREVIEW).map(function (it) { return slim(it, lang) }),
         /** 需要展开才看到的其余条目 */
-        more: g.items.slice(PREVIEW).map(slim),
+        more: g.items.slice(PREVIEW).map(function (it) { return slim(it, lang) }),
         /** 默认每类只露三条，其余收起 */
         open: false,
         /** 「展开剩下 2 个」这句在这里拼好，wxml 里不再传参 */
@@ -66,7 +69,7 @@ Page({
     this.setData({
       t: i18n.pack('tpl'),
       groups: groups,
-      countText: i18n.t('tpl:count', { n: templates.count }),
+      leadText: i18n.t('tpl:lead', { n: templates.count }),
       showCnNote: i18n.isEn(),
       guideText: i18n.t('guide:nav')
     })
@@ -91,7 +94,8 @@ Page({
   /** 分享出去指回自己，别指向首页——收到的人点开就该看到同一份内容 */
   onShareAppMessage() {
     return {
-      title: i18n.t('tpl:share_list'),
+      /* 带品牌：卡片在群里是「一张陌生的图 + 一行字」，没有品牌就只是陌生链接 */
+      title: i18n.t('tpl:share_list', { n: templates.count }),
       path: '/pages/tpl/list'
     }
   }

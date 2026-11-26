@@ -410,6 +410,9 @@ Page({
     const filtering = this.data.filter !== 'all' || !!this.data.filterTag
     let emptyText = i18n.t('index:empty_default')
     let emptySub = i18n.t('index:empty_sub')
+    // 身份说明只属于"第一次进来"的那个空态。归档空了、某个标签下空了，
+    // 再说「只存在这台手机」是答非所问——那时用户早过了"这是什么"的阶段。
+    const emptyIdentity = filtering ? '' : i18n.t('index:empty_identity')
     if (this.data.filter === 'star') {
       emptyText = i18n.t('index:empty_star')
       emptySub = i18n.t('index:empty_star_sub')
@@ -429,6 +432,7 @@ Page({
       loading: false,
       hasMore: all.length > slice.length,
       emptyText: emptyText,
+      emptyIdentity: emptyIdentity,
       emptySub: emptySub,
       selectedCount: Object.keys(selected).length,
       selCountText: i18n.t('index:sel_count', { n: Object.keys(selected).length }),

@@ -1,11 +1,11 @@
 <view class="page">
 
   <view class="head">
-    <view class="lead">{{t.lead}}</view>
-    <view class="meta">
-      <text>{{countText}}</text>
-      <text class="meta-cn" wx:if="{{showCnNote}}"> · {{t.cn_only}}</text>
-    </view>
+    <view class="lead">{{leadText}}</view>
+    <!-- 条数已经写进导语（「25 个写作与记录模板…」），这里只留英文界面那句
+         「模板内容是中文的」。原来这里还有一行「25 个模板」，与导语重复，
+         两行相隔 14rpx 各说一遍同一个数字，看着像没对上的两处数据 -->
+    <view class="meta" wx:if="{{showCnNote}}">{{t.cn_only}}</view>
   </view>
 
   <!-- 按分类分组。每类默认露出前三条，其余收在 .more 里。
@@ -75,5 +75,9 @@
     <view class="foot-line">{{t.start_hint}}</view>
     <navigator class="foot-link" url="/pages/guide/guide" hover-class="tap-dim">{{guideText}} →</navigator>
   </view>
+
+  <!-- 第一次从搜索结果或分享卡片落地的人，看到的是「一页模板」而不是「一个产品」。
+       一行小字补上名字与定位，就够了，不做页脚大块 -->
+  <view class="brand">{{t.brand}}</view>
 
 </view>

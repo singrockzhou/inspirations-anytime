@@ -35,8 +35,33 @@
     <view class="foot">
       <view class="btn" hover-class="btn-hover" bindtap="onUse">{{t.use}}</view>
       <view class="hint">{{t.start_hint}}</view>
-      <view class="link" hover-class="tap-dim" bindtap="onBackList">{{t.back}} →</view>
     </view>
+
+    <!-- 同类还有。从分享卡片或搜索结果直接落到这一页的人，底部原先只有一个
+         「看全部模板」，而那个列表他从没去过；给三条同类，比给一个入口更近。
+         用 navigator + open-type="redirect"，不是 navigateTo：页面栈上限 10 层，
+         一条条点下去迟早点不动，返回还会在历史里穿一遍；换页不加深栈，
+         返回直接回列表。同时它仍是渲染结果里的真链接，爬虫跟得到。 -->
+    <view class="rel" wx:if="{{related.length}}">
+      <view class="rel-k">{{t.rel}}</view>
+      <navigator
+        class="rel-item"
+        wx:for="{{related}}"
+        wx:key="id"
+        wx:for-item="r"
+        url="/pages/tpl/detail?k={{r.id}}"
+        open-type="redirect"
+        hover-class="tap-dim"
+      >
+        <text class="rel-t">{{r.title}}</text>
+        <text class="rel-go">›</text>
+      </navigator>
+    </view>
+
+    <view class="link" hover-class="tap-dim" bindtap="onBackList">{{allText}} →</view>
+
+    <!-- 落款：从搜索进来的人看到的是一页内容，不是一个产品，一行字补上名字 -->
+    <view class="brand">{{t.brand}}</view>
   </block>
 
 </view>
