@@ -43,7 +43,7 @@ Page({
       this.setData({ missing: true, item: null, sceneText: '', related: [] })
       return
     }
-    /** 标题与场景按语言取；正文（提纲/示例/怎么用）只有中文，靠 h-cn 那句说明 */
+    /** 标题与场景按语言取；正文（模板正文/示例/怎么用）只有中文，靠 h-cn 那句说明 */
     const lang = i18n.isEn() ? 'en' : 'zh'
     const title = templates.pick(item, 'title', lang)
     const scene = templates.pick(item, 'scene', lang)

@@ -35,7 +35,7 @@
         <view class="tip">{{t.tip_tag}}</view>
         <view class="counter">{{content.length}} / {{maxText}}</view>
       </view>
-      <!-- 提纲出口：卡在「不知道写什么」的人正站在这一页——光标在跳、脑子里空着。
+      <!-- 模板出口：卡在「不知道写什么」的人正站在这一页——光标在跳、脑子里空着。
            位置必须在输入框下方的内容流里，不能放底部固定区：那一条是 position: fixed，
            键盘一弹就被整个盖住，而这行恰恰只在键盘弹起时才被需要（v1.8.5 真机修）。
            有内容后自动收起——那时候已经不需要看出路，也不再占地方 -->
@@ -63,9 +63,6 @@
           <text class="rec-sub">{{recording ? (canceling ? t.rec_release_cancel : t.rec_release_save) : (clickMode ? t.rec_tap_start : t.rec_swipe_cancel)}}</text>
         </view>
 
-        <!-- 边录边转时的实时文字 -->
-        <view class="asr-live" wx:if="{{recording && asrPartial}}">{{asrPartial}}</view>
-
         <view class="hint" wx:if="{{hint}}">{{hint}}</view>
 
         <view class="chip" wx:if="{{mediaPath && !recording}}" catchtap="playVoice">
@@ -81,7 +78,7 @@
         class="ta ta-note"
         value="{{content}}"
         maxlength="{{maxCaption}}"
-        placeholder="{{asrReady ? t.ph_asr : t.ph_voice_note}}"
+        placeholder="{{t.ph_voice_note}}"
         placeholder-class="ta-ph"
         auto-height
         show-confirm-bar="{{false}}"

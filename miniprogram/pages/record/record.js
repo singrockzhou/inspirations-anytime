@@ -2,7 +2,6 @@ const store = require('../../utils/store')
 const media = require('../../utils/media')
 const date = require('../../utils/date')
 const audio = require('../../utils/audio')
-const asr = require('../../utils/asr')
 const dialog = require('../../utils/dialog')
 const i18n = require('../../utils/i18n')
 const templates = require('../../utils/templates')
@@ -46,10 +45,6 @@ Page({
     recordSeconds: 0,
     hint: '',
     voicePlaying: false,
-
-    /** 接入同声传译插件后为 true，录音时边录边出字 */
-    asrReady: false,
-    asrPartial: '',
 
     maxText: MAX_TEXT,
     maxCaption: MAX_CAPTION,
@@ -167,8 +162,7 @@ Page({
     this.stopTick()
     if (this.data.recording) {
       this.cancelFlag = true
-      if (this.rt) this.rt.stop()
-      else if (this.rm) this.rm.stop()
+      if (this.rm) this.rm.stop()
     }
     clearTimeout(this.draftTimer)
     audio.stop()
@@ -340,7 +334,6 @@ Page({
       duration: 0,
       size: 0,
       hint: '',
-      asrPartial: '',
       recording: false,
       focus: next === 'text' && this.data.mode === 'create'
     })
@@ -459,8 +452,8 @@ Page({
   },
 
   /**
-   * 去提纲列表。不拦 dirty：navigateTo 只是压栈，本页正文还在内存里，
-   * 返回就回到原处；真要换提纲，是在详情页点「用这个提纲记一条」，
+   * 去模板列表。不拦 dirty：navigateTo 只是压栈，本页正文还在内存里，
+   * 返回就回到原处；真要换模板，是在详情页点「用这个模板记一条」，
    * 那一步会新开一页并处理旧草稿，不在这里判。
    */
   goTemplates() {
@@ -513,25 +506,6 @@ Page({
   /* ------------------------- 录音 ------------------------- */
 
   initRecorder() {
-    // 有转写能力时优先用插件的识别器（它自己录音并出字），否则用系统录音器
-    const state = asr.availability()
-    if (state.ok) {
-      this.rt = asr.createRealtime({
-        onPartial: text => {
-          if (!this.data.recording) return
-          this.setData({ asrPartial: text })
-        },
-        onFinal: res => this.onRealtimeStop(res),
-        onError: err => {
-          console.warn('[record] 转写中断', err)
-          this.stopTick()
-          this.setData({ recording: false, canceling: false })
-          this.toast(i18n.t('record:toast_asr_break'))
-        }
-      })
-      if (this.rt) this.setData({ asrReady: true })
-    }
-
     if (!wx.getRecorderManager) return
     const rm = wx.getRecorderManager()
     this.rm = rm
@@ -607,7 +581,7 @@ Page({
       this.toast(i18n.t('record:toast_space_full'))
       return
     }
-    if (!this.rm && !this.rt) {
+    if (!this.rm) {
       this.toast(i18n.t('record:toast_no_recorder'))
       return
     }
@@ -620,19 +594,15 @@ Page({
       this.recordStartAt = Date.now()
       this.hinted60 = false
       this.hinted240 = false
-      this.setData({ recordSeconds: 0, recordClock: '00:00', hint: '', canceling: false, asrPartial: '' })
+      this.setData({ recordSeconds: 0, recordClock: '00:00', hint: '', canceling: false })
 
-      if (this.rt) {
-        this.rt.start()
-      } else {
-        this.rm.start({
-          duration: MAX_VOICE_SECONDS * 1000,
-          sampleRate: 16000,
-          numberOfChannels: 1,
-          encodeBitRate: 48000,
-          format: 'aac'
-        })
-      }
+      this.rm.start({
+        duration: MAX_VOICE_SECONDS * 1000,
+        sampleRate: 16000,
+        numberOfChannels: 1,
+        encodeBitRate: 48000,
+        format: 'aac'
+      })
       this.setData({ recording: true })
       this.startTick()
 
@@ -677,8 +647,8 @@ Page({
     this.cancelFlag = !!cancel
     this.stopTick()
     this.setData({ recording: false, canceling: false })
-    if (this.rt) this.rt.stop()
-    else this.rm.stop()
+    // 录音器可能根本没起来（环境不支持 / 授权被拒），别在停的时候抛异常
+    if (this.rm) this.rm.stop()
   },
 
   onRecordStop(res) {
@@ -699,48 +669,16 @@ Page({
       return
     }
 
-    this.saveVoice(res.tempFilePath, Math.round(ms / 1000), '')
+    this.saveVoice(res.tempFilePath, Math.round(ms / 1000))
   },
 
-  /** 插件路径：录音和识别一起回来的那种 */
-  onRealtimeStop(res) {
-    this.stopTick()
-    if (this.unloaded) return
-    this.setData({ recording: false, canceling: false })
-
-    if (this.cancelFlag) {
-      this.cancelFlag = false
-      this.setData({ hint: '', recordSeconds: 0, recordClock: '00:00', asrPartial: '' })
-      return
-    }
-
-    const text = (res && res.text) || ''
-    const path = (res && res.tempFilePath) || ''
-    const seconds = Math.round(((res && res.duration) || Date.now() - (this.recordStartAt || 0)) / 1000)
-
-    if (!path) {
-      // 转写拿到了字，但没有音频文件：退化成一条文字记录，别把内容丢了
-      if (text) {
-        this.setData({ type: 'text', content: text, asrPartial: '' })
-        this.syncCanSave()
-        this.markDirty()
-        this.toast(i18n.t('record:toast_text_only'))
-      } else {
-        this.toast(i18n.t('record:toast_too_short'))
-      }
-      return
-    }
-
-    this.saveVoice(path, Math.max(1, seconds), text)
-  },
-
-  saveVoice(tempFilePath, seconds, text) {
+  saveVoice(tempFilePath, seconds) {
     media.saveVoice(tempFilePath).then(({ path, size }) => {
       // 没落盘（空间满 / 文件读不出来）：绝不能把空路径写进记录，
       // 否则会留下一条"标着 8 秒、点开什么都没有"的语音
       if (!path) {
         this.onMediaFail()
-        this.setData({ recordSeconds: 0, recordClock: '00:00', hint: '', asrPartial: '' })
+        this.setData({ recordSeconds: 0, recordClock: '00:00', hint: '' })
         return
       }
       if (this.data.mediaPath && this.data.mode === 'create') media.remove(this.data.mediaPath)
@@ -750,11 +688,8 @@ Page({
         size: size,
         hint: '',
         recordSeconds: 0,
-        recordClock: '00:00',
-        asrPartial: ''
+        recordClock: '00:00'
       }
-      // 转写出来的字直接进正文，这样语音也能被搜到
-      if (text && !(this.data.content || '').trim()) patch.content = text
       this.setData(patch)
       this.syncCanSave()
       this.markDirty()

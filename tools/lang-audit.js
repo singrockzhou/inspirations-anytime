@@ -611,7 +611,7 @@ diffPair(zh, coldEn)
 {
   const i18n = require(path.join(MINI, 'utils', 'i18n.js'))
   i18n.setLang('en')
-  const packs = ['common', 'date', 'nudge', 'backup', 'me', 'index', 'record', 'detail', 'review', 'search', 'poster', 'transfer', 'store', 'dialog', 'asr', 'media', 'share', 'card', 'nav']
+  const packs = ['common', 'date', 'nudge', 'backup', 'me', 'index', 'record', 'detail', 'review', 'search', 'poster', 'transfer', 'store', 'dialog', 'media', 'share', 'card', 'nav']
   packs.forEach(p => {
     const pk = i18n.pack(p)
     Object.keys(pk).forEach(k => {

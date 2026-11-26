@@ -198,9 +198,13 @@ console.log('6) 详情页')
   ok('分类头把条数显示出来（countText 不能是白算的）', /g\.countText/.test(listWxml))
   ok('列表页链接带 k 参数', /\/pages\/tpl\/detail\?k=/.test(listWxml))
 
-  console.log('  6.1) 默认三条 + 折叠')
-  ok('每类默认只露三条', /const PREVIEW = 3\b/.test(listJs), (listJs.match(/PREVIEW = \d+/) || [])[0])
+  console.log('  6.1) 默认全展开 + 每组仍可收起')
+  // 默认露几条只是"首屏给多少"，PREVIEW 决定的是 head/more 怎么切
+  ok('仍按 3 条切成 head / more 两组', /const PREVIEW = 3\b/.test(listJs), (listJs.match(/PREVIEW = \d+/) || [])[0])
   ok('剩余条目单独拆进 more 数组', /slice\(PREVIEW\)/.test(listJs))
+  // 用户拍板：默认全部展开，25 条一次给全；但每组保留收起，读长页的人能手动折起来
+  ok('默认全展开（open: true）', /\bopen:\s*true\b/.test(listJs), (listJs.match(/\bopen:\s*\w+/) || [])[0])
+  ok('展开态仍能收起（折叠没有删掉）', /t\.collapse/.test(listWxml) && /groups\[\s*' \+ idx \+ '\s*\]\.open/.test(listJs))
   ok(
     '折叠用 hidden，不用 wx:if（wx:if 会把节点的链接从渲染结果里摘掉）',
     /<view class="more" hidden="\{\{!g\.open\}\}"/.test(listWxml) && !/wx:if="\{\{!g\.open\}\}"/.test(listWxml)
@@ -320,15 +324,19 @@ console.log('10) 文案：两个命名空间的键齐全')
 }
 
 /* ================= 11. 术语与入口 ================= */
-console.log('11) 术语：用户看到的是「提纲」，不是开发词「骨架」')
+console.log('11) 术语：全库统一叫「模板」，页内区块叫「模板正文」')
 {
   const raw = read('utils/i18n.js')
 
-  // 键名保留 tpl:skeleton（内部标识、改它会牵动页面），值必须换成用户能懂的字
-  ok("tpl:skeleton 中文是「提纲」", /'tpl:skeleton': '提纲'/.test(raw))
-  ok("tpl:skeleton 英文是 Outline", /'tpl:skeleton': 'Outline'/.test(raw))
-  ok("tpl:start_hint 中文用「提纲」", /'tpl:start_hint': '[^']*提纲/.test(raw))
-  ok("tpl:start_hint 英文用 outline", /'tpl:start_hint': '[^']*outline/.test(raw))
+  // 键名保留 tpl:skeleton（内部标识、改它会牵动页面）。用户可见的字已从「提纲」统一到「模板」；
+  // 但详情页那一段不能直接叫「模板」——页面本身就是一个模板，会读成"模板里的模板"，
+  // 所以叫「模板正文」：既落在同一个词上，也说得清那是模板里可改的那段字。
+  ok("tpl:skeleton 中文是「模板正文」", /'tpl:skeleton': '模板正文'/.test(raw))
+  ok("tpl:skeleton 英文是 Template text", /'tpl:skeleton': 'Template text'/.test(raw))
+  ok("tpl:start_hint 中文用「模板正文」", /'tpl:start_hint': '[^']*模板正文/.test(raw))
+  ok("tpl:start_hint 英文用 template text", /'tpl:start_hint': '[^']*template text/.test(raw))
+  // 用户拍板：不再保留「提纲」这个说法，全工程用户可见文案里不许再出现
+  ok('用户可见文案里不再有「提纲」', !/提纲/.test(raw))
   // 「我的 → 模板与指南」这行的标签叫模板，副标题就该说模板；
   // 说「提纲」会让同一个单元格里出现两个层级的词（库=模板，页内区块=提纲）
   ok("me:row_tpl_sub 中文用「模板」", /'me:row_tpl_sub': '\{n\} 个能照着写的模板'/.test(raw))
@@ -372,7 +380,7 @@ console.log('12) 「记一条」页有提纲出口，且只在新建空稿时出
   ok('入口排在输入框、说明行之后（内容流内）', metaAt > 0 && linkAt > metaAt)
   ok('没有残留的 .with-tpl 留白补偿', !/with-tpl/.test(rWxml) && !/\.page\.with-tpl/.test(rWxss))
   ok('入口用强调色，不是说明灰', /\.tpl-link\s*\{[^}]*var\(--accent/.test(rWxss))
-  ok('文案键存在且说「提纲」', /'record:tpl_link': '[^']*提纲/.test(read('utils/i18n.js')))
+  ok('文案键存在且说「模板」', /'record:tpl_link': '[^']*模板/.test(read('utils/i18n.js')))
 }
 
 /* ================= 13. 同类内链、品牌落款、导航栏跟着语言走 ================= */
@@ -489,13 +497,13 @@ console.log('14) 英文界面：分类名、模板标题、场景句都要有英
   console.log('  14.3) 提示语与导航标题')
   i18n.setLang('en')
   const en = i18n.pack('tpl')
-  ok('英文提示语点明只有提纲与示例是中文', /outline and example are in Chinese/.test(en.cn_only), en.cn_only)
+  ok('英文提示语点明只有模板正文与示例是中文', /template text and example are in Chinese/i.test(en.cn_only), en.cn_only)
   // 上一轮就是这里翻的车：Inspiration templates（21 字符）被截成 "Inspiration ..."
   ok('英文导航标题不超过 14 字符（否则又被截断）', en.nav.length <= 14, en.nav)
   ok('详情页英文导航标签同样是短词', en.nav_one === 'Template', en.nav_one)
   ok('英文品牌行也说落在手机，不说 offline', /phone/i.test(en.brand) && !/offline/i.test(en.brand), en.brand)
   i18n.setLang('zh')
-  ok('中文提示语同样只说正文是中文', /提纲与示例/.test(i18n.t('tpl:cn_only')), i18n.t('tpl:cn_only'))
+  ok('中文提示语同样只说正文是中文', /模板正文与示例/.test(i18n.t('tpl:cn_only')), i18n.t('tpl:cn_only'))
 }
 
 /* ================= 汇总 ================= */

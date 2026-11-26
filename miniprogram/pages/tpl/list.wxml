@@ -8,11 +8,11 @@
     <view class="meta" wx:if="{{showCnNote}}">{{t.cn_only}}</view>
   </view>
 
-  <!-- 按分类分组。每类默认露出前三条，其余收在 .more 里。
+  <!-- 按分类分组。默认全展开（open: true），25 条一次给全；
+       每组仍保留「收起」，读长页的人可以手动折叠。
        这里刻意用 hidden 而不是 wx:if：wx:if 会把节点从渲染结果里摘掉，
-       收起的条目连链接都不存在了；hidden 只是 display:none，节点还在。
-       爬虫认不认 display:none 里的链接，官方没有说明——这是推断，
-       所以真出现「收录 0」时，第一个要试的就是把折叠去掉。 -->
+       收起后条目连链接都不存在了；hidden 只是 display:none，节点还在。
+       爬虫认不认 display:none 里的链接，官方没有说明——这是推断。 -->
   <view class="group" wx:for="{{groups}}" wx:key="id" wx:for-item="g" wx:for-index="idx">
     <view class="g-head">
       <view class="g-top">
