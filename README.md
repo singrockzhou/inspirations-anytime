@@ -1694,6 +1694,41 @@ node tools/release.js 1.8.0 --dry-run      # 只检查，不动手
 不报错、不警告，压出来 90 个源码文件看着很完整，但历史一条都没有。
 所以脚本先整套复制到临时目录再压。含 `.git` 多花 800 KB，换一个能完整还原的现场。
 
+### 23.1 顺序依赖：脚本只推 tag，不推分支
+
+脚本第 172 行推的是 `git push origin v1.8.5` 这一个 ref（`tools/release.js:172`），
+**里面没有 `git push origin main`**。所以顺序必须固定：
+
+```
+git push origin main                          # 1. 先把分支推上去
+git ls-remote --heads origin main             #    回读，确认远端 main = 本地 HEAD
+node tools/release.js 1.8.5 "这一版改了什么"   # 2. 再打包 + 打 tag + 推 tag
+```
+
+反过来做（先打 tag 再推分支），GitHub 上那个 tag 会悬在远端 `main` 历史之外：
+点进去只有 tag 自己的那个提交，`main` 上看不到它，标签列表和分支列表对不上账。
+这次 v1.8.5 就是先推了分支再跑脚本，顺序是对的。
+
+### 23.2 tag 建好了但没推上去：先删本地 tag 再重跑
+
+脚本第 4 步失败时会打印「tag 已在本地建好，修好网络后手动推」。但**不要直接重跑脚本**——
+第 2 步会看到 tag 已存在，直接 `die` 退出，什么都不会做。正确做法是先删掉本地 tag：
+
+```
+git tag -d v1.8.5          # 删本地（还没推到远端，删了没有副作用）
+node tools/release.js 1.8.5 "..."   # 重跑：重新打包、重建 tag、重推
+```
+
+如果重跑仍然卡在推送，也可以只补推这一步：`git push origin v1.8.5`，
+然后用 `git ls-remote --tags origin "v1.8.5*"` 回读，要能看到 `refs/tags/v1.8.5^{}`
+（带 `^{}` 说明是 annotated tag，不是轻量 tag）且 sha 与本地 `git rev-parse HEAD` 一致。
+
+**重跑会产生第二份备份 zip**（文件名带时分秒，例如 `...-1551.zip`）。两份代码相同，
+确认新包能解开后把旧的删掉，别让备份目录变成"哪个才是那一版"的谜题。
+
+判断声明：上面 `release.js:172` 的推送范围是读源码核实的；"tag 悬在历史之外"是 Git 的
+常规行为（推断，未在 GitHub 网页上实测截图）。
+
 ---
 
 ## 二十四、保存按钮从顶栏挪到底部（v1.8.2）
